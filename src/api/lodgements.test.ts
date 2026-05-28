@@ -20,6 +20,17 @@ describe('listByCase', () => {
   })
 })
 
+describe('listLodged', () => {
+  it('只取已递交（lodged_date 非空）的递交记录', async () => {
+    const rows = [{ id: 'l1', lodged_date: '2026-01-01' }]
+    const b = wireFrom(fromMock, { lodgements: { data: rows } })
+    const result = await lodgementsApi.listLodged()
+    expect(fromMock).toHaveBeenCalledWith('lodgements')
+    expect(b.lodgements.not).toHaveBeenCalledWith('lodged_date', 'is', null)
+    expect(result).toEqual(rows)
+  })
+})
+
 describe('createLodgement', () => {
   it('插入并返回（type 决定 nomination/visa）', async () => {
     const row = { id: 'l1', case_id: 'c1', type: 'visa' }

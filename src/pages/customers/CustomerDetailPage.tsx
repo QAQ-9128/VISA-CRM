@@ -8,6 +8,7 @@ import {
 } from '../../hooks/queries/useCustomers'
 import { useCasesByCustomer } from '../../hooks/queries/useCases'
 import { useEmployer } from '../../hooks/queries/useEmployers'
+import { useReferrer } from '../../hooks/queries/useReferrers'
 import { Button } from '../../components/ui/Button'
 import { Badge } from '../../components/ui/Badge'
 import { StarToggle } from '../../components/ui/StarToggle'
@@ -17,6 +18,7 @@ import { StageBadge } from '../../components/cases/StageBadge'
 import { DocumentsSection } from '../../components/documents/DocumentsSection'
 import { FollowUpsSection } from '../../components/followups/FollowUpsSection'
 import { TasksSection } from '../../components/tasks/TasksSection'
+import { CustomerPaymentsSection } from '../../components/finance/CustomerPaymentsSection'
 import { CUSTOMER_TIER_LABELS } from '../../types/domain'
 import type { Customer } from '../../types/models'
 
@@ -125,6 +127,7 @@ export function CustomerDetailPage() {
   const update = useUpdateCustomer()
   const archive = useArchiveCustomer()
   const employer = useEmployer(query.data?.sponsor_employer_id)
+  const referrer = useReferrer(query.data?.referrer_id)
 
   if (query.isPending) return <LoadingBlock />
   if (query.isError) return <ErrorBlock error={query.error} />
@@ -186,10 +189,19 @@ export function CustomerDetailPage() {
             </Link>
           ) : null}
         </DetailRow>
+        <DetailRow label="介绍人">
+          {c.referrer_id ? (
+            <Link to={`/referrers/${c.referrer_id}/edit`} className="text-indigo-600 hover:underline">
+              {referrer.data?.name ?? '…'}
+            </Link>
+          ) : null}
+        </DetailRow>
         <DetailRow label="备注">{c.notes}</DetailRow>
       </div>
 
       <CasesSection customerId={c.id} />
+
+      <CustomerPaymentsSection customerId={c.id} />
 
       <DocumentsSection customerId={c.id} />
 

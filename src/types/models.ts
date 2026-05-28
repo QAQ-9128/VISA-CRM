@@ -6,8 +6,10 @@ import type { Tables, TablesInsert, TablesUpdate } from './database'
 
 export type Profile = Tables<'profiles'>
 export type Employer = Tables<'employers'>
+export type Referrer = Tables<'referrers'>
 export type Customer = Tables<'customers'>
 export type Case = Tables<'cases'>
+export type CaseApplicant = Tables<'case_applicants'>
 export type Lodgement = Tables<'lodgements'>
 export type CaseStageHistory = Tables<'case_stage_history'>
 export type CaseDocument = Tables<'documents'>
@@ -22,7 +24,10 @@ export type CustomerInsert = TablesInsert<'customers'>
 export type CustomerUpdate = TablesUpdate<'customers'>
 export type CaseInsert = TablesInsert<'cases'>
 export type CaseUpdate = TablesUpdate<'cases'>
+export type CaseApplicantInsert = TablesInsert<'case_applicants'>
 export type EmployerInsert = TablesInsert<'employers'>
+export type ReferrerInsert = TablesInsert<'referrers'>
+export type ReferrerUpdate = TablesUpdate<'referrers'>
 export type LodgementInsert = TablesInsert<'lodgements'>
 export type PaymentInsert = TablesInsert<'payments'>
 export type FollowUpInsert = TablesInsert<'follow_ups'>

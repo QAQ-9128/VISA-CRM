@@ -85,6 +85,32 @@ export interface Database {
         Update: Partial<Database['public']['Tables']['employers']['Insert']>
         Relationships: []
       }
+      referrers: {
+        Row: {
+          id: string
+          name: string
+          contact_phone: string | null
+          contact_email: string | null
+          notes: string | null
+          is_archived: boolean
+          created_by: string | null
+          created_at: Timestamp
+          updated_at: Timestamp
+        }
+        Insert: {
+          id?: string
+          name: string
+          contact_phone?: string | null
+          contact_email?: string | null
+          notes?: string | null
+          is_archived?: boolean
+          created_by?: string | null
+          created_at?: Timestamp
+          updated_at?: Timestamp
+        }
+        Update: Partial<Database['public']['Tables']['referrers']['Insert']>
+        Relationships: []
+      }
       customers: {
         Row: {
           id: string
@@ -97,6 +123,7 @@ export interface Database {
           wechat: string | null
           address: string | null
           sponsor_employer_id: string | null
+          referrer_id: string | null
           primary_applicant_id: string | null
           relationship_to_primary: string | null
           priority_tier: CustomerTier | null
@@ -119,6 +146,7 @@ export interface Database {
           wechat?: string | null
           address?: string | null
           sponsor_employer_id?: string | null
+          referrer_id?: string | null
           primary_applicant_id?: string | null
           relationship_to_primary?: string | null
           priority_tier?: CustomerTier | null
@@ -136,11 +164,13 @@ export interface Database {
       cases: {
         Row: {
           id: string
+          case_number: string
           customer_id: string
           visa_subclass: string
           destination_country: string | null
           current_stage: CaseStage
           currency: string
+          sync_tracking: boolean
           assigned_to: string | null
           created_by: string | null
           is_archived: boolean
@@ -149,11 +179,13 @@ export interface Database {
         }
         Insert: {
           id?: string
+          case_number?: string // DB 触发器自动生成 8 位随机编号
           customer_id: string
           visa_subclass: string
           destination_country?: string | null
           current_stage?: CaseStage
           currency?: string
+          sync_tracking?: boolean
           assigned_to?: string | null
           created_by?: string | null
           is_archived?: boolean
@@ -161,6 +193,22 @@ export interface Database {
           updated_at?: Timestamp
         }
         Update: Partial<Database['public']['Tables']['cases']['Insert']>
+        Relationships: []
+      }
+      case_applicants: {
+        Row: {
+          id: string
+          case_id: string
+          customer_id: string
+          created_at: Timestamp
+        }
+        Insert: {
+          id?: string
+          case_id: string
+          customer_id: string
+          created_at?: Timestamp
+        }
+        Update: Partial<Database['public']['Tables']['case_applicants']['Insert']>
         Relationships: []
       }
       lodgements: {
@@ -259,6 +307,7 @@ export interface Database {
         Row: {
           id: string
           case_id: string
+          applicant_id: string | null
           client_total: number | null
           company_total: number | null
           currency: string
@@ -269,6 +318,7 @@ export interface Database {
         Insert: {
           id?: string
           case_id: string
+          applicant_id?: string | null
           client_total?: number | null
           company_total?: number | null
           currency?: string
@@ -309,6 +359,7 @@ export interface Database {
         Row: {
           id: string
           case_id: string
+          applicant_id: string | null
           direction: PaymentDirection
           installment_id: string | null
           amount: number
@@ -316,12 +367,15 @@ export interface Database {
           method: PaymentMethod
           paid_at: DateStr | null
           note: string | null
+          invoice_path: string | null
+          invoice_name: string | null
           recorded_by: string | null
           created_at: Timestamp
         }
         Insert: {
           id?: string
           case_id: string
+          applicant_id?: string | null
           direction: PaymentDirection
           installment_id?: string | null
           amount: number
@@ -329,6 +383,8 @@ export interface Database {
           method?: PaymentMethod
           paid_at?: DateStr | null
           note?: string | null
+          invoice_path?: string | null
+          invoice_name?: string | null
           recorded_by?: string | null
           created_at?: Timestamp
         }

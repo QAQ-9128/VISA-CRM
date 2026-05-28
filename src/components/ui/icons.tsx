@@ -62,6 +62,26 @@ export function BuildingIcon(props: SVGProps<SVGSVGElement>) {
   )
 }
 
+export function UserPlusIcon(props: SVGProps<SVGSVGElement>) {
+  return (
+    <svg {...base} {...props}>
+      <circle cx="9" cy="8" r="3.2" />
+      <path d="M3.5 20a5.5 5.5 0 0 1 11 0" />
+      <path d="M18 8v6M21 11h-6" />
+    </svg>
+  )
+}
+
+export function WalletIcon(props: SVGProps<SVGSVGElement>) {
+  return (
+    <svg {...base} {...props}>
+      <path d="M3 7.5A2.5 2.5 0 0 1 5.5 5H17a1 1 0 0 1 1 1v1" />
+      <rect x="3" y="7" width="18" height="13" rx="2.5" />
+      <path d="M16 12.5h3v4h-3a2 2 0 0 1 0-4Z" />
+    </svg>
+  )
+}
+
 export function LogOutIcon(props: SVGProps<SVGSVGElement>) {
   return (
     <svg {...base} {...props}>

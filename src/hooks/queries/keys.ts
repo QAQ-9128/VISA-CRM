@@ -19,9 +19,14 @@ export const queryKeys = {
     detail: (id: string) => ['cases', 'detail', id] as const,
     stageHistory: (id: string) => ['cases', 'stageHistory', id] as const,
   },
+  caseApplicants: {
+    all: ['case_applicants'] as const,
+    byCase: (caseId: string) => ['case_applicants', 'byCase', caseId] as const,
+  },
   lodgements: {
     all: ['lodgements'] as const,
     byCase: (caseId: string) => ['lodgements', 'byCase', caseId] as const,
+    lodged: ['lodgements', 'lodged'] as const,
   },
   documents: {
     all: ['documents'] as const,
@@ -45,9 +50,7 @@ export const queryKeys = {
     open: ['tasks', 'open'] as const,
   },
   dashboard: {
-    pendingLodgements: ['dashboard', 'pendingLodgements'] as const,
     unpaidInstallments: ['dashboard', 'unpaidInstallments'] as const,
-    candidateDocuments: ['dashboard', 'candidateDocuments'] as const,
     activeCases: ['dashboard', 'activeCases'] as const,
     activeCustomers: ['dashboard', 'activeCustomers'] as const,
     plans: ['dashboard', 'plans'] as const,
@@ -57,5 +60,13 @@ export const queryKeys = {
     all: ['employers'] as const,
     list: ['employers', 'list'] as const,
     detail: (id: string) => ['employers', 'detail', id] as const,
+  },
+  referrers: {
+    all: ['referrers'] as const,
+    list: ['referrers', 'list'] as const,
+    detail: (id: string) => ['referrers', 'detail', id] as const,
+  },
+  finance: {
+    referrers: ['finance', 'referrers'] as const,
   },
 }

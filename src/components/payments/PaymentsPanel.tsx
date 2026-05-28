@@ -22,6 +22,7 @@ import type { PaymentDirection, PaymentMethod } from '../../types/domain'
 const DIR_STYLE: Record<PaymentDirection, string> = {
   from_client: 'bg-emerald-100 text-emerald-800',
   to_company: 'bg-amber-100 text-amber-800',
+  to_referrer: 'bg-violet-100 text-violet-800',
 }
 const todayStr = () => new Date().toISOString().slice(0, 10)
 

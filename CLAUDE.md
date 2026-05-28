@@ -24,7 +24,7 @@ Tests that touch Storage mock `supabase.storage.from(...).upload/createSignedUrl
 
 - **employers** (sponsor employers): `api/employers.ts` list(excl. archived)/get/create/update/archive (soft delete). Standalone management at `/employers` (`雇主` nav item) + `EmployerForm`. `EmployerSelect` (dropdown of existing + inline create) is embedded in `CustomerForm` for `sponsor_employer_id`; customer detail shows the sponsor name. One employer → many customers.
 
-- **case kanban board** (`/cases`): `lib/caseBoard.ts` `groupCasesByStage` (tested) buckets all active cases (`useCases`) into `CASE_STAGES` columns; cards show customer name (from a `useCustomers` id→name map) + visa subclass, link to case detail. Desktop = horizontal scrollable columns; mobile = vertical per-stage stacks (empty stages hidden on mobile via `hidden md:block`).
+- **lodgement table** (`/cases`, `LodgementTablePage`): Excel-style table of **lodged** lodgements (one row per nomination/visa), aligned to the client's spreadsheet. Replaced the old kanban board. `api/lodgements.ts` `listLodged` (lodged_date not null) → `useLodgedLodgements`; `lib/lodgementTable.ts` (tested) holds `selectLodgedRows` (joins case+customer, default sort by time-since-lodged desc), `sortLodgedRows` (column sort), `joinFamilyNames` (case customer + family group, `&`-joined), and `elapsedMonthsDays`/`formatElapsed` ("X 个月 Y 天", calendar months via UTC, built on `utcDayDiff`). Columns: 客户 / 签证类型 / 递交日期 / 状态 (from the lodgement's own `outcome`) / 至今多久 / 备注 (`lodgements.note`). Sortable headers; mobile = horizontal scroll. Lodgement mutations invalidate `lodgements.lodged` so case-detail edits sync here.
 
 All spec entities are now built. Remaining work is deployment (Vercel static) + the free-tier keep-alive/backup jobs noted in `[[supabase-free-tier-longevity-risks]]`.
 
@@ -70,7 +70,7 @@ Three type files, complementary — keep them in sync:
 
 ## Conventions
 
-- **Mobile-first**: core flows must be fully usable at 375px. Build the base (mobile) styles first, then expand with `md:`/`lg:`. The kanban board degrades to a vertical card stack on mobile.
+- **Mobile-first**: core flows must be fully usable at 375px. Build the base (mobile) styles first, then expand with `md:`/`lg:`. Wide tables (lodgement table, finance) degrade to horizontal scroll on mobile.
 - Tap targets ≥44px (`min-h-11`). UI text is Chinese.
 - Tailwind v4 via `@tailwindcss/vite` (no `tailwind.config.js`; `@import 'tailwindcss'` in `src/index.css`).
 - **TDD** (per global config): write a failing `*.test.ts` first, then implement. `api/customers.test.ts` is the template — it mocks `../lib/supabase` with a chainable builder via `vi.hoisted`.

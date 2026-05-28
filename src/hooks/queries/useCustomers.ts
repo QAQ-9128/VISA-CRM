@@ -42,11 +42,17 @@ export function usePrimaryApplicants() {
   })
 }
 
+/** 客户变更后同时失效实体列表与 dashboard 的客户查询（概览各卡片随之同步，如归档后从「待办客户清单」消失）。 */
+function invalidateCustomers(qc: ReturnType<typeof useQueryClient>) {
+  qc.invalidateQueries({ queryKey: queryKeys.customers.all })
+  qc.invalidateQueries({ queryKey: queryKeys.dashboard.activeCustomers })
+}
+
 export function useCreateCustomer() {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: (input: CustomerInsert) => createCustomer(input),
-    onSuccess: () => qc.invalidateQueries({ queryKey: queryKeys.customers.all }),
+    onSuccess: () => invalidateCustomers(qc),
   })
 }
 
@@ -55,7 +61,7 @@ export function useUpdateCustomer() {
   return useMutation({
     mutationFn: ({ id, patch }: { id: string; patch: CustomerUpdate }) =>
       updateCustomer(id, patch),
-    onSuccess: () => qc.invalidateQueries({ queryKey: queryKeys.customers.all }),
+    onSuccess: () => invalidateCustomers(qc),
   })
 }
 
@@ -63,6 +69,6 @@ export function useArchiveCustomer() {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: (id: string) => archiveCustomer(id),
-    onSuccess: () => qc.invalidateQueries({ queryKey: queryKeys.customers.all }),
+    onSuccess: () => invalidateCustomers(qc),
   })
 }

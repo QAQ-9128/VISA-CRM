@@ -10,11 +10,12 @@ beforeEach(() => {
 })
 
 describe('payment_plans', () => {
-  it('getPaymentPlanByCase 按 case_id maybeSingle', async () => {
+  it('getPaymentPlanByCase 取案件级（applicant_id 为空）账单', async () => {
     const b = wireFrom(fromMock, { payment_plans: { data: { id: 'p1' } } })
     await paymentsApi.getPaymentPlanByCase('c1')
     expect(fromMock).toHaveBeenCalledWith('payment_plans')
     expect(b.payment_plans.eq).toHaveBeenCalledWith('case_id', 'c1')
+    expect(b.payment_plans.is).toHaveBeenCalledWith('applicant_id', null)
     expect(b.payment_plans.maybeSingle).toHaveBeenCalled()
   })
 
@@ -79,6 +80,13 @@ describe('payments', () => {
     expect(b.payments.insert).toHaveBeenCalledWith(
       expect.objectContaining({ case_id: 'c1', direction: 'from_client', amount: 300 }),
     )
+  })
+
+  it('updatePayment 按 id 改金额/方式/备注', async () => {
+    const b = wireFrom(fromMock, { payments: { data: { id: 'pay1' } } })
+    await paymentsApi.updatePayment('pay1', { amount: 350, method: 'cash', note: '改一下' })
+    expect(b.payments.update).toHaveBeenCalledWith({ amount: 350, method: 'cash', note: '改一下' })
+    expect(b.payments.eq).toHaveBeenCalledWith('id', 'pay1')
   })
 
   it('deletePayment 删除一笔', async () => {

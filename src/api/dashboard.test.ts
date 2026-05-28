@@ -9,29 +9,11 @@ beforeEach(() => {
   fromMock.mockReset()
 })
 
-describe('getPendingLodgements', () => {
-  it('只取 outcome=pending', async () => {
-    const b = wireFrom(fromMock, { lodgements: { data: [] } })
-    await dashboardApi.getPendingLodgements()
-    expect(fromMock).toHaveBeenCalledWith('lodgements')
-    expect(b.lodgements.eq).toHaveBeenCalledWith('outcome', 'pending')
-  })
-})
-
 describe('getUnpaidInstallments', () => {
   it('只取 is_paid=false', async () => {
     const b = wireFrom(fromMock, { installments: { data: [] } })
     await dashboardApi.getUnpaidInstallments()
     expect(b.installments.eq).toHaveBeenCalledWith('is_paid', false)
-  })
-})
-
-describe('getExpiringCandidateDocuments', () => {
-  it('未归档且 expiry_date 非空', async () => {
-    const b = wireFrom(fromMock, { documents: { data: [] } })
-    await dashboardApi.getExpiringCandidateDocuments()
-    expect(b.documents.eq).toHaveBeenCalledWith('is_archived', false)
-    expect(b.documents.not).toHaveBeenCalledWith('expiry_date', 'is', null)
   })
 })
 

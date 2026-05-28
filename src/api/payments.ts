@@ -7,13 +7,16 @@ export type PaymentPlanUpdate = TablesUpdate<'payment_plans'>
 export type InstallmentInsert = TablesInsert<'installments'>
 export type InstallmentUpdate = TablesUpdate<'installments'>
 export type PaymentInsert = TablesInsert<'payments'>
+export type PaymentUpdate = TablesUpdate<'payments'>
 
-// ── payment_plans（每案一份）─────────────────────────────────
+// ── payment_plans ────────────────────────────────────────────
+/** 案件级（合并）账单：applicant_id 为空那一份。按申请人拆分的账单走全局查询 + 选择器。 */
 export async function getPaymentPlanByCase(caseId: string): Promise<PaymentPlan | null> {
   const { data, error } = await supabase
     .from('payment_plans')
     .select('*')
     .eq('case_id', caseId)
+    .is('applicant_id', null)
     .maybeSingle()
   if (error) throw error
   return data
@@ -89,6 +92,17 @@ export async function listPaymentsByCase(caseId: string): Promise<Payment[]> {
 
 export async function createPayment(input: PaymentInsert): Promise<Payment> {
   const { data, error } = await supabase.from('payments').insert(input).select().single()
+  if (error) throw error
+  return data
+}
+
+export async function updatePayment(id: string, patch: PaymentUpdate): Promise<Payment> {
+  const { data, error } = await supabase
+    .from('payments')
+    .update(patch)
+    .eq('id', id)
+    .select()
+    .single()
   if (error) throw error
   return data
 }

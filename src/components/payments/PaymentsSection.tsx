@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { Link } from 'react-router-dom'
 import { Button } from '../ui/Button'
 import { PaymentPlanForm } from './PaymentPlanForm'
 import { InstallmentsPanel } from './InstallmentsPanel'
@@ -39,7 +40,18 @@ function FlowCard({
 }
 
 /** 案件付款区：双流账目卡片 + 付款计划 + 分期 + 收付款记录。 */
-export function PaymentsSection({ caseId, currency = 'AUD' }: { caseId: string; currency?: string }) {
+export function PaymentsSection({
+  caseId,
+  currency = 'AUD',
+  syncTracking = true,
+  customerId,
+}: {
+  caseId: string
+  currency?: string
+  /** 同步追踪：true = 案件级合并账单（此处管理）；false = 按申请人分开（去客户/财务页管理） */
+  syncTracking?: boolean
+  customerId?: string
+}) {
   const planQuery = usePaymentPlan(caseId)
   const payments = usePaymentsByCase(caseId)
   const [editingPlan, setEditingPlan] = useState(false)
@@ -48,6 +60,30 @@ export function PaymentsSection({ caseId, currency = 'AUD' }: { caseId: string; 
   const plan = planQuery.data
   const cur = plan?.currency || currency
   const acct = computeAccounting(plan, payments.data ?? [])
+
+  // 不同步：账单按申请人分开，引导到客户/财务页管理（避免在此误建合并账单）
+  if (!syncTracking) {
+    return (
+      <section className="space-y-3">
+        <h2 className="text-base font-semibold text-slate-900">付款</h2>
+        <div className="rounded-xl border border-dashed border-slate-300 bg-white px-4 py-4 text-sm text-slate-600">
+          本案件「按申请人分开记账」。请到
+          {customerId ? (
+            <Link to={`/customers/${customerId}`} className="mx-1 text-indigo-600 hover:underline">
+              客户档案
+            </Link>
+          ) : (
+            <span className="mx-1">客户档案</span>
+          )}
+          或
+          <Link to="/finance" className="mx-1 text-indigo-600 hover:underline">
+            财务页
+          </Link>
+          按申请人管理应收 / 收款。
+        </div>
+      </section>
+    )
+  }
 
   return (
     <section className="space-y-4">

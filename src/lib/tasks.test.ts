@@ -39,4 +39,14 @@ describe('selectMyOpenTasks', () => {
     const r = selectMyOpenTasks(tasks, 'me', TODAY, 7)
     expect(r.map((t) => t.id)).toEqual(['overdue', 'soon'])
   })
+
+  it('传入在册客户表时，归档/已删客户的待办被排除；无关联客户的个人待办保留', () => {
+    const tasks = [
+      mk({ id: 'active', due_date: '2026-01-16', customer_id: 'cu1' }),
+      mk({ id: 'archived', due_date: '2026-01-16', customer_id: 'gone' }),
+      mk({ id: 'personal', due_date: '2026-01-16', customer_id: null }),
+    ]
+    const r = selectMyOpenTasks(tasks, 'me', TODAY, 7, { cu1: {} })
+    expect(r.map((t) => t.id).sort()).toEqual(['active', 'personal'])
+  })
 })
