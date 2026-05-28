@@ -5,6 +5,7 @@ import { TextField } from '../ui/TextField'
 import { Textarea } from '../ui/Textarea'
 import { Select } from '../ui/Select'
 import { EmployerSelect } from '../employers/EmployerSelect'
+import { ReferrerSelect } from '../referrers/ReferrerSelect'
 import { usePrimaryApplicants } from '../../hooks/queries/useCustomers'
 import { CUSTOMER_TIERS, CUSTOMER_TIER_LABELS } from '../../types/domain'
 import type { CustomerTier } from '../../types/domain'
@@ -21,6 +22,7 @@ interface FormState {
   priority_tier: string
   is_starred: boolean
   sponsor_employer_id: string
+  referrer_id: string
   phone: string
   email: string
   wechat: string
@@ -39,6 +41,7 @@ function toState(c?: Customer): FormState {
     priority_tier: c?.priority_tier ?? '',
     is_starred: c?.is_starred ?? false,
     sponsor_employer_id: c?.sponsor_employer_id ?? '',
+    referrer_id: c?.referrer_id ?? '',
     phone: c?.phone ?? '',
     email: c?.email ?? '',
     wechat: c?.wechat ?? '',
@@ -61,6 +64,7 @@ function toPayload(s: FormState): CustomerFormValues {
     priority_tier: (s.priority_tier || null) as CustomerTier | null,
     is_starred: s.is_starred,
     sponsor_employer_id: s.sponsor_employer_id || null,
+    referrer_id: s.referrer_id || null,
     phone: trimOrNull(s.phone),
     email: trimOrNull(s.email),
     wechat: trimOrNull(s.wechat),
@@ -136,6 +140,11 @@ export function CustomerForm({ initial, submitting, error, onSubmit, onCancel }:
       <EmployerSelect
         value={state.sponsor_employer_id}
         onChange={(id) => set('sponsor_employer_id')(id)}
+      />
+
+      <ReferrerSelect
+        value={state.referrer_id}
+        onChange={(id) => set('referrer_id')(id)}
       />
 
       <fieldset className="rounded-xl border border-slate-200 p-4">

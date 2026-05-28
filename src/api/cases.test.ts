@@ -55,25 +55,25 @@ describe('updateCase', () => {
 
 describe('updateCaseStage', () => {
   it('更新 current_stage 并写一条 case_stage_history', async () => {
-    const updated = { id: 'c1', current_stage: 'preparing' }
+    const updated = { id: 'c1', current_stage: 'nomination_lodged' }
     const b = wireFrom(fromMock, { cases: { data: updated }, case_stage_history: {} })
 
     const result = await casesApi.updateCaseStage({
       caseId: 'c1',
-      fromStage: 'consulting',
-      toStage: 'preparing',
-      note: '开始备料',
+      fromStage: 'todo',
+      toStage: 'nomination_lodged',
+      note: '已递提名',
       changedBy: 'u1',
     })
 
-    expect(b.cases.update).toHaveBeenCalledWith({ current_stage: 'preparing' })
+    expect(b.cases.update).toHaveBeenCalledWith({ current_stage: 'nomination_lodged' })
     expect(b.cases.eq).toHaveBeenCalledWith('id', 'c1')
     expect(b.case_stage_history.insert).toHaveBeenCalledWith(
       expect.objectContaining({
         case_id: 'c1',
-        from_stage: 'consulting',
-        to_stage: 'preparing',
-        note: '开始备料',
+        from_stage: 'todo',
+        to_stage: 'nomination_lodged',
+        note: '已递提名',
         changed_by: 'u1',
       }),
     )

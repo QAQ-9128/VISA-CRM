@@ -3,6 +3,7 @@ import { CaseForm } from '../../components/cases/CaseForm'
 import type { CaseFormValues } from '../../components/cases/CaseForm'
 import { useCase, useCreateCase, useUpdateCase } from '../../hooks/queries/useCases'
 import { useCustomer } from '../../hooks/queries/useCustomers'
+import { useCaseApplicants, useSetCaseApplicants } from '../../hooks/queries/useCaseApplicants'
 import { BackLink } from '../../components/ui/BackLink'
 import { LoadingBlock, ErrorBlock } from '../../components/ui/states'
 
@@ -16,10 +17,12 @@ export function CaseFormPage() {
   const customerId = editing ? existing.data?.customer_id : params.get('customer') ?? undefined
   const customer = useCustomer(customerId)
 
+  const existingApplicants = useCaseApplicants(id)
   const createM = useCreateCase()
   const updateM = useUpdateCase()
-  const submitting = createM.isPending || updateM.isPending
-  const err = createM.error ?? updateM.error
+  const setApplicantsM = useSetCaseApplicants()
+  const submitting = createM.isPending || updateM.isPending || setApplicantsM.isPending
+  const err = createM.error ?? updateM.error ?? setApplicantsM.error
   const errorMsg = err instanceof Error ? err.message : err ? '保存失败' : null
 
   if (editing && existing.isPending) return <LoadingBlock />
@@ -38,11 +41,26 @@ export function CaseFormPage() {
     )
   }
 
-  function handleSubmit(values: CaseFormValues) {
+  function handleSubmit(values: CaseFormValues, applicantIds: string[]) {
     if (editing && id) {
-      updateM.mutate({ id, patch: values }, { onSuccess: () => navigate(`/cases/${id}`) })
+      updateM.mutate(
+        { id, patch: values },
+        {
+          onSuccess: () =>
+            setApplicantsM.mutate(
+              { caseId: id, customerIds: applicantIds },
+              { onSuccess: () => navigate(`/cases/${id}`) },
+            ),
+        },
+      )
     } else {
-      createM.mutate(values, { onSuccess: (created) => navigate(`/cases/${created.id}`) })
+      createM.mutate(values, {
+        onSuccess: (created) =>
+          setApplicantsM.mutate(
+            { caseId: created.id, customerIds: applicantIds },
+            { onSuccess: () => navigate(`/cases/${created.id}`) },
+          ),
+      })
     }
   }
 
@@ -62,6 +80,7 @@ export function CaseFormPage() {
           customerId={customerId as string}
           customerLabel={customer.data?.full_name ?? '…'}
           initial={editing ? existing.data ?? undefined : undefined}
+          initialApplicantIds={(existingApplicants.data ?? []).map((a) => a.customer_id)}
           submitting={submitting}
           error={errorMsg}
           onSubmit={handleSubmit}

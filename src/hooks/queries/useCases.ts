@@ -42,12 +42,18 @@ export function useCaseStageHistory(id: string | undefined) {
   })
 }
 
+/** 案件变更后同时失效实体键与 dashboard.activeCases（概览/财务/案件表随之同步）。 */
+function invalidateCases(qc: ReturnType<typeof useQueryClient>) {
+  qc.invalidateQueries({ queryKey: queryKeys.cases.all })
+  qc.invalidateQueries({ queryKey: queryKeys.dashboard.activeCases })
+}
+
 export function useCreateCase() {
   const qc = useQueryClient()
   const { user } = useAuth()
   return useMutation({
     mutationFn: (input: CaseInsert) => createCase({ ...input, created_by: user?.id ?? null }),
-    onSuccess: () => qc.invalidateQueries({ queryKey: queryKeys.cases.all }),
+    onSuccess: () => invalidateCases(qc),
   })
 }
 
@@ -55,7 +61,7 @@ export function useUpdateCase() {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: ({ id, patch }: { id: string; patch: CaseUpdate }) => updateCase(id, patch),
-    onSuccess: () => qc.invalidateQueries({ queryKey: queryKeys.cases.all }),
+    onSuccess: () => invalidateCases(qc),
   })
 }
 
@@ -66,7 +72,7 @@ export function useUpdateCaseStage() {
     mutationFn: (params: Omit<UpdateCaseStageParams, 'changedBy'>) =>
       updateCaseStage({ ...params, changedBy: user?.id ?? null }),
     onSuccess: (_data, vars) => {
-      qc.invalidateQueries({ queryKey: queryKeys.cases.all })
+      invalidateCases(qc)
       qc.invalidateQueries({ queryKey: queryKeys.cases.stageHistory(vars.caseId) })
     },
   })
@@ -76,6 +82,6 @@ export function useArchiveCase() {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: (id: string) => archiveCase(id),
-    onSuccess: () => qc.invalidateQueries({ queryKey: queryKeys.cases.all }),
+    onSuccess: () => invalidateCases(qc),
   })
 }

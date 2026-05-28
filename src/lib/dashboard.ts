@@ -1,85 +1,40 @@
-import { computeLodgementProgress } from './lodgementProgress'
 import { computeAccounting } from './accounting'
 import { utcDayDiff } from './dateDiff'
 import { CUSTOMER_TIER_ORDER } from '../types/domain'
-import type {
-  Case,
-  CaseDocument,
-  Customer,
-  Installment,
-  Lodgement,
-  Payment,
-  PaymentPlan,
-} from '../types/models'
+import type { Case, Customer, Installment, Payment, PaymentPlan, Task } from '../types/models'
 
 type CaseMap = Record<string, Case>
 type CustomerMap = Record<string, Customer>
 type PlanMap = Record<string, PaymentPlan>
 
-// ── 临近决签：pending 且剩余 ≤ thresholdDays ──────────────────
-export interface UpcomingDecisionItem {
-  lodgementId: string
-  caseId: string
-  customerName: string
-  visaSubclass: string
-  type: Lodgement['type']
-  daysRemaining: number
-}
-
-export function selectUpcomingDecisions(
-  lodgements: Lodgement[],
-  caseById: CaseMap,
-  customerById: CustomerMap,
-  today: Date = new Date(),
-  thresholdDays = 14,
-): UpcomingDecisionItem[] {
-  const items: UpcomingDecisionItem[] = []
-  for (const l of lodgements) {
-    if (l.outcome !== 'pending') continue
-    const prog = computeLodgementProgress(l.lodged_date, l.dha_processing_days, today)
-    if (!prog || prog.daysRemaining > thresholdDays) continue
-    const c = caseById[l.case_id]
-    items.push({
-      lodgementId: l.id,
-      caseId: l.case_id,
-      visaSubclass: c?.visa_subclass ?? '',
-      customerName: c ? customerById[c.customer_id]?.full_name ?? '' : '',
-      type: l.type,
-      daysRemaining: prog.daysRemaining,
-    })
-  }
-  return items.sort((a, b) => a.daysRemaining - b.daysRemaining)
-}
-
-// ── 文件快过期：未归档、到期 ≤ thresholdDays（含已过期）────────
-export interface ExpiringDocumentItem {
-  documentId: string
+// ── 待办客户清单：有未完成待办的客户（按客户去重 + 计数）──────────
+export interface CustomerOpenTasks {
   customerId: string
   customerName: string
-  label: string
-  daysRemaining: number
+  openCount: number
 }
 
-export function selectExpiringDocuments(
-  documents: CaseDocument[],
+export function selectCustomersWithOpenTasks(
+  openTasks: Task[],
   customerById: CustomerMap,
-  today: Date = new Date(),
-  thresholdDays = 30,
-): ExpiringDocumentItem[] {
-  const items: ExpiringDocumentItem[] = []
-  for (const d of documents) {
-    if (d.is_archived || !d.expiry_date) continue
-    const daysRemaining = utcDayDiff(today, d.expiry_date)
-    if (daysRemaining > thresholdDays) continue
-    items.push({
-      documentId: d.id,
-      customerId: d.customer_id,
-      customerName: customerById[d.customer_id]?.full_name ?? '',
-      label: d.title || d.file_name || '文件',
-      daysRemaining,
-    })
+): CustomerOpenTasks[] {
+  const byCustomer = new Map<string, CustomerOpenTasks>()
+  for (const t of openTasks) {
+    if (t.is_done || !t.customer_id) continue
+    const customer = customerById[t.customer_id]
+    if (!customer) continue // 不在册（归档/不存在）的客户不列入
+    const entry =
+      byCustomer.get(t.customer_id) ?? {
+        customerId: t.customer_id,
+        customerName: customer.full_name,
+        openCount: 0,
+      }
+    entry.openCount += 1
+    byCustomer.set(t.customer_id, entry)
   }
-  return items.sort((a, b) => a.daysRemaining - b.daysRemaining)
+  return [...byCustomer.values()].sort(
+    (a, b) => b.openCount - a.openCount || a.customerName.localeCompare(b.customerName),
+  )
 }
 
 // ── 逾期未付款：未付且 due_date < 今天 ───────────────────────

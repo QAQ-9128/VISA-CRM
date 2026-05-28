@@ -5,7 +5,11 @@ import { Badge } from '../components/ui/Badge'
 import { LoadingBlock, ErrorBlock } from '../components/ui/states'
 import { formatMoney } from '../lib/money'
 import { isTaskOverdue } from '../lib/tasks'
-import { CUSTOMER_TIER_LABELS, LODGEMENT_TYPE_LABELS } from '../types/domain'
+import { CUSTOMER_TIER_LABELS } from '../types/domain'
+
+/** DHA 官方签证处理时间页（全球） */
+const VISA_PROCESSING_TIMES_URL =
+  'https://immi.homeaffairs.gov.au/visas/getting-a-visa/visa-processing-times/global-visa-processing-times'
 
 function AlertCard({
   title,
@@ -56,58 +60,64 @@ export function DashboardPage() {
       <h1 className="text-xl font-semibold text-slate-900 md:text-2xl">概览</h1>
 
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-        {/* 我的待办 */}
+        {/* 我的待办：显示并链接关联客户名 */}
         <AlertCard title="我的待办（临近 / 逾期）" count={d.myOpenTasks.length} empty="没有临近或逾期的待办">
           {d.myOpenTasks.map((t) => {
             const overdue = isTaskOverdue(t.due_date, t.is_done)
-            const to = t.case_id ? `/cases/${t.case_id}` : t.customer_id ? `/customers/${t.customer_id}` : '/'
+            const customer = t.customer_id ? d.customerById[t.customer_id] : undefined
             return (
-              <Row
+              <div
                 key={t.id}
-                to={to}
-                left={t.title}
-                right={
-                  <span className={`text-xs font-medium ${overdue ? 'text-rose-600' : 'text-amber-600'}`}>
-                    {t.due_date}
-                    {overdue ? ' · 逾期' : ''}
-                  </span>
-                }
-              />
+                className="flex items-center justify-between gap-3 border-b border-slate-100 py-2.5 text-sm last:border-0"
+              >
+                <span className="min-w-0 flex-1 truncate">
+                  {customer && (
+                    <>
+                      <Link
+                        to={`/customers/${customer.id}`}
+                        className="font-medium text-indigo-600 hover:underline"
+                      >
+                        {customer.full_name}
+                      </Link>
+                      <span className="text-slate-400"> · </span>
+                    </>
+                  )}
+                  <span className="text-slate-900">{t.title}</span>
+                  {t.case_id && (
+                    <Link
+                      to={`/cases/${t.case_id}`}
+                      className="ml-1.5 text-xs text-indigo-600 hover:underline"
+                    >
+                      案件 ›
+                    </Link>
+                  )}
+                </span>
+                <span
+                  className={`shrink-0 text-xs font-medium ${overdue ? 'text-rose-600' : 'text-amber-600'}`}
+                >
+                  {t.due_date}
+                  {overdue ? ' · 逾期' : ''}
+                </span>
+              </div>
             )
           })}
         </AlertCard>
 
-        {/* 临近决签 */}
-        <AlertCard title="临近决签（14 天内）" count={d.upcomingDecisions.length} empty="近期无临近决签的递交">
-          {d.upcomingDecisions.map((x) => (
-            <Row
-              key={x.lodgementId}
-              to={`/cases/${x.caseId}`}
-              left={`${x.customerName} · ${x.visaSubclass} ${LODGEMENT_TYPE_LABELS[x.type]}`}
-              right={
-                <span className={`text-xs font-medium ${x.daysRemaining < 0 ? 'text-rose-600' : 'text-amber-600'}`}>
-                  {x.daysRemaining < 0 ? `已超期 ${-x.daysRemaining} 天` : `还剩 ${x.daysRemaining} 天`}
-                </span>
-              }
-            />
-          ))}
-        </AlertCard>
-
-        {/* 文件快过期 */}
-        <AlertCard title="文件快过期（30 天内）" count={d.expiringDocuments.length} empty="近期无快过期文件">
-          {d.expiringDocuments.map((x) => (
-            <Row
-              key={x.documentId}
-              to={`/customers/${x.customerId}`}
-              left={`${x.customerName} · ${x.label}`}
-              right={
-                <span className={`text-xs font-medium ${x.daysRemaining < 0 ? 'text-rose-600' : 'text-amber-600'}`}>
-                  {x.daysRemaining < 0 ? `已过期 ${-x.daysRemaining} 天` : `${x.daysRemaining} 天后到期`}
-                </span>
-              }
-            />
-          ))}
-        </AlertCard>
+        {/* 官方签证处理时间（外链，替代原「临近决签」） */}
+        <a
+          href={VISA_PROCESSING_TIMES_URL}
+          target="_blank"
+          rel="noreferrer"
+          className="block rounded-xl border border-slate-200 bg-white p-4 transition-colors hover:bg-slate-50"
+        >
+          <div className="flex items-center justify-between gap-2">
+            <h2 className="text-sm font-semibold text-slate-900">官方签证处理时间</h2>
+            <span className="text-slate-400">↗</span>
+          </div>
+          <p className="mt-1 text-sm text-slate-500">
+            在 immi.homeaffairs.gov.au 查看全球签证处理时间（新标签打开）
+          </p>
+        </a>
 
         {/* 逾期未付款 */}
         <AlertCard title="逾期未付款" count={d.overdueInstallments.length} empty="无逾期未付分期">
@@ -117,6 +127,22 @@ export function DashboardPage() {
               to={`/cases/${x.caseId}`}
               left={`${x.customerName} · ${formatMoney(x.amount)}`}
               right={<span className="text-xs font-medium text-rose-600">逾期 {x.daysOverdue} 天</span>}
+            />
+          ))}
+        </AlertCard>
+
+        {/* 待办客户清单：有未完成待办的客户 */}
+        <AlertCard
+          title="待办客户清单"
+          count={d.customersWithOpenTasks.length}
+          empty="暂无有待办的客户"
+        >
+          {d.customersWithOpenTasks.map((c) => (
+            <Row
+              key={c.customerId}
+              to={`/customers/${c.customerId}`}
+              left={c.customerName}
+              right={<span className="text-xs font-medium text-slate-500">{c.openCount} 项待办</span>}
             />
           ))}
         </AlertCard>

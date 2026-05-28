@@ -78,7 +78,7 @@ export function CaseDetailPage() {
 
       <LodgementSection caseId={c.id} />
 
-      <PaymentsSection caseId={c.id} currency={c.currency} />
+      <PaymentsSection caseId={c.id} currency={c.currency} syncTracking={c.sync_tracking} customerId={c.customer_id} />
 
       <DocumentsSection customerId={c.customer_id} caseId={c.id} />
 

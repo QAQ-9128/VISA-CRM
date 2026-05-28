@@ -10,44 +10,35 @@
 // ── 角色 ─────────────────────────────────────────────
 export type AppRole = 'admin' | 'staff'
 
-// ── 案件阶段（看板的列，顺序即流程推进方向）──────────────────
-// 189/190 无提名，直接 preparing → visa_lodged
+// ── 案件阶段（客户实际在用的 6 个，顺序即流程推进方向）──────────────
+// 存储键对齐 supabase/migrations/0004（case_stage 已由 enum 改为 text + check）。
 export const CASE_STAGES = [
-  'consulting',
-  'preparing',
+  'todo',
   'nomination_lodged',
-  'nomination_approved',
   'visa_lodged',
   'additional_docs',
   'granted',
   'refused',
-  'withdrawn',
 ] as const
 export type CaseStage = (typeof CASE_STAGES)[number]
 
 export const CASE_STAGE_LABELS: Record<CaseStage, string> = {
-  consulting: '咨询中',
-  preparing: '准备材料',
-  nomination_lodged: '递提名',
-  nomination_approved: '提名批',
-  visa_lodged: '递签证',
+  todo: '待办',
+  nomination_lodged: '提名递交',
+  visa_lodged: '签证递交',
   additional_docs: '补件',
-  granted: '授签',
+  granted: '下签',
   refused: '拒签',
-  withdrawn: '撤案',
 }
 
-/** Tailwind 类名片段，用于 StageBadge / 看板列标识 */
+/** Tailwind 类名片段，用于 StageBadge */
 export const CASE_STAGE_STYLES: Record<CaseStage, string> = {
-  consulting: 'bg-slate-100 text-slate-700',
-  preparing: 'bg-amber-100 text-amber-800',
+  todo: 'bg-slate-100 text-slate-700',
   nomination_lodged: 'bg-blue-100 text-blue-800',
-  nomination_approved: 'bg-cyan-100 text-cyan-800',
   visa_lodged: 'bg-indigo-100 text-indigo-800',
   additional_docs: 'bg-orange-100 text-orange-800',
   granted: 'bg-emerald-100 text-emerald-800',
   refused: 'bg-rose-100 text-rose-800',
-  withdrawn: 'bg-gray-200 text-gray-600',
 }
 
 // ── 递交类型 ─────────────────────────────────────────
@@ -70,22 +61,24 @@ export const LODGEMENT_OUTCOME_LABELS: Record<LodgementOutcome, string> = {
   withdrawn: '撤回',
 }
 
-// ── 付款方向（双流账目核心）────────────────────────────
-export const PAYMENT_DIRECTIONS = ['from_client', 'to_company'] as const
+// ── 付款方向（双流账目核心 + 付介绍人佣金）────────────────
+export const PAYMENT_DIRECTIONS = ['from_client', 'to_company', 'to_referrer'] as const
 export type PaymentDirection = (typeof PAYMENT_DIRECTIONS)[number]
 
 export const PAYMENT_DIRECTION_LABELS: Record<PaymentDirection, string> = {
   from_client: '客户付款',
   to_company: '付主代理',
+  to_referrer: '付介绍人',
 }
 
-// ── 付款方式 ─────────────────────────────────────────
-export const PAYMENT_METHODS = ['cash', 'transfer', 'wechat', 'alipay', 'card', 'other'] as const
+// ── 付款方式（advance = 垫付，0002 新增）──────────────────
+export const PAYMENT_METHODS = ['cash', 'transfer', 'advance', 'wechat', 'alipay', 'card', 'other'] as const
 export type PaymentMethod = (typeof PAYMENT_METHODS)[number]
 
 export const PAYMENT_METHOD_LABELS: Record<PaymentMethod, string> = {
   cash: '现金',
   transfer: '转账',
+  advance: '垫付',
   wechat: '微信',
   alipay: '支付宝',
   card: '刷卡',

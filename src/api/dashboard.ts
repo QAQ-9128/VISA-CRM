@@ -1,27 +1,9 @@
 import { supabase } from '../lib/supabase'
-import type { Case, CaseDocument, Customer, Installment, Lodgement, Payment, PaymentPlan } from '../types/models'
-
-/** 待决递交（临近决签的候选，前端再按剩余天数过滤）。 */
-export async function getPendingLodgements(): Promise<Lodgement[]> {
-  const { data, error } = await supabase.from('lodgements').select('*').eq('outcome', 'pending')
-  if (error) throw error
-  return data ?? []
-}
+import type { Case, Customer, Installment, Payment, PaymentPlan } from '../types/models'
 
 /** 未付分期（逾期的候选，前端再按 due_date 过滤）。 */
 export async function getUnpaidInstallments(): Promise<Installment[]> {
   const { data, error } = await supabase.from('installments').select('*').eq('is_paid', false)
-  if (error) throw error
-  return data ?? []
-}
-
-/** 未归档且有到期日的文件（快过期候选）。 */
-export async function getExpiringCandidateDocuments(): Promise<CaseDocument[]> {
-  const { data, error } = await supabase
-    .from('documents')
-    .select('*')
-    .eq('is_archived', false)
-    .not('expiry_date', 'is', null)
   if (error) throw error
   return data ?? []
 }
