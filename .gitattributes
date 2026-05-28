@@ -1,0 +1,5 @@
+# 统一行尾为 LF（仓库内存储 LF；Windows 检出可由 core.autocrlf 处理）
+* text=auto eol=lf
+*.png binary
+*.jpg binary
+*.svg text eol=lf

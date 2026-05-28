@@ -1,0 +1,16 @@
+@import 'tailwindcss';
+
+/* 移动端优先的基础设定。组件样式一律用 Tailwind 工具类，断点用 md:/lg: 向上扩展。 */
+html {
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  margin: 0;
+  font-family: system-ui, 'Segoe UI', Roboto, 'PingFang SC', 'Microsoft YaHei', sans-serif;
+  @apply bg-slate-50 text-slate-800 antialiased;
+}
+
+#root {
+  min-height: 100svh;
+}

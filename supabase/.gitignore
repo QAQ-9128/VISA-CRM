@@ -1,0 +1,4 @@
+# Supabase 本地状态与密钥，勿提交
+.branches
+.temp
+.env

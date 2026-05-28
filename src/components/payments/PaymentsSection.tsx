@@ -1,0 +1,109 @@
+import { useState } from 'react'
+import { Button } from '../ui/Button'
+import { PaymentPlanForm } from './PaymentPlanForm'
+import { InstallmentsPanel } from './InstallmentsPanel'
+import { PaymentsPanel } from './PaymentsPanel'
+import { usePaymentPlan, usePaymentsByCase } from '../../hooks/queries/usePayments'
+import { computeAccounting } from '../../lib/accounting'
+import { formatMoney } from '../../lib/money'
+
+function FlowCard({
+  title,
+  total,
+  paid,
+  owes,
+  totalLabel,
+  paidLabel,
+  currency,
+}: {
+  title: string
+  total: number | string | null
+  paid: number
+  owes: number
+  totalLabel: string
+  paidLabel: string
+  currency: string
+}) {
+  const settled = owes <= 0
+  return (
+    <div className="rounded-xl border border-slate-200 bg-white p-4">
+      <p className="text-sm text-slate-500">{title}</p>
+      <p className={`mt-1 text-2xl font-semibold ${settled ? 'text-emerald-600' : 'text-rose-600'}`}>
+        {settled ? '已结清' : formatMoney(owes, currency)}
+      </p>
+      <p className="mt-1 text-xs text-slate-400">
+        {totalLabel} {formatMoney(total, currency)} · {paidLabel} {formatMoney(paid, currency)}
+      </p>
+    </div>
+  )
+}
+
+/** 案件付款区：双流账目卡片 + 付款计划 + 分期 + 收付款记录。 */
+export function PaymentsSection({ caseId, currency = 'AUD' }: { caseId: string; currency?: string }) {
+  const planQuery = usePaymentPlan(caseId)
+  const payments = usePaymentsByCase(caseId)
+  const [editingPlan, setEditingPlan] = useState(false)
+  const [creatingPlan, setCreatingPlan] = useState(false)
+
+  const plan = planQuery.data
+  const cur = plan?.currency || currency
+  const acct = computeAccounting(plan, payments.data ?? [])
+
+  return (
+    <section className="space-y-4">
+      <h2 className="text-base font-semibold text-slate-900">付款（双流账目）</h2>
+
+      {planQuery.isPending ? (
+        <p className="text-sm text-slate-400">加载付款计划…</p>
+      ) : !plan ? (
+        creatingPlan ? (
+          <PaymentPlanForm caseId={caseId} defaultCurrency={currency} onDone={() => setCreatingPlan(false)} />
+        ) : (
+          <div className="flex items-center gap-3 rounded-xl border border-dashed border-slate-300 bg-white px-4 py-6">
+            <span className="text-sm text-slate-500">尚未创建付款计划</span>
+            <Button onClick={() => setCreatingPlan(true)}>创建付款计划</Button>
+          </div>
+        )
+      ) : (
+        <>
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+            <FlowCard
+              title="客户欠你"
+              total={plan.client_total}
+              paid={acct.clientPaid}
+              owes={acct.clientOwes}
+              totalLabel="应收"
+              paidLabel="已收"
+              currency={cur}
+            />
+            <FlowCard
+              title="你欠主代理"
+              total={plan.company_total}
+              paid={acct.companyPaid}
+              owes={acct.companyOwes}
+              totalLabel="应付"
+              paidLabel="已付"
+              currency={cur}
+            />
+          </div>
+
+          {editingPlan ? (
+            <PaymentPlanForm
+              caseId={caseId}
+              initial={plan}
+              defaultCurrency={cur}
+              onDone={() => setEditingPlan(false)}
+            />
+          ) : (
+            <Button variant="ghost" onClick={() => setEditingPlan(true)}>
+              编辑付款计划
+            </Button>
+          )}
+
+          <InstallmentsPanel planId={plan.id} currency={cur} />
+          <PaymentsPanel caseId={caseId} planId={plan.id} currency={cur} />
+        </>
+      )}
+    </section>
+  )
+}
