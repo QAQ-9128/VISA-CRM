@@ -116,6 +116,7 @@ export interface Database {
           id: string
           full_name: string
           birth_date: DateStr | null
+          gender: string | null
           passport_no: string | null
           nationality: string | null
           phone: string | null
@@ -139,6 +140,7 @@ export interface Database {
           id?: string
           full_name: string
           birth_date?: DateStr | null
+          gender?: string | null
           passport_no?: string | null
           nationality?: string | null
           phone?: string | null
@@ -167,6 +169,7 @@ export interface Database {
           case_number: string
           customer_id: string
           visa_subclass: string
+          visa_stream: string | null
           destination_country: string | null
           current_stage: CaseStage
           currency: string
@@ -182,6 +185,7 @@ export interface Database {
           case_number?: string // DB 触发器自动生成 8 位随机编号
           customer_id: string
           visa_subclass: string
+          visa_stream?: string | null
           destination_country?: string | null
           current_stage?: CaseStage
           currency?: string

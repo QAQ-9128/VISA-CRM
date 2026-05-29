@@ -11,8 +11,8 @@ import type { Case, Customer, Installment, Payment, PaymentPlan, Task } from '..
 const TODAY = new Date(2026, 0, 15)
 
 // 测试用的最小工厂
-const mkCase = (o: Partial<Case>): Case => ({ id: 'c1', case_number: '00000001', customer_id: 'cu1', visa_subclass: '482', current_stage: 'visa_lodged', currency: 'AUD', sync_tracking: true, destination_country: 'Australia', assigned_to: null, created_by: null, is_archived: false, created_at: '', updated_at: '', ...o })
-const mkCustomer = (o: Partial<Customer>): Customer => ({ id: 'cu1', full_name: '张三', is_starred: false, priority_tier: null, primary_applicant_id: null, relationship_to_primary: null, birth_date: null, passport_no: null, nationality: null, phone: null, email: null, wechat: null, address: null, sponsor_employer_id: null, referrer_id: null, notes: null, assigned_to: null, created_by: null, is_archived: false, created_at: '', updated_at: '', ...o })
+const mkCase = (o: Partial<Case>): Case => ({ id: 'c1', case_number: '00000001', customer_id: 'cu1', visa_subclass: '482', visa_stream: null, current_stage: 'visa_lodged', currency: 'AUD', sync_tracking: true, destination_country: 'Australia', assigned_to: null, created_by: null, is_archived: false, created_at: '', updated_at: '', ...o })
+const mkCustomer = (o: Partial<Customer>): Customer => ({ id: 'cu1', full_name: '张三', is_starred: false, priority_tier: null, primary_applicant_id: null, relationship_to_primary: null, birth_date: null, gender: null, passport_no: null, nationality: null, phone: null, email: null, wechat: null, address: null, sponsor_employer_id: null, referrer_id: null, notes: null, assigned_to: null, created_by: null, is_archived: false, created_at: '', updated_at: '', ...o })
 
 describe('selectCustomersWithOpenTasks', () => {
   const mkTask = (o: Partial<Task>): Task => ({ id: 't', customer_id: 'cu1', case_id: null, title: '待办', due_date: null, is_done: false, done_at: null, assigned_to: null, created_by: null, created_at: '', updated_at: '', ...o })

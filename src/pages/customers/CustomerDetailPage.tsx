@@ -1,16 +1,26 @@
 import type { ReactNode } from 'react'
+import { useMemo, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import {
   useArchiveCustomer,
   useCustomer,
+  useCustomers,
   useSubApplicants,
   useUpdateCustomer,
 } from '../../hooks/queries/useCustomers'
-import { useCasesByCustomer } from '../../hooks/queries/useCases'
+import { useCases, useCasesByCustomer } from '../../hooks/queries/useCases'
+import {
+  useAllCaseApplicants,
+  useAddCaseApplicant,
+  useRemoveCaseApplicant,
+} from '../../hooks/queries/useCaseApplicants'
+import { selectCoApplicantCases, selectJoinableCases } from '../../lib/family'
+import { formatVisaType } from '../../lib/visa'
 import { useEmployer } from '../../hooks/queries/useEmployers'
 import { useReferrer } from '../../hooks/queries/useReferrers'
 import { Button } from '../../components/ui/Button'
 import { Badge } from '../../components/ui/Badge'
+import { Select } from '../../components/ui/Select'
 import { StarToggle } from '../../components/ui/StarToggle'
 import { BackLink } from '../../components/ui/BackLink'
 import { LoadingBlock, ErrorBlock } from '../../components/ui/states'
@@ -19,8 +29,9 @@ import { DocumentsSection } from '../../components/documents/DocumentsSection'
 import { FollowUpsSection } from '../../components/followups/FollowUpsSection'
 import { TasksSection } from '../../components/tasks/TasksSection'
 import { CustomerPaymentsSection } from '../../components/finance/CustomerPaymentsSection'
-import { CUSTOMER_TIER_LABELS } from '../../types/domain'
-import type { Customer } from '../../types/models'
+import { CUSTOMER_TIER_LABELS, GENDER_LABELS } from '../../types/domain'
+import type { Gender } from '../../types/domain'
+import type { Case, Customer } from '../../types/models'
 
 function DetailRow({ label, children }: { label: string; children: ReactNode }) {
   return (
@@ -104,7 +115,7 @@ function CasesSection({ customerId }: { customerId: string }) {
                 to={`/cases/${cs.id}`}
                 className="flex items-center justify-between px-3 py-2.5 text-sm hover:bg-slate-50"
               >
-                <span className="font-medium text-slate-900">{cs.visa_subclass} 类签证</span>
+                <span className="font-medium text-slate-900">{formatVisaType(cs.visa_subclass, cs.visa_stream)} 签证</span>
                 <span className="flex items-center gap-2">
                   <StageBadge stage={cs.current_stage} />
                   <span className="text-slate-300">›</span>
@@ -115,6 +126,90 @@ function CasesSection({ customerId }: { customerId: string }) {
         </ul>
       ) : (
         <p className="text-sm text-slate-400">暂无案件</p>
+      )}
+    </div>
+  )
+}
+
+/** 该客户作为「副申请」参与的案件（含别人主申的 case）：可加入同家庭组的案件、可移除。 */
+function CoApplicantCasesSection({ customerId }: { customerId: string }) {
+  const cases = useCases()
+  const applicants = useAllCaseApplicants()
+  const customers = useCustomers({})
+  const add = useAddCaseApplicant()
+  const remove = useRemoveCaseApplicant()
+  const [selected, setSelected] = useState('')
+
+  const customerById = useMemo(() => {
+    const m: Record<string, Customer> = {}
+    for (const c of customers.data ?? []) m[c.id] = c
+    return m
+  }, [customers.data])
+
+  const joined = useMemo(
+    () => selectCoApplicantCases(cases.data ?? [], applicants.data ?? [], customerId),
+    [cases.data, applicants.data, customerId],
+  )
+  const joinable = useMemo(
+    () => selectJoinableCases(cases.data ?? [], applicants.data ?? [], customerId, customers.data ?? []),
+    [cases.data, applicants.data, customerId, customers.data],
+  )
+
+  if (cases.isPending || applicants.isPending || customers.isPending) return null
+  // 既没参与、也没有可加入的同组案件 → 不展示该区块（无可操作内容）
+  if (joined.length === 0 && joinable.length === 0) return null
+
+  const caseLabel = (c: Case) =>
+    `${customerById[c.customer_id]?.full_name ?? '—'} · ${formatVisaType(c.visa_subclass, c.visa_stream)}`
+
+  return (
+    <div className="space-y-2">
+      <p className="text-sm text-slate-500">作为副申请参与的案件</p>
+
+      {joined.length > 0 ? (
+        <ul className="divide-y divide-slate-100 overflow-hidden rounded-lg border border-slate-200 bg-white">
+          {joined.map((c) => (
+            <li key={c.id} className="flex items-center justify-between gap-2 px-3 py-2.5 text-sm">
+              <Link to={`/cases/${c.id}`} className="flex min-w-0 items-center gap-2 hover:underline">
+                <span className="truncate font-medium text-slate-900">{caseLabel(c)}</span>
+                <StageBadge stage={c.current_stage} />
+              </Link>
+              <button
+                type="button"
+                onClick={() => remove.mutate({ caseId: c.id, customerId })}
+                disabled={remove.isPending}
+                className="shrink-0 text-xs text-slate-400 hover:text-rose-600"
+              >
+                移除
+              </button>
+            </li>
+          ))}
+        </ul>
+      ) : (
+        <p className="text-sm text-slate-400">暂未作为副申请参与其他案件</p>
+      )}
+
+      {joinable.length > 0 && (
+        <div className="flex items-end gap-2 pt-1">
+          <div className="flex-1">
+            <Select
+              label=""
+              placeholder="选择要加入的案件…"
+              options={joinable.map((c) => ({ value: c.id, label: caseLabel(c) }))}
+              value={selected}
+              onChange={(e) => setSelected(e.target.value)}
+            />
+          </div>
+          <Button
+            variant="secondary"
+            disabled={!selected || add.isPending}
+            onClick={() =>
+              add.mutate({ caseId: selected, customerId }, { onSuccess: () => setSelected('') })
+            }
+          >
+            {add.isPending ? '加入中…' : '加入'}
+          </Button>
+        </div>
       )}
     </div>
   )
@@ -175,13 +270,10 @@ export function CustomerDetailPage() {
       </div>
 
       <div className="rounded-xl border border-slate-200 bg-white px-4 py-2">
-        <DetailRow label="电话">{c.phone}</DetailRow>
-        <DetailRow label="微信">{c.wechat}</DetailRow>
-        <DetailRow label="邮箱">{c.email}</DetailRow>
-        <DetailRow label="护照号">{c.passport_no}</DetailRow>
-        <DetailRow label="国籍">{c.nationality}</DetailRow>
-        <DetailRow label="出生日期">{c.birth_date}</DetailRow>
-        <DetailRow label="地址">{c.address}</DetailRow>
+        <DetailRow label="生日">{c.birth_date}</DetailRow>
+        <DetailRow label="性别">
+          {c.gender ? GENDER_LABELS[c.gender as Gender] ?? c.gender : null}
+        </DetailRow>
         <DetailRow label="担保雇主">
           {c.sponsor_employer_id ? (
             <Link to={`/employers/${c.sponsor_employer_id}/edit`} className="text-indigo-600 hover:underline">
@@ -200,6 +292,8 @@ export function CustomerDetailPage() {
       </div>
 
       <CasesSection customerId={c.id} />
+
+      <CoApplicantCasesSection customerId={c.id} />
 
       <CustomerPaymentsSection customerId={c.id} />
 

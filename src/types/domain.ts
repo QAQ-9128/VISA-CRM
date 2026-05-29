@@ -10,10 +10,11 @@
 // ── 角色 ─────────────────────────────────────────────
 export type AppRole = 'admin' | 'staff'
 
-// ── 案件阶段（客户实际在用的 6 个，顺序即流程推进方向）──────────────
-// 存储键对齐 supabase/migrations/0004（case_stage 已由 enum 改为 text + check）。
+// ── 案件阶段（客户实际在用的 7 个，顺序即流程推进方向）──────────────
+// 存储键对齐 supabase/migrations/0004 + 0006（case_stage 为 text + check；0006 增 drafted）。
 export const CASE_STAGES = [
   'todo',
+  'drafted',
   'nomination_lodged',
   'visa_lodged',
   'additional_docs',
@@ -24,6 +25,7 @@ export type CaseStage = (typeof CASE_STAGES)[number]
 
 export const CASE_STAGE_LABELS: Record<CaseStage, string> = {
   todo: '待办',
+  drafted: '已草拟',
   nomination_lodged: '提名递交',
   visa_lodged: '签证递交',
   additional_docs: '补件',
@@ -34,6 +36,7 @@ export const CASE_STAGE_LABELS: Record<CaseStage, string> = {
 /** Tailwind 类名片段，用于 StageBadge */
 export const CASE_STAGE_STYLES: Record<CaseStage, string> = {
   todo: 'bg-slate-100 text-slate-700',
+  drafted: 'bg-amber-100 text-amber-800',
   nomination_lodged: 'bg-blue-100 text-blue-800',
   visa_lodged: 'bg-indigo-100 text-indigo-800',
   additional_docs: 'bg-orange-100 text-orange-800',
@@ -140,6 +143,16 @@ export const CUSTOMER_TIER_ORDER: Record<CustomerTier, number> = {
   a: 1,
   b: 2,
   c: 3,
+}
+
+// ── 性别（DB 为 text 可空；存英文键、显中文）──────────────
+export const GENDERS = ['male', 'female', 'other'] as const
+export type Gender = (typeof GENDERS)[number]
+
+export const GENDER_LABELS: Record<Gender, string> = {
+  male: '男',
+  female: '女',
+  other: '其他',
 }
 
 // ── 常用签证类别（DB 为 text，允许手填其他）────────────────

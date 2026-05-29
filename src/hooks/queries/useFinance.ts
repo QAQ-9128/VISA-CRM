@@ -15,6 +15,7 @@ import {
   sumFinanceReceivables,
 } from '../../lib/finance'
 import { visibleCaseIds } from '../../lib/visibility'
+import { formatVisaType } from '../../lib/visa'
 import { queryKeys } from './keys'
 
 function keyById<T extends { id: string }>(rows: T[]): Record<string, T> {
@@ -89,7 +90,7 @@ export function useFinance() {
         .map((c) => ({
           caseId: c.id,
           customerId: c.customer_id,
-          label: `${customerById[c.customer_id]?.full_name ?? '未知客户'} · ${c.visa_subclass}`,
+          label: `${customerById[c.customer_id]?.full_name ?? '未知客户'} · ${formatVisaType(c.visa_subclass, c.visa_stream)}`,
           referrerId: customerById[c.customer_id]?.referrer_id ?? null,
         }))
         .sort((a, b) => a.label.localeCompare(b.label)),

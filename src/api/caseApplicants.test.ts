@@ -46,3 +46,22 @@ describe('setCaseApplicants', () => {
     expect(b.case_applicants.insert).not.toHaveBeenCalled()
   })
 })
+
+describe('addCaseApplicant', () => {
+  it('插入单条 (case_id, customer_id) 关联', async () => {
+    const b = wireFrom(fromMock, { case_applicants: { data: null } })
+    await api.addCaseApplicant('c1', 'cu9')
+    expect(fromMock).toHaveBeenCalledWith('case_applicants')
+    expect(b.case_applicants.insert).toHaveBeenCalledWith({ case_id: 'c1', customer_id: 'cu9' })
+  })
+})
+
+describe('removeCaseApplicant', () => {
+  it('按 (case_id, customer_id) 删除单条关联', async () => {
+    const b = wireFrom(fromMock, { case_applicants: { data: null } })
+    await api.removeCaseApplicant('c1', 'cu9')
+    expect(b.case_applicants.delete).toHaveBeenCalled()
+    expect(b.case_applicants.eq).toHaveBeenCalledWith('case_id', 'c1')
+    expect(b.case_applicants.eq).toHaveBeenCalledWith('customer_id', 'cu9')
+  })
+})

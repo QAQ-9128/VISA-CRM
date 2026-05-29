@@ -3,12 +3,14 @@ import type { FormEvent } from 'react'
 import { Button } from '../ui/Button'
 import { TextField } from '../ui/TextField'
 import { VisaSubclassField } from './VisaSubclassField'
-import { useSubApplicants } from '../../hooks/queries/useCustomers'
+import { useCustomers } from '../../hooks/queries/useCustomers'
+import { selectFamilyGroupMembers } from '../../lib/family'
 import type { Case, CaseInsert } from '../../types/models'
 
 export interface CaseFormValues extends CaseInsert {
   customer_id: string
   visa_subclass: string
+  visa_stream: string | null
   sync_tracking: boolean
 }
 
@@ -37,13 +39,14 @@ export function CaseForm({
   onCancel,
 }: CaseFormProps) {
   const [visaSubclass, setVisaSubclass] = useState(initial?.visa_subclass ?? '')
+  const [visaStream, setVisaStream] = useState<string | null>(initial?.visa_stream ?? null)
   const [destination, setDestination] = useState(initial?.destination_country ?? 'Australia')
   const [currency, setCurrency] = useState(initial?.currency ?? 'AUD')
   const [syncTracking, setSyncTracking] = useState(initial?.sync_tracking ?? true)
   const [applicantIds, setApplicantIds] = useState<string[]>(initialApplicantIds ?? [])
 
-  // 候选副申请人 = 该主申客户名下的家庭成员
-  const subs = useSubApplicants(customerId)
+  // 候选副申请人 = 与主申同家庭组的其他成员（双向：主申↔副申、同主申的副申之间）
+  const allCustomers = useCustomers({})
 
   function toggleApplicant(id: string) {
     setApplicantIds((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]))
@@ -55,6 +58,7 @@ export function CaseForm({
       {
         customer_id: customerId,
         visa_subclass: visaSubclass.trim(),
+        visa_stream: visaStream && visaStream.trim() !== '' ? visaStream.trim() : null,
         destination_country: trimOrNull(destination),
         currency: currency.trim() || 'AUD',
         sync_tracking: syncTracking,
@@ -63,7 +67,7 @@ export function CaseForm({
     )
   }
 
-  const candidates = subs.data ?? []
+  const candidates = selectFamilyGroupMembers(customerId, allCustomers.data ?? [])
 
   return (
     <form onSubmit={handleSubmit} className="space-y-5">
@@ -74,13 +78,20 @@ export function CaseForm({
         </div>
       </div>
 
-      <VisaSubclassField value={visaSubclass} onChange={setVisaSubclass} />
+      <VisaSubclassField
+        subclass={visaSubclass}
+        stream={visaStream}
+        onChange={(sc, st) => {
+          setVisaSubclass(sc)
+          setVisaStream(st)
+        }}
+      />
 
       <fieldset className="rounded-xl border border-slate-200 p-4">
         <legend className="px-1 text-sm font-medium text-slate-600">副申请人 / 同步追踪</legend>
         <div className="space-y-3">
           {candidates.length === 0 ? (
-            <p className="text-sm text-slate-400">该客户名下暂无家庭成员（副申请人）。可先到客户档案添加副申请人。</p>
+            <p className="text-sm text-slate-400">同家庭组暂无其他成员可作副申请人。可先到客户档案添加家庭成员。</p>
           ) : (
             <div className="space-y-2">
               <p className="text-sm text-slate-500">选择本案件包含的副申请人：</p>

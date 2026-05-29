@@ -7,6 +7,7 @@ import { useAllCaseApplicants } from '../../hooks/queries/useCaseApplicants'
 import { selectCaseRows, sortCaseRows } from '../../lib/casesTable'
 import type { CaseRow, CaseSortKey } from '../../lib/casesTable'
 import { visibleCaseIds } from '../../lib/visibility'
+import { StageBadge } from '../../components/cases/StageBadge'
 import { LoadingBlock, ErrorBlock, EmptyState } from '../../components/ui/states'
 
 const fmtElapsed = (e: { months: number; days: number }) =>
@@ -21,9 +22,11 @@ const COLUMNS: Column[] = [
   { key: 'primary', label: '主申请' },
   { key: 'secondary', label: '副申请' },
   { key: 'visa', label: '签证类型' },
+  { key: 'stage', label: '状态' },
   { key: 'nomDate', label: '提名递交时间' },
+  { key: 'nomElapsed', label: '提名距今' },
   { key: 'visaDate', label: '签证递交时间' },
-  { key: 'elapsed', label: '距今多久' },
+  { key: 'visaElapsed', label: '签证距今' },
   { key: 'updated', label: '最新更新' },
 ]
 
@@ -54,7 +57,11 @@ export function CasesTablePage() {
     if (key === sortKey) setSortDir((d) => (d === 'asc' ? 'desc' : 'asc'))
     else {
       setSortKey(key)
-      setSortDir(key === 'elapsed' || key === 'updated' ? 'desc' : 'asc')
+      setSortDir(
+        key === 'elapsed' || key === 'nomElapsed' || key === 'visaElapsed' || key === 'updated'
+          ? 'desc'
+          : 'asc',
+      )
     }
   }
 
@@ -65,25 +72,25 @@ export function CasesTablePage() {
     <section className="mx-auto max-w-6xl">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h1 className="text-xl font-semibold text-slate-900 md:text-2xl">递交进度</h1>
-        <Link to="/cases/list" className="text-sm font-medium text-indigo-600 hover:underline">
-          全部案件 ↗
+        <Link to="/cases" className="text-sm font-medium text-indigo-600 hover:underline">
+          ← 全部案件
         </Link>
       </div>
 
       {sorted.length === 0 ? (
         <div className="mt-4">
           <EmptyState
-            title="还没有已递交的案件"
+            title="还没有案件"
             action={
               <Link to="/customers" className="text-sm font-medium text-indigo-600 hover:underline">
-                去客户档案登记递交
+                去客户档案新建案件
               </Link>
             }
           />
         </div>
       ) : (
         <div className="mt-4 -mx-4 overflow-x-auto px-4 md:mx-0 md:px-0">
-          <table className="w-full min-w-[56rem] border-collapse text-sm">
+          <table className="w-full min-w-[64rem] border-collapse text-sm">
             <thead>
               <tr className="border-b border-slate-200 text-left text-xs text-slate-500">
                 {COLUMNS.map((col) => (
@@ -148,9 +155,17 @@ function CaseRowView({ row }: { row: CaseRow }) {
         {row.secondaryName || '—'}
       </td>
       <td className="py-2.5 pr-4 whitespace-nowrap text-slate-900">{row.visaLabel}</td>
+      <td className="py-2.5 pr-4 whitespace-nowrap">
+        <StageBadge stage={row.currentStage} />
+      </td>
       <td className="py-2.5 pr-4 whitespace-nowrap tabular-nums text-slate-700">{row.nomLodgedDate || '—'}</td>
+      <td className="py-2.5 pr-4 whitespace-nowrap font-medium text-slate-900">
+        {row.nomElapsed ? fmtElapsed(row.nomElapsed) : <span className="text-slate-400">—</span>}
+      </td>
       <td className="py-2.5 pr-4 whitespace-nowrap tabular-nums text-slate-700">{row.visaLodgedDate || '—'}</td>
-      <td className="py-2.5 pr-4 whitespace-nowrap font-medium text-slate-900">{fmtElapsed(row.elapsed)}</td>
+      <td className="py-2.5 pr-4 whitespace-nowrap font-medium text-slate-900">
+        {row.visaElapsed ? fmtElapsed(row.visaElapsed) : <span className="text-slate-400">—</span>}
+      </td>
       <td className="py-2.5 pr-4 whitespace-nowrap tabular-nums text-slate-400">{row.updatedAt.slice(0, 10)}</td>
     </tr>
   )

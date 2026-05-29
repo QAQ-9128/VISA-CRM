@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import {
   createTask,
   deleteTask,
+  getOpenTasks,
   listTasksByCase,
   listTasksByCustomer,
   updateTask,
@@ -24,6 +25,11 @@ export function useTasksByCase(caseId: string | undefined) {
     queryFn: () => listTasksByCase(caseId as string),
     enabled: !!caseId,
   })
+}
+
+/** 全部未完成待办（全部案件列表用，前端按 case_id 分组取各案件最新数条）。 */
+export function useOpenTasks() {
+  return useQuery({ queryKey: queryKeys.tasks.open, queryFn: getOpenTasks })
 }
 
 export function useCreateTask() {

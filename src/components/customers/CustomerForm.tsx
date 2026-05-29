@@ -7,7 +7,7 @@ import { Select } from '../ui/Select'
 import { EmployerSelect } from '../employers/EmployerSelect'
 import { ReferrerSelect } from '../referrers/ReferrerSelect'
 import { usePrimaryApplicants } from '../../hooks/queries/useCustomers'
-import { CUSTOMER_TIERS, CUSTOMER_TIER_LABELS } from '../../types/domain'
+import { CUSTOMER_TIERS, CUSTOMER_TIER_LABELS, GENDERS, GENDER_LABELS } from '../../types/domain'
 import type { CustomerTier } from '../../types/domain'
 import type { Customer, CustomerInsert } from '../../types/models'
 
@@ -23,13 +23,8 @@ interface FormState {
   is_starred: boolean
   sponsor_employer_id: string
   referrer_id: string
-  phone: string
-  email: string
-  wechat: string
-  passport_no: string
-  nationality: string
   birth_date: string
-  address: string
+  gender: string
   notes: string
 }
 
@@ -42,19 +37,16 @@ function toState(c?: Customer): FormState {
     is_starred: c?.is_starred ?? false,
     sponsor_employer_id: c?.sponsor_employer_id ?? '',
     referrer_id: c?.referrer_id ?? '',
-    phone: c?.phone ?? '',
-    email: c?.email ?? '',
-    wechat: c?.wechat ?? '',
-    passport_no: c?.passport_no ?? '',
-    nationality: c?.nationality ?? '',
     birth_date: c?.birth_date ?? '',
-    address: c?.address ?? '',
+    gender: c?.gender ?? '',
     notes: c?.notes ?? '',
   }
 }
 
 const trimOrNull = (s: string) => (s.trim() === '' ? null : s.trim())
 
+// 注意：电话/微信/邮箱/护照号/国籍/地址 已从表单移除，且**不写进 payload** —
+// 编辑时这些键不出现在 update patch 里，数据库现有数据得以保留（不被清空）。
 function toPayload(s: FormState): CustomerFormValues {
   const isSub = s.primary_applicant_id !== ''
   return {
@@ -65,13 +57,8 @@ function toPayload(s: FormState): CustomerFormValues {
     is_starred: s.is_starred,
     sponsor_employer_id: s.sponsor_employer_id || null,
     referrer_id: s.referrer_id || null,
-    phone: trimOrNull(s.phone),
-    email: trimOrNull(s.email),
-    wechat: trimOrNull(s.wechat),
-    passport_no: trimOrNull(s.passport_no),
-    nationality: trimOrNull(s.nationality),
     birth_date: trimOrNull(s.birth_date),
-    address: trimOrNull(s.address),
+    gender: s.gender || null,
     notes: trimOrNull(s.notes),
   }
 }
@@ -170,44 +157,20 @@ export function CustomerForm({ initial, submitting, error, onSubmit, onCancel }:
 
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
         <TextField
-          label="电话"
-          value={state.phone}
-          onChange={(e) => set('phone')(e.target.value)}
-        />
-        <TextField
-          label="微信"
-          value={state.wechat}
-          onChange={(e) => set('wechat')(e.target.value)}
-        />
-        <TextField
-          label="邮箱"
-          type="email"
-          value={state.email}
-          onChange={(e) => set('email')(e.target.value)}
-        />
-        <TextField
-          label="护照号"
-          value={state.passport_no}
-          onChange={(e) => set('passport_no')(e.target.value)}
-        />
-        <TextField
-          label="国籍"
-          value={state.nationality}
-          onChange={(e) => set('nationality')(e.target.value)}
-        />
-        <TextField
-          label="出生日期"
+          label="生日"
           type="date"
           value={state.birth_date}
           onChange={(e) => set('birth_date')(e.target.value)}
         />
+        <Select
+          label="性别"
+          placeholder="未填"
+          options={GENDERS.map((g) => ({ value: g, label: GENDER_LABELS[g] }))}
+          value={state.gender}
+          onChange={(e) => set('gender')(e.target.value)}
+        />
       </div>
 
-      <TextField
-        label="地址"
-        value={state.address}
-        onChange={(e) => set('address')(e.target.value)}
-      />
       <Textarea
         label="备注"
         value={state.notes}

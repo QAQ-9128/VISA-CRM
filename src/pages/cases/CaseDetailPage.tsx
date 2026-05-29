@@ -5,6 +5,7 @@ import { Button } from '../../components/ui/Button'
 import { Badge } from '../../components/ui/Badge'
 import { BackLink } from '../../components/ui/BackLink'
 import { LoadingBlock, ErrorBlock } from '../../components/ui/states'
+import { formatVisaType } from '../../lib/visa'
 import { StageControl } from '../../components/cases/StageControl'
 import { StageTimeline } from '../../components/cases/StageTimeline'
 import { LodgementSection } from '../../components/cases/LodgementSection'
@@ -43,13 +44,13 @@ export function CaseDetailPage() {
 
   return (
     <section className="mx-auto max-w-3xl space-y-6">
-      <BackLink to="/cases" label="案件看板" />
+      <BackLink to="/cases" label="全部案件" />
 
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-2">
             <h1 className="text-xl font-semibold text-slate-900 md:text-2xl">
-              {c.visa_subclass} 类签证
+              {formatVisaType(c.visa_subclass, c.visa_stream)} 签证
             </h1>
             {c.is_archived && <Badge className="bg-gray-200 text-gray-600">已归档</Badge>}
           </div>

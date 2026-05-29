@@ -18,6 +18,24 @@ export async function listAllCaseApplicants(): Promise<CaseApplicant[]> {
   return data ?? []
 }
 
+/** 增量添加单个副申请人关联（unique(case_id,customer_id) 防重，UI 只在未关联时提供）。 */
+export async function addCaseApplicant(caseId: string, customerId: string): Promise<void> {
+  const { error } = await supabase
+    .from('case_applicants')
+    .insert({ case_id: caseId, customer_id: customerId })
+  if (error) throw error
+}
+
+/** 移除单个副申请人关联。 */
+export async function removeCaseApplicant(caseId: string, customerId: string): Promise<void> {
+  const { error } = await supabase
+    .from('case_applicants')
+    .delete()
+    .eq('case_id', caseId)
+    .eq('customer_id', customerId)
+  if (error) throw error
+}
+
 /** 覆盖式设置某案件的副申请人：先删旧关联，再插入选中的客户。 */
 export async function setCaseApplicants(caseId: string, customerIds: string[]): Promise<void> {
   const del = await supabase.from('case_applicants').delete().eq('case_id', caseId)

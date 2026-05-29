@@ -4,7 +4,7 @@ import type { Customer } from '../types/models'
 
 const mk = (o: Partial<Customer>): Customer => ({
   id: 'cu', full_name: '客户', is_starred: false, priority_tier: null, primary_applicant_id: null,
-  relationship_to_primary: null, birth_date: null, passport_no: null, nationality: null, phone: null,
+  relationship_to_primary: null, birth_date: null, gender: null, passport_no: null, nationality: null, phone: null,
   email: null, wechat: null, address: null, sponsor_employer_id: null, referrer_id: null, notes: null,
   assigned_to: null, created_by: null, is_archived: false, created_at: '2026-01-01T00:00:00Z', updated_at: '', ...o,
 })
