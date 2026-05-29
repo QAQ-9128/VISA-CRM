@@ -8,7 +8,7 @@ import {
   useSubApplicants,
   useUpdateCustomer,
 } from '../../hooks/queries/useCustomers'
-import { useCases, useCasesByCustomer } from '../../hooks/queries/useCases'
+import { useArchiveCase, useCases, useCasesByCustomer } from '../../hooks/queries/useCases'
 import {
   useAllCaseApplicants,
   useAddCaseApplicant,
@@ -21,13 +21,13 @@ import { useReferrer } from '../../hooks/queries/useReferrers'
 import { Button } from '../../components/ui/Button'
 import { Badge } from '../../components/ui/Badge'
 import { Select } from '../../components/ui/Select'
+import { TrashIcon } from '../../components/ui/icons'
 import { StarToggle } from '../../components/ui/StarToggle'
 import { BackLink } from '../../components/ui/BackLink'
 import { LoadingBlock, ErrorBlock } from '../../components/ui/states'
 import { StageBadge } from '../../components/cases/StageBadge'
 import { DocumentsSection } from '../../components/documents/DocumentsSection'
-import { FollowUpsSection } from '../../components/followups/FollowUpsSection'
-import { TasksSection } from '../../components/tasks/TasksSection'
+import { RecordsSection } from '../../components/records/RecordsSection'
 import { CustomerPaymentsSection } from '../../components/finance/CustomerPaymentsSection'
 import { CUSTOMER_TIER_LABELS, GENDER_LABELS } from '../../types/domain'
 import type { Gender } from '../../types/domain'
@@ -94,9 +94,17 @@ function FamilyGroup({ customer }: { customer: Customer }) {
   )
 }
 
-/** 该客户名下的案件列表 + 新建入口 */
+/** 该客户名下的案件列表 + 新建入口 + 行内软删除 */
 function CasesSection({ customerId }: { customerId: string }) {
   const cases = useCasesByCustomer(customerId)
+  const archive = useArchiveCase()
+
+  function handleDelete(cs: Case) {
+    const label = `${formatVisaType(cs.visa_subclass, cs.visa_stream)} 签证`
+    if (!window.confirm(`确认删除案件「${label}」？归档后从列表消失，可随时恢复。`)) return
+    archive.mutate(cs.id)
+  }
+
   return (
     <div className="space-y-2">
       <div className="flex items-center justify-between">
@@ -110,10 +118,10 @@ function CasesSection({ customerId }: { customerId: string }) {
       ) : cases.data && cases.data.length > 0 ? (
         <ul className="divide-y divide-slate-100 overflow-hidden rounded-lg border border-slate-200 bg-white">
           {cases.data.map((cs) => (
-            <li key={cs.id}>
+            <li key={cs.id} className="flex items-center hover:bg-slate-50">
               <Link
                 to={`/cases/${cs.id}`}
-                className="flex items-center justify-between px-3 py-2.5 text-sm hover:bg-slate-50"
+                className="flex flex-1 items-center justify-between py-2.5 pr-2 pl-3 text-sm"
               >
                 <span className="font-medium text-slate-900">{formatVisaType(cs.visa_subclass, cs.visa_stream)} 签证</span>
                 <span className="flex items-center gap-2">
@@ -121,6 +129,17 @@ function CasesSection({ customerId }: { customerId: string }) {
                   <span className="text-slate-300">›</span>
                 </span>
               </Link>
+              <button
+                type="button"
+                title="删除案件（软删，可恢复）"
+                aria-label="删除案件"
+                disabled={archive.isPending}
+                onClick={() => handleDelete(cs)}
+                className="flex min-h-11 items-center gap-1 px-3 text-xs text-slate-400 hover:text-rose-600 disabled:opacity-50"
+              >
+                <TrashIcon className="size-4" />
+                删除
+              </button>
             </li>
           ))}
         </ul>
@@ -299,9 +318,7 @@ export function CustomerDetailPage() {
 
       <DocumentsSection customerId={c.id} />
 
-      <TasksSection customerId={c.id} />
-
-      <FollowUpsSection customerId={c.id} />
+      <RecordsSection customerId={c.id} />
 
       <FamilyGroup customer={c} />
 

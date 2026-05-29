@@ -100,6 +100,15 @@ export const FOLLOW_UP_CHANNEL_LABELS: Record<FollowUpChannel, string> = {
   other: '其他',
 }
 
+// ── 记录类型（records 单表：待办 / 跟进）──────────────────────────────────
+export const RECORD_TYPES = ['task', 'follow_up'] as const
+export type RecordType = (typeof RECORD_TYPES)[number]
+
+// ── 跟进 emoji 标记（「记录」表里跟进行的标记；前端常量，存 text，空则默认 💬）──────
+export const FOLLOW_UP_EMOJIS = ['❓', '⚠️', '‼️', '💬', 'ℹ️', '📞', '✉️'] as const
+export type FollowUpEmoji = (typeof FOLLOW_UP_EMOJIS)[number]
+export const DEFAULT_FOLLOW_UP_EMOJI = '💬'
+
 // ── 文件类型（含体检/无犯罪/英语成绩）────────────────────
 export const DOC_TYPES = [
   'passport',

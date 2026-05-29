@@ -14,7 +14,7 @@ import {
   selectOverdueInstallments,
   sortPriorityCustomers,
 } from '../../lib/dashboard'
-import { getOpenTasks } from '../../api/tasks'
+import { getOpenTaskRecords } from '../../api/records'
 import { selectMyOpenTasks } from '../../lib/tasks'
 import { visibleCaseIds } from '../../lib/visibility'
 import { useAuth } from '../useAuth'
@@ -43,7 +43,7 @@ export function useDashboard() {
   })
   const plans = useQuery({ queryKey: queryKeys.dashboard.plans, queryFn: getAllPaymentPlans })
   const payments = useQuery({ queryKey: queryKeys.dashboard.payments, queryFn: getAllPayments })
-  const openTasks = useQuery({ queryKey: queryKeys.tasks.open, queryFn: getOpenTasks })
+  const openTasks = useQuery({ queryKey: queryKeys.records.openTasks, queryFn: getOpenTaskRecords })
 
   const all = [unpaidInstallments, activeCases, activeCustomers, plans, payments, openTasks]
   const isPending = all.some((q) => q.isPending)
@@ -88,7 +88,7 @@ export function useDashboard() {
     [visiblePlans, payments.data, caseById, customerById],
   )
   const myOpenTasks = useMemo(
-    () => selectMyOpenTasks(openTasks.data ?? [], user?.id, undefined, undefined, customerById),
+    () => selectMyOpenTasks(openTasks.data ?? [], user?.id, customerById),
     [openTasks.data, user?.id, customerById],
   )
   const customersWithOpenTasks = useMemo(

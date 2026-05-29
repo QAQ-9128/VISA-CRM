@@ -43,6 +43,16 @@ export const queryKeys = {
     byCustomer: (customerId: string) => ['follow_ups', 'byCustomer', customerId] as const,
     byCase: (caseId: string) => ['follow_ups', 'byCase', caseId] as const,
   },
+  profiles: {
+    all: ['profiles'] as const,
+    list: ['profiles', 'list'] as const,
+  },
+  records: {
+    all: ['records'] as const,
+    byCustomer: (customerId: string) => ['records', 'byCustomer', customerId] as const,
+    byCase: (caseId: string) => ['records', 'byCase', caseId] as const,
+    openTasks: ['records', 'openTasks'] as const,
+  },
   tasks: {
     all: ['tasks'] as const,
     byCustomer: (customerId: string) => ['tasks', 'byCustomer', customerId] as const,

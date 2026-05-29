@@ -5,6 +5,8 @@ import {
   selectFinanceReceipts,
   selectFinancePayouts,
   selectCustomerFinance,
+  filterPaymentsByMonth,
+  selectRecentCases,
 } from './finance'
 import type { Case, Customer, Payment, PaymentPlan, Referrer } from '../types/models'
 
@@ -32,6 +34,49 @@ const mkPayment = (o: Partial<Payment>): Payment => ({
 const mkReferrer = (o: Partial<Referrer>): Referrer => ({
   id: 'r1', name: '王介绍', contact_phone: null, contact_email: null, notes: null,
   is_archived: false, created_by: null, created_at: '', updated_at: '', ...o,
+})
+
+describe('filterPaymentsByMonth', () => {
+  const pays = [
+    mkPayment({ id: 'a', paid_at: '2026-04-30' }), // 上月最后一天
+    mkPayment({ id: 'b', paid_at: '2026-05-01' }), // 当月第一天
+    mkPayment({ id: 'c', paid_at: '2026-05-31' }), // 当月最后一天
+    mkPayment({ id: 'd', paid_at: '2026-06-01' }), // 下月第一天
+    mkPayment({ id: 'e', paid_at: null }), // 无日期
+  ]
+
+  it('当月：含 5/1 与 5/31，排除相邻月与无日期（跨月边界）', () => {
+    expect(filterPaymentsByMonth(pays, '2026-05').map((p) => p.id)).toEqual(['b', 'c'])
+  })
+  it('null（全部）：原样返回，含无日期', () => {
+    expect(filterPaymentsByMonth(pays, null).map((p) => p.id)).toEqual(['a', 'b', 'c', 'd', 'e'])
+  })
+  it('未来月份：无匹配 → 空', () => {
+    expect(filterPaymentsByMonth(pays, '2027-01')).toEqual([])
+  })
+  it('空数据 → 空', () => {
+    expect(filterPaymentsByMonth([], '2026-05')).toEqual([])
+    expect(filterPaymentsByMonth([], null)).toEqual([])
+  })
+})
+
+describe('selectRecentCases', () => {
+  it('按 updated_at 倒序取前 N（同时间按 id 稳定）', () => {
+    const cs = [
+      mkCase({ id: 'a', updated_at: '2026-05-01T00:00:00Z' }),
+      mkCase({ id: 'b', updated_at: '2026-05-20T00:00:00Z' }),
+      mkCase({ id: 'c', updated_at: '2026-05-10T00:00:00Z' }),
+    ]
+    expect(selectRecentCases(cs, 2).map((c) => c.id)).toEqual(['b', 'c'])
+  })
+  it('不足 N 返回全部；不改原数组', () => {
+    const cs = [mkCase({ id: 'x' })]
+    expect(selectRecentCases(cs, 5)).toHaveLength(1)
+    expect(cs).toHaveLength(1)
+  })
+  it('空 → 空', () => {
+    expect(selectRecentCases([], 5)).toEqual([])
+  })
 })
 
 describe('selectFinanceReceivables', () => {
@@ -221,5 +266,17 @@ describe('selectCustomerFinance', () => {
     expect(r.payouts.items.map((i) => i.paymentId)).toEqual(['b'])
     expect(r.payouts.items[0]).toMatchObject({ direction: 'to_referrer', referrerName: '王介绍' })
     expect(r.payouts.toReferrerTotal).toBe(100)
+  })
+
+  it('财务合并 + 有副申：合并行带出副申名字（customerById 须含副申）', () => {
+    const cases = [mkCase({ id: 'c1', customer_id: 'cu1', sync_tracking: true })]
+    const customerById = {
+      cu1: mkCustomer({ id: 'cu1', full_name: '张三' }),
+      cu2: mkCustomer({ id: 'cu2', full_name: '李四', primary_applicant_id: 'cu1' }),
+    }
+    const caseApplicants = [{ id: 'x', case_id: 'c1', customer_id: 'cu2', created_at: '' }]
+    const r = selectCustomerFinance('cu1', cases, caseApplicants, [], [], customerById, {})
+    expect(r.receivables).toHaveLength(1)
+    expect(r.receivables[0]).toMatchObject({ role: 'merged', customerName: '张三', coApplicantNames: ['李四'] })
   })
 })

@@ -129,18 +129,18 @@ describe('selectCaseRows', () => {
     expect(rows[0].visaLabel).toBe('482/Core Skills')
   })
 
-  it('不同步案件：主申一行(副申空) + 每个副申一行(签证类型 XX 副申请, 主申列写主申名)', () => {
+  it('进度始终同步：即便 sync_tracking=false 也合并为一行（主申+副申同列，不拆行）', () => {
     const cases = [mkCase({ id: 'c1', case_number: '87654321', customer_id: 'cu1', visa_subclass: '186', sync_tracking: false })]
     const lodgements = [mkLodgement({ case_id: 'c1', type: 'visa', lodged_date: '2026-02-01' })]
     const rows = selectCaseRows(cases, lodgements, [ca('c1', 'cu2')], customers, TODAY)
-    expect(rows).toHaveLength(2)
-    // 同案件主/副相邻，主申在前
-    expect(rows[0].role).toBe('primary')
-    expect(rows[1].role).toBe('secondary')
-    const primaryRow = rows.find((r) => r.role === 'primary')!
-    expect(primaryRow).toMatchObject({ primaryName: '李旻书', secondaryName: '', visaLabel: '186', visaLodgedDate: '2026-02-01' })
-    const subRow = rows.find((r) => r.role === 'secondary')!
-    expect(subRow).toMatchObject({ primaryName: '李旻书', secondaryName: '邓韬', visaLabel: '186 副申请', visaLodgedDate: '2026-02-01' })
+    expect(rows).toHaveLength(1)
+    expect(rows[0]).toMatchObject({
+      role: 'merged',
+      primaryName: '李旻书',
+      secondaryName: '邓韬',
+      visaLabel: '186',
+      visaLodgedDate: '2026-02-01',
+    })
   })
 
   it('未递交案件也显示，排在已递交之后；lodged 标记 + 日期为 null', () => {

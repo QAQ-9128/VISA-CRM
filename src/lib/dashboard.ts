@@ -1,7 +1,7 @@
 import { computeAccounting } from './accounting'
 import { utcDayDiff } from './dateDiff'
 import { CUSTOMER_TIER_ORDER } from '../types/domain'
-import type { Case, Customer, Installment, Payment, PaymentPlan, Task } from '../types/models'
+import type { Case, Customer, Installment, Payment, PaymentPlan, RecordRow } from '../types/models'
 
 type CaseMap = Record<string, Case>
 type CustomerMap = Record<string, Customer>
@@ -15,12 +15,12 @@ export interface CustomerOpenTasks {
 }
 
 export function selectCustomersWithOpenTasks(
-  openTasks: Task[],
+  openTasks: RecordRow[],
   customerById: CustomerMap,
 ): CustomerOpenTasks[] {
   const byCustomer = new Map<string, CustomerOpenTasks>()
   for (const t of openTasks) {
-    if (t.is_done || !t.customer_id) continue
+    if (t.type !== 'task' || t.is_done || !t.customer_id) continue
     const customer = customerById[t.customer_id]
     if (!customer) continue // 不在册（归档/不存在）的客户不列入
     const entry =

@@ -1,11 +1,46 @@
 import type { ReactNode } from 'react'
+import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useDashboard } from '../hooks/queries/useDashboard'
+import { useUpdateRecord } from '../hooks/queries/useRecords'
 import { Badge } from '../components/ui/Badge'
 import { LoadingBlock, ErrorBlock } from '../components/ui/states'
 import { formatMoney } from '../lib/money'
 import { isTaskOverdue } from '../lib/tasks'
 import { CUSTOMER_TIER_LABELS } from '../types/domain'
+import type { RecordRow } from '../types/models'
+
+/** 我的待办里的内联截止日：点击 → 日历选择，选了即存（更新 records.due_date）。 */
+function MyTaskDue({ task }: { task: RecordRow }) {
+  const update = useUpdateRecord()
+  const [editing, setEditing] = useState(false)
+  const overdue = isTaskOverdue(task.due_date, task.is_done)
+  if (editing) {
+    return (
+      <input
+        type="date"
+        autoFocus
+        defaultValue={task.due_date ?? ''}
+        onChange={(e) => {
+          setEditing(false)
+          update.mutate({ id: task.id, patch: { due_date: e.target.value || null } })
+        }}
+        onBlur={() => setEditing(false)}
+        className="w-[8.5rem] rounded border border-indigo-300 px-1 py-0.5 text-xs outline-none"
+      />
+    )
+  }
+  return (
+    <button
+      type="button"
+      onClick={() => setEditing(true)}
+      className={`shrink-0 text-xs font-medium ${overdue ? 'text-rose-600' : task.due_date ? 'text-amber-600' : 'text-slate-400'}`}
+    >
+      📅 {task.due_date ?? '设截止日'}
+      {overdue ? ' · 逾期' : ''}
+    </button>
+  )
+}
 
 /** DHA 官方签证处理时间页（全球） */
 const VISA_PROCESSING_TIMES_URL =
@@ -61,9 +96,8 @@ export function DashboardPage() {
 
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
         {/* 我的待办：显示并链接关联客户名 */}
-        <AlertCard title="我的待办（临近 / 逾期）" count={d.myOpenTasks.length} empty="没有临近或逾期的待办">
+        <AlertCard title="我的待办" count={d.myOpenTasks.length} empty="暂无待办">
           {d.myOpenTasks.map((t) => {
-            const overdue = isTaskOverdue(t.due_date, t.is_done)
             const customer = t.customer_id ? d.customerById[t.customer_id] : undefined
             return (
               <div
@@ -82,7 +116,7 @@ export function DashboardPage() {
                       <span className="text-slate-400"> · </span>
                     </>
                   )}
-                  <span className="text-slate-900">{t.title}</span>
+                  <span className="text-slate-900">{t.content}</span>
                   {t.case_id && (
                     <Link
                       to={`/cases/${t.case_id}`}
@@ -92,12 +126,7 @@ export function DashboardPage() {
                     </Link>
                   )}
                 </span>
-                <span
-                  className={`shrink-0 text-xs font-medium ${overdue ? 'text-rose-600' : 'text-amber-600'}`}
-                >
-                  {t.due_date}
-                  {overdue ? ' · 逾期' : ''}
-                </span>
+                <MyTaskDue task={t} />
               </div>
             )
           })}

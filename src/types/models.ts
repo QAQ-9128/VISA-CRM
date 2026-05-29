@@ -18,6 +18,8 @@ export type Installment = Tables<'installments'>
 export type Payment = Tables<'payments'>
 export type FollowUp = Tables<'follow_ups'>
 export type Task = Tables<'tasks'>
+/** 合并后的记录行（待办 + 跟进同表）。命名避开 TS 内置 Record<K,V>。 */
+export type RecordRow = Tables<'records'>
 
 // 写入类型（新建 / 更新）
 export type CustomerInsert = TablesInsert<'customers'>
@@ -32,3 +34,5 @@ export type LodgementInsert = TablesInsert<'lodgements'>
 export type PaymentInsert = TablesInsert<'payments'>
 export type FollowUpInsert = TablesInsert<'follow_ups'>
 export type TaskInsert = TablesInsert<'tasks'>
+export type RecordInsert = TablesInsert<'records'>
+export type RecordUpdate = TablesUpdate<'records'>

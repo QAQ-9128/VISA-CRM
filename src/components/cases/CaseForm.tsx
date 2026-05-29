@@ -42,7 +42,8 @@ export function CaseForm({
   const [visaStream, setVisaStream] = useState<string | null>(initial?.visa_stream ?? null)
   const [destination, setDestination] = useState(initial?.destination_country ?? 'Australia')
   const [currency, setCurrency] = useState(initial?.currency ?? 'AUD')
-  const [syncTracking, setSyncTracking] = useState(initial?.sync_tracking ?? true)
+  // 仅决定财务核算口径（true=合并账单；false=按申请人分开）。案件进度永远同步追踪，无开关。
+  const [financeCombined, setFinanceCombined] = useState(initial?.sync_tracking ?? true)
   const [applicantIds, setApplicantIds] = useState<string[]>(initialApplicantIds ?? [])
 
   // 候选副申请人 = 与主申同家庭组的其他成员（双向：主申↔副申、同主申的副申之间）
@@ -61,7 +62,7 @@ export function CaseForm({
         visa_stream: visaStream && visaStream.trim() !== '' ? visaStream.trim() : null,
         destination_country: trimOrNull(destination),
         currency: currency.trim() || 'AUD',
-        sync_tracking: syncTracking,
+        sync_tracking: financeCombined,
       },
       applicantIds,
     )
@@ -88,7 +89,7 @@ export function CaseForm({
       />
 
       <fieldset className="rounded-xl border border-slate-200 p-4">
-        <legend className="px-1 text-sm font-medium text-slate-600">副申请人 / 同步追踪</legend>
+        <legend className="px-1 text-sm font-medium text-slate-600">副申请人 / 财务核算</legend>
         <div className="space-y-3">
           {candidates.length === 0 ? (
             <p className="text-sm text-slate-400">同家庭组暂无其他成员可作副申请人。可先到客户档案添加家庭成员。</p>
@@ -110,17 +111,22 @@ export function CaseForm({
             </div>
           )}
 
-          <label className="flex items-start gap-2 border-t border-slate-100 pt-3 text-sm text-slate-700">
-            <input
-              type="checkbox"
-              checked={syncTracking}
-              onChange={(e) => setSyncTracking(e.target.checked)}
-              className="mt-0.5 size-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
-            />
-            <span>
-              同步追踪（勾选 = 主申 + 副申一起追踪、账单合并；不勾 = 主申、各副申分开追踪、账单分开）
-            </span>
-          </label>
+          <div className="border-t border-slate-100 pt-3">
+            <label className="flex items-start gap-2 text-sm text-slate-700">
+              <input
+                type="checkbox"
+                checked={financeCombined}
+                onChange={(e) => setFinanceCombined(e.target.checked)}
+                className="mt-0.5 size-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+              />
+              <span>
+                财务合并核算（勾选 = 主申 + 副申账单合并、一起算；不勾 = 按申请人 / 组别分开算）
+              </span>
+            </label>
+            <p className="mt-1.5 pl-6 text-xs text-slate-400">
+              案件进度始终同步追踪（主申 + 副申一起），此选项只影响财务核算口径。
+            </p>
+          </div>
         </div>
       </fieldset>
 

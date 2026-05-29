@@ -11,8 +11,7 @@ import { StageTimeline } from '../../components/cases/StageTimeline'
 import { LodgementSection } from '../../components/cases/LodgementSection'
 import { PaymentsSection } from '../../components/payments/PaymentsSection'
 import { DocumentsSection } from '../../components/documents/DocumentsSection'
-import { FollowUpsSection } from '../../components/followups/FollowUpsSection'
-import { TasksSection } from '../../components/tasks/TasksSection'
+import { RecordsSection } from '../../components/records/RecordsSection'
 
 export function CaseDetailPage() {
   const { id } = useParams()
@@ -83,9 +82,7 @@ export function CaseDetailPage() {
 
       <DocumentsSection customerId={c.customer_id} caseId={c.id} />
 
-      <TasksSection customerId={c.customer_id} caseId={c.id} />
-
-      <FollowUpsSection customerId={c.customer_id} caseId={c.id} />
+      <RecordsSection customerId={c.customer_id} caseId={c.id} />
 
       <div className="pt-2">
         <Button variant="ghost" onClick={handleArchive} disabled={archive.isPending}>

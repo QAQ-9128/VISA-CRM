@@ -20,6 +20,7 @@ import type {
   LodgementType,
   PaymentDirection,
   PaymentMethod,
+  RecordType,
 } from './domain'
 
 type Timestamp = string // ISO 时间戳
@@ -402,6 +403,7 @@ export interface Database {
           case_id: string | null
           channel: FollowUpChannel
           content: string
+          emoji_marker: string | null
           created_by: string | null
           created_at: Timestamp
         }
@@ -411,10 +413,47 @@ export interface Database {
           case_id?: string | null
           channel?: FollowUpChannel
           content: string
+          emoji_marker?: string | null
           created_by?: string | null
           created_at?: Timestamp
         }
         Update: Partial<Database['public']['Tables']['follow_ups']['Insert']>
+        Relationships: []
+      }
+      records: {
+        Row: {
+          id: string
+          customer_id: string
+          case_id: string | null
+          type: RecordType
+          content: string
+          due_date: DateStr | null
+          is_done: boolean
+          done_at: Timestamp | null
+          assigned_to: string | null
+          channel: FollowUpChannel | null
+          emoji_marker: string | null
+          created_by: string | null
+          created_at: Timestamp
+          updated_at: Timestamp
+        }
+        Insert: {
+          id?: string
+          customer_id: string
+          case_id?: string | null
+          type: RecordType
+          content: string
+          due_date?: DateStr | null
+          is_done?: boolean
+          done_at?: Timestamp | null
+          assigned_to?: string | null
+          channel?: FollowUpChannel | null
+          emoji_marker?: string | null
+          created_by?: string | null
+          created_at?: Timestamp
+          updated_at?: Timestamp
+        }
+        Update: Partial<Database['public']['Tables']['records']['Insert']>
         Relationships: []
       }
       tasks: {

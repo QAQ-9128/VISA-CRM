@@ -9,9 +9,11 @@ import {
 import { listReferrers } from '../../api/referrers'
 import { listAllCaseApplicants } from '../../api/caseApplicants'
 import {
+  filterPaymentsByMonth,
   selectFinancePayouts,
   selectFinanceReceipts,
   selectFinanceReceivables,
+  selectRecentCases,
   sumFinanceReceivables,
 } from '../../lib/finance'
 import { visibleCaseIds } from '../../lib/visibility'
@@ -24,8 +26,11 @@ function keyById<T extends { id: string }>(rows: T[]): Record<string, T> {
   return map
 }
 
-/** 财务总览所需数据：应收汇总（按客户）+ 支出明细（付主代理 / 付介绍人）。 */
-export function useFinance() {
+/**
+ * 财务总览数据。month='YYYY-MM' 时，收款明细/支出明细按该月 paid_at 过滤、合计随之；
+ * month=null 表示「全部」。应收汇总（余额）始终按所有时间累计，不受 month 影响。
+ */
+export function useFinance(month: string | null) {
   const cases = useQuery({ queryKey: queryKeys.dashboard.activeCases, queryFn: getActiveCases })
   const customers = useQuery({
     queryKey: queryKeys.dashboard.activeCustomers,
@@ -74,13 +79,19 @@ export function useFinance() {
     [visibleCases, caseApplicants.data, plans.data, visiblePayments, customerById],
   )
   const receivableTotals = useMemo(() => sumFinanceReceivables(receivables), [receivables])
+
+  // 收款/支出明细按选定月份过滤（应收余额不过滤）
+  const monthPayments = useMemo(
+    () => filterPaymentsByMonth(visiblePayments, month),
+    [visiblePayments, month],
+  )
   const receipts = useMemo(
-    () => selectFinanceReceipts(visiblePayments, caseById, customerById),
-    [visiblePayments, caseById, customerById],
+    () => selectFinanceReceipts(monthPayments, caseById, customerById),
+    [monthPayments, caseById, customerById],
   )
   const payouts = useMemo(
-    () => selectFinancePayouts(visiblePayments, caseById, customerById, referrerById),
-    [visiblePayments, caseById, customerById, referrerById],
+    () => selectFinancePayouts(monthPayments, caseById, customerById, referrerById),
+    [monthPayments, caseById, customerById, referrerById],
   )
 
   // 加支出/加收款表单用：可选案件下拉（客户·签证），同样只列在册客户的案件
@@ -97,5 +108,18 @@ export function useFinance() {
     [visibleCases, customerById],
   )
 
-  return { isPending, isError, receivables, receivableTotals, receipts, payouts, caseOptions, referrerById }
+  // 近期案件（区域 1）：按 updated_at 倒序的前 5 个案件 id（顺序保留）
+  const recentCaseIds = useMemo(() => selectRecentCases(visibleCases, 5).map((c) => c.id), [visibleCases])
+
+  return {
+    isPending,
+    isError,
+    receivables,
+    receivableTotals,
+    recentCaseIds,
+    receipts,
+    payouts,
+    caseOptions,
+    referrerById,
+  }
 }

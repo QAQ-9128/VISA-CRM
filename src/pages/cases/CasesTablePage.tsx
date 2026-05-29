@@ -121,39 +121,16 @@ export function CasesTablePage() {
   )
 }
 
-const ROLE_LABEL: Record<string, string> = { merged: '合并', primary: '主申', secondary: '副申' }
-const ROLE_TAG: Record<string, string> = {
-  merged: 'bg-slate-100 text-slate-600',
-  primary: 'bg-blue-100 text-blue-700',
-  secondary: 'bg-violet-100 text-violet-700',
-}
-
 function CaseRowView({ row }: { row: CaseRow }) {
-  const isSub = row.role === 'secondary'
   return (
-    <tr className={`border-b border-slate-100 align-top hover:bg-slate-50/60 ${isSub ? 'bg-slate-50/40' : ''}`}>
-      <td className={`py-2.5 pr-4 whitespace-nowrap ${isSub ? 'pl-4' : ''}`}>
-        <span className="flex items-center gap-1.5">
-          {isSub && (
-            <span className="select-none font-mono text-slate-300" aria-hidden>
-              └─
-            </span>
-          )}
-          <Link
-            to={`/cases/${row.caseId}`}
-            className={isSub ? 'text-slate-400 hover:underline' : 'font-medium text-indigo-600 hover:underline'}
-          >
-            {row.caseNumber}
-          </Link>
-          <span className={`rounded px-1.5 py-0.5 text-[10px] font-medium ${ROLE_TAG[row.role]}`}>
-            {ROLE_LABEL[row.role]}
-          </span>
-        </span>
+    <tr className="border-b border-slate-100 align-top hover:bg-slate-50/60">
+      <td className="py-2.5 pr-4 whitespace-nowrap">
+        <Link to={`/cases/${row.caseId}`} className="font-medium text-indigo-600 hover:underline">
+          {row.caseNumber}
+        </Link>
       </td>
       <td className="py-2.5 pr-4 whitespace-nowrap text-slate-900">{row.primaryName || '—'}</td>
-      <td className={`py-2.5 pr-4 ${isSub ? 'font-medium text-violet-700' : 'text-slate-700'}`}>
-        {row.secondaryName || '—'}
-      </td>
+      <td className="py-2.5 pr-4 text-slate-700">{row.secondaryName || '—'}</td>
       <td className="py-2.5 pr-4 whitespace-nowrap text-slate-900">{row.visaLabel}</td>
       <td className="py-2.5 pr-4 whitespace-nowrap">
         <StageBadge stage={row.currentStage} />

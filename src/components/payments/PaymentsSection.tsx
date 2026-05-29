@@ -48,7 +48,7 @@ export function PaymentsSection({
 }: {
   caseId: string
   currency?: string
-  /** 同步追踪：true = 案件级合并账单（此处管理）；false = 按申请人分开（去客户/财务页管理） */
+  /** 财务合并核算：true = 案件级合并账单（此处管理）；false = 按申请人分开（去客户/财务页管理）。进度追踪与此无关，始终同步。 */
   syncTracking?: boolean
   customerId?: string
 }) {
@@ -61,7 +61,7 @@ export function PaymentsSection({
   const cur = plan?.currency || currency
   const acct = computeAccounting(plan, payments.data ?? [])
 
-  // 不同步：账单按申请人分开，引导到客户/财务页管理（避免在此误建合并账单）
+  // 财务分开核算：账单按申请人分开，引导到客户/财务页管理（避免在此误建合并账单）
   if (!syncTracking) {
     return (
       <section className="space-y-3">

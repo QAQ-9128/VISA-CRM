@@ -13,10 +13,31 @@ type CaseMap = Record<string, Case>
 type CustomerMap = Record<string, Customer>
 type ReferrerMap = Record<string, Referrer>
 
+/**
+ * 按月(YYYY-MM)过滤付款：只保留 paid_at 落在该月的记录；month 为 null = 全部（原样返回）。
+ * 无 paid_at 的付款在选定具体月份时被排除（不属于任何月）。
+ * 用日期字符串前缀比较（DST 安全）。仅用于收款明细 / 支出明细的按月口径，不影响应收余额。
+ */
+export function filterPaymentsByMonth<T extends { paid_at: string | null }>(
+  payments: T[],
+  month: string | null,
+): T[] {
+  if (!month) return payments
+  return payments.filter((p) => !!p.paid_at && p.paid_at.slice(0, 7) === month)
+}
+
+/** 最近活动的 N 个案件：按 updated_at 倒序取前 N（同时间按 id 稳定）。不改原数组。 */
+export function selectRecentCases(cases: Case[], limit: number): Case[] {
+  return [...cases]
+    .sort((a, b) => b.updated_at.localeCompare(a.updated_at) || a.id.localeCompare(b.id))
+    .slice(0, limit)
+}
+
 // ── 应收汇总（按「账单单元」一行；复用 computeAccounting，未付负数计 0）────────
 // 账单单元 = (案件, 申请人)：
-//   同步案件 → 一份合并单元（applicant_id 为空，覆盖主+副）；
-//   不同步案件 → 主申 + 每个副申各一份单元（applicant_id = 各申请人）。
+//   财务合并(sync_tracking=true) → 一份合并单元（applicant_id 为空，覆盖主+副）；
+//   财务分开(sync_tracking=false) → 主申 + 每个副申各一份单元（applicant_id = 各申请人）。
+// 注：sync_tracking 现仅决定财务口径；案件进度追踪始终同步（见 casesTable）。
 // 应收=plan.client_total，已付=Σ from_client，未付=max(0, 应收−已付)。
 /** 账单单元角色：merged=同步合并（覆盖主+副）；primary=主申；secondary=副申。 */
 export type ReceivableRole = 'merged' | 'primary' | 'secondary'

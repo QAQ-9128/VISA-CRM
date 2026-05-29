@@ -1,18 +1,21 @@
 import { describe, expect, it } from 'vitest'
-import { isTaskOverdue, selectCaseTasks, selectMyOpenTasks } from './tasks'
-import type { Task } from '../types/models'
+import { formatDueCountdown, isTaskOverdue, selectCaseTasks, selectMyOpenTasks } from './tasks'
+import type { RecordRow } from '../types/models'
 
 const TODAY = new Date(2026, 0, 15)
 
-const mk = (o: Partial<Task>): Task => ({
+const mk = (o: Partial<RecordRow>): RecordRow => ({
   id: 't',
-  customer_id: null,
+  customer_id: null as unknown as string,
   case_id: null,
-  title: '待办',
+  type: 'task',
+  content: '待办',
   due_date: null,
   is_done: false,
   done_at: null,
   assigned_to: 'me',
+  channel: null,
+  emoji_marker: null,
   created_by: null,
   created_at: '',
   updated_at: '',
@@ -26,28 +29,42 @@ describe('isTaskOverdue', () => {
   it('未来未完成 → false', () => expect(isTaskOverdue('2026-02-01', false, TODAY)).toBe(false))
 })
 
+describe('formatDueCountdown', () => {
+  it('未来→还剩 N 天 / 当天→今天到期 / 过期→逾期 N 天 / 无→null', () => {
+    expect(formatDueCountdown('2026-01-20', TODAY)).toBe('还剩 5 天')
+    expect(formatDueCountdown('2026-01-15', TODAY)).toBe('今天到期')
+    expect(formatDueCountdown('2026-01-10', TODAY)).toBe('逾期 5 天')
+    expect(formatDueCountdown(null, TODAY)).toBeNull()
+  })
+})
+
 describe('selectMyOpenTasks', () => {
-  it('只取我的、未完成、临近(≤7天)或逾期，按截止升序', () => {
+  it('我名下全部未完成待办：有截止日按升序在前，无截止排后；已完成/他人的排除', () => {
     const tasks = [
-      mk({ id: 'overdue', due_date: '2026-01-10' }), // -5 ✓
-      mk({ id: 'soon', due_date: '2026-01-20' }), // +5 ✓
-      mk({ id: 'far', due_date: '2026-02-15' }), // +31 ✗
-      mk({ id: 'done', due_date: '2026-01-10', is_done: true }), // ✗
-      mk({ id: 'other', due_date: '2026-01-16', assigned_to: 'someone' }), // ✗
-      mk({ id: 'nodue', due_date: null }), // ✗（无截止不算临近/逾期）
+      mk({ id: 'overdue', due_date: '2026-01-10' }),
+      mk({ id: 'soon', due_date: '2026-01-20' }),
+      mk({ id: 'far', due_date: '2026-02-15' }), // 不再因「太远」被剔除
+      mk({ id: 'nodue', due_date: null, created_at: '2026-01-03' }), // 无截止也要显示（排后）
+      mk({ id: 'done', due_date: '2026-01-10', is_done: true }), // ✗ 已完成
+      mk({ id: 'other', due_date: '2026-01-16', assigned_to: 'someone' }), // ✗ 他人
     ]
-    const r = selectMyOpenTasks(tasks, 'me', TODAY, 7)
-    expect(r.map((t) => t.id)).toEqual(['overdue', 'soon'])
+    expect(selectMyOpenTasks(tasks, 'me').map((t) => t.id)).toEqual(['overdue', 'soon', 'far', 'nodue'])
   })
 
-  it('传入在册客户表时，归档/已删客户的待办被排除；无关联客户的个人待办保留', () => {
+  it('传入在册客户表时，归档/已删客户的待办被排除', () => {
     const tasks = [
       mk({ id: 'active', due_date: '2026-01-16', customer_id: 'cu1' }),
       mk({ id: 'archived', due_date: '2026-01-16', customer_id: 'gone' }),
-      mk({ id: 'personal', due_date: '2026-01-16', customer_id: null }),
     ]
-    const r = selectMyOpenTasks(tasks, 'me', TODAY, 7, { cu1: {} })
-    expect(r.map((t) => t.id).sort()).toEqual(['active', 'personal'])
+    expect(selectMyOpenTasks(tasks, 'me', { cu1: {} }).map((t) => t.id)).toEqual(['active'])
+  })
+
+  it('非 task 类型(跟进)不计入我的待办', () => {
+    const tasks = [
+      mk({ id: 'task', due_date: '2026-01-16', customer_id: 'cu1' }),
+      mk({ id: 'follow', due_date: '2026-01-16', customer_id: 'cu1', type: 'follow_up' }),
+    ]
+    expect(selectMyOpenTasks(tasks, 'me').map((t) => t.id)).toEqual(['task'])
   })
 })
 

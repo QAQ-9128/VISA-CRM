@@ -6,7 +6,7 @@ import {
   selectOverdueInstallments,
   sortPriorityCustomers,
 } from './dashboard'
-import type { Case, Customer, Installment, Payment, PaymentPlan, Task } from '../types/models'
+import type { Case, Customer, Installment, Payment, PaymentPlan, RecordRow } from '../types/models'
 
 const TODAY = new Date(2026, 0, 15)
 
@@ -15,14 +15,14 @@ const mkCase = (o: Partial<Case>): Case => ({ id: 'c1', case_number: '00000001',
 const mkCustomer = (o: Partial<Customer>): Customer => ({ id: 'cu1', full_name: '张三', is_starred: false, priority_tier: null, primary_applicant_id: null, relationship_to_primary: null, birth_date: null, gender: null, passport_no: null, nationality: null, phone: null, email: null, wechat: null, address: null, sponsor_employer_id: null, referrer_id: null, notes: null, assigned_to: null, created_by: null, is_archived: false, created_at: '', updated_at: '', ...o })
 
 describe('selectCustomersWithOpenTasks', () => {
-  const mkTask = (o: Partial<Task>): Task => ({ id: 't', customer_id: 'cu1', case_id: null, title: '待办', due_date: null, is_done: false, done_at: null, assigned_to: null, created_by: null, created_at: '', updated_at: '', ...o })
+  const mkTask = (o: Partial<RecordRow>): RecordRow => ({ id: 't', customer_id: 'cu1', case_id: null, type: 'task', content: '待办', due_date: null, is_done: false, done_at: null, assigned_to: null, channel: null, emoji_marker: null, created_by: null, created_at: '', updated_at: '', ...o })
   it('按客户去重计数未完成待办；无客户/不在册客户不计；按数量降序', () => {
     const customers = { cu1: mkCustomer({ id: 'cu1', full_name: '甲' }), cu2: mkCustomer({ id: 'cu2', full_name: '乙' }) }
     const tasks = [
       mkTask({ id: 't1', customer_id: 'cu1' }),
       mkTask({ id: 't2', customer_id: 'cu1' }),
       mkTask({ id: 't3', customer_id: 'cu2' }),
-      mkTask({ id: 't4', customer_id: null }), // 无客户 → 不计
+      mkTask({ id: 't4', customer_id: null as unknown as string }), // 无客户 → 不计
       mkTask({ id: 't5', customer_id: 'gone' }), // 不在 active map → 不计
     ]
     const r = selectCustomersWithOpenTasks(tasks, customers)

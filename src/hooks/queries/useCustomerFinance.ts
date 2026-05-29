@@ -1,6 +1,6 @@
 import { useMemo } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { getAllPaymentPlans, getAllPayments } from '../../api/dashboard'
+import { getActiveCustomers, getAllPaymentPlans, getAllPayments } from '../../api/dashboard'
 import { listReferrers } from '../../api/referrers'
 import { listAllCaseApplicants } from '../../api/caseApplicants'
 import { listCasesByCustomer } from '../../api/cases'
@@ -42,15 +42,22 @@ export function useCustomerFinance(customerId: string | undefined) {
     queryKey: queryKeys.caseApplicants.all,
     queryFn: listAllCaseApplicants,
   })
+  // 全部在册客户：用于把合并账单行里的副申请人名字查出来（共享 /finance 的缓存键）
+  const allCustomers = useQuery({
+    queryKey: queryKeys.dashboard.activeCustomers,
+    queryFn: getActiveCustomers,
+  })
 
-  const all = [cases, customer, plans, payments, referrers, caseApplicants]
+  const all = [cases, customer, plans, payments, referrers, caseApplicants, allCustomers]
   const isPending = all.some((q) => q.isPending)
   const isError = all.some((q) => q.isError)
 
-  const customerById = useMemo(
-    () => (customer.data ? { [customer.data.id]: customer.data } : {}),
-    [customer.data],
-  )
+  // 含全部在册客户（解析副申名字）+ 保底放入当前客户（即便其已归档）
+  const customerById = useMemo(() => {
+    const map = keyById(allCustomers.data ?? [])
+    if (customer.data) map[customer.data.id] = customer.data
+    return map
+  }, [allCustomers.data, customer.data])
   const referrerById = useMemo<Record<string, Referrer>>(
     () => keyById(referrers.data ?? []),
     [referrers.data],

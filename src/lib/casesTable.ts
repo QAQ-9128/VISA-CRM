@@ -66,13 +66,13 @@ export interface CaseRow {
   rowKey: string
   caseId: string
   caseNumber: string
-  /** 行角色：merged=同步(主+副同行) / primary=不同步主申行 / secondary=不同步副申行 */
+  /** 行角色：进度追踪始终同步，故恒为 merged（主+副同行）。primary/secondary 保留以兼容类型。 */
   role: CaseRowRole
   /** 主申请列 */
   primaryName: string
-  /** 副申请列（同步=副申合并；不同步主申行=空；不同步副申行=该副申名） */
+  /** 副申请列：同案副申名字合并（、连接） */
   secondaryName: string
-  /** 签证类型列（如 "482"；不同步副申行 "482 副申请"） */
+  /** 签证类型列（如 "482" / "482/Core Skills"） */
   visaLabel: string
   visaSubclass: string
   /** 案件当前阶段（同一案件的主/副行共享） */
@@ -102,8 +102,7 @@ function latestLodged(nom: string | null, visa: string | null): string | null {
 
 /**
  * 递交进度 Excel 式表格行：含全部案件（未递交案件 lodged=false、日期为 null、距今 -1 排末）。
- * 同步案件 → 一案件一行（主申 + 副申分列）。
- * 不同步案件 → 主申一行（副申列空）+ 每个副申一行（签证类型 "XX 副申请"，主申列写主申名）。
+ * 进度追踪始终同步 → 一案件一行（主申 + 副申同列）。sync_tracking 只影响财务核算，不影响此表。
  * 默认按「距今多久」降序（递交最久在前）。
  */
 export function selectCaseRows(
@@ -158,37 +157,18 @@ export function selectCaseRows(
       updatedAt: c.updated_at,
     }
 
-    if (c.sync_tracking) {
-      rows.push({
-        ...base,
-        rowKey: c.id,
-        role: 'merged',
-        primaryName,
-        secondaryName: subNames.join('、'),
-        visaLabel: visaText,
-      })
-    } else {
-      // 主申一行
-      rows.push({ ...base, rowKey: `${c.id}:primary`, role: 'primary', primaryName, secondaryName: '', visaLabel: visaText })
-      // 每个副申一行
-      for (const id of subIds) {
-        rows.push({
-          ...base,
-          rowKey: `${c.id}:${id}`,
-          role: 'secondary',
-          primaryName,
-          secondaryName: customerById[id]?.full_name ?? '',
-          visaLabel: `${visaText} 副申请`,
-        })
-      }
-    }
+    // 进度追踪始终同步：一案一行，主申 + 副申同列（sync_tracking 仅影响财务核算，不影响此表）
+    rows.push({
+      ...base,
+      rowKey: c.id,
+      role: 'merged',
+      primaryName,
+      secondaryName: subNames.join('、'),
+      visaLabel: visaText,
+    })
   }
-  // 同一案件的主/副排在一起：先按距今降序分组，再同案件 caseId 聚拢，组内主申在前、副申其后
-  const roleRank = (r: CaseRow) => (r.role === 'secondary' ? 1 : 0)
-  return rows.sort(
-    (a, b) =>
-      b.daysSince - a.daysSince || a.caseId.localeCompare(b.caseId) || roleRank(a) - roleRank(b),
-  )
+  // 默认按距今降序（最近递交在前），同距今按 caseId 稳定排序
+  return rows.sort((a, b) => b.daysSince - a.daysSince || a.caseId.localeCompare(b.caseId))
 }
 
 export type CaseSortKey =
