@@ -1,0 +1,32 @@
+name: Supabase keep-alive
+
+# 防止 Supabase 免费版「连续 ~7 天无活动自动暂停」导致整个后端下线、谁都登录不了。
+# 每天对 REST 接口发一次很轻的只读请求（命中数据库 = 一次活动），保持项目“活着”。
+on:
+  schedule:
+    - cron: '17 7 * * *' # 每天 07:17 UTC ping 一次（远小于 7 天阈值，留足余量）
+  workflow_dispatch: {} # 也可在 Actions 页手动触发测试
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ping Supabase REST
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+        run: |
+          if [ -z "$SUPABASE_URL" ] || [ -z "$SUPABASE_ANON_KEY" ]; then
+            echo "缺少仓库 Secret：SUPABASE_URL / SUPABASE_ANON_KEY（在 GitHub 仓库 Settings → Secrets and variables → Actions 添加）"
+            exit 1
+          fi
+          # 只读查询；受 RLS 保护，匿名只会拿到空结果，但请求会命中数据库 → 算一次活动。
+          code=$(curl -s -o /dev/null -w '%{http_code}' \
+            -H "apikey: $SUPABASE_ANON_KEY" \
+            "$SUPABASE_URL/rest/v1/customers?select=id&limit=1")
+          echo "Supabase REST 返回 HTTP $code"
+          if [ "$code" != "200" ]; then
+            echo "保活请求未返回 200（项目可能已暂停或配置有误）"
+            exit 1
+          fi
+          echo "保活成功 ✅"
