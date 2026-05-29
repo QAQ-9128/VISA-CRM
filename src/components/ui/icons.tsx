@@ -82,6 +82,16 @@ export function WalletIcon(props: SVGProps<SVGSVGElement>) {
   )
 }
 
+export function ArchiveIcon(props: SVGProps<SVGSVGElement>) {
+  return (
+    <svg {...base} {...props}>
+      <rect x="3" y="3" width="18" height="5" rx="1.5" />
+      <path d="M5 8v11a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V8" />
+      <path d="M9.5 12h5" />
+    </svg>
+  )
+}
+
 export function TrashIcon(props: SVGProps<SVGSVGElement>) {
   return (
     <svg {...base} {...props}>

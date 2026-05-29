@@ -1,23 +1,18 @@
 import { useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useCustomers, useUpdateCustomer } from '../../hooks/queries/useCustomers'
+import { useCases } from '../../hooks/queries/useCases'
 import { Button } from '../../components/ui/Button'
-import { Badge } from '../../components/ui/Badge'
 import { StarToggle } from '../../components/ui/StarToggle'
+import { StageBadge } from '../../components/cases/StageBadge'
+import { ClientSourceDot } from '../../components/customers/ClientSourceDot'
 import { LoadingBlock, ErrorBlock, EmptyState } from '../../components/ui/states'
 import { groupCustomersByFamily } from '../../lib/customerGroups'
-import { CUSTOMER_TIER_LABELS } from '../../types/domain'
-import type { Customer } from '../../types/models'
+import { formatVisaType } from '../../lib/visa'
+import type { Case, Customer } from '../../types/models'
 
-const TIER_STYLE: Record<string, string> = {
-  vip: 'bg-amber-100 text-amber-800',
-  a: 'bg-indigo-100 text-indigo-700',
-  b: 'bg-slate-100 text-slate-700',
-  c: 'bg-slate-100 text-slate-600',
-}
-
-/** 一行客户：sub=true 时缩进并加连接线，视觉上挂在主申下面。 */
-function CustomerRow({ c, sub = false }: { c: Customer; sub?: boolean }) {
+/** 一行客户：sub=true 时缩进并加连接线，视觉上挂在主申下面。cases = 该客户名下的案件。 */
+function CustomerRow({ c, sub = false, cases = [] }: { c: Customer; sub?: boolean; cases?: Case[] }) {
   const update = useUpdateCustomer()
   return (
     <li className={`flex items-center gap-2 border-t border-slate-100 first:border-t-0 ${sub ? 'pl-3' : ''}`}>
@@ -38,14 +33,23 @@ function CustomerRow({ c, sub = false }: { c: Customer; sub?: boolean }) {
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2">
             <span className={`truncate text-slate-900 ${sub ? 'text-sm' : 'font-medium'}`}>{c.full_name}</span>
-            {c.priority_tier && (
-              <Badge className={TIER_STYLE[c.priority_tier]}>{CUSTOMER_TIER_LABELS[c.priority_tier]}</Badge>
-            )}
+            <ClientSourceDot source={c.client_source} />
             {sub && c.relationship_to_primary && (
               <span className="text-xs text-slate-400">{c.relationship_to_primary}</span>
             )}
           </div>
-          <p className="truncate text-sm text-slate-500">{c.phone || c.email || c.wechat || '—'}</p>
+          {cases.length === 0 ? (
+            <p className="mt-0.5 text-sm text-slate-400">暂无案件</p>
+          ) : (
+            <div className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-1">
+              {cases.map((cs) => (
+                <span key={cs.id} className="inline-flex items-center gap-1 text-xs text-slate-500">
+                  {formatVisaType(cs.visa_subclass, cs.visa_stream)}
+                  <StageBadge stage={cs.current_stage} />
+                </span>
+              ))}
+            </div>
+          )}
         </div>
         <span className="text-slate-300">›</span>
       </Link>
@@ -56,7 +60,18 @@ function CustomerRow({ c, sub = false }: { c: Customer; sub?: boolean }) {
 export function CustomerListPage() {
   const [search, setSearch] = useState('')
   const customers = useCustomers({ search })
+  const cases = useCases()
   const groups = useMemo(() => groupCustomersByFamily(customers.data ?? []), [customers.data])
+  // 客户 id → 其名下案件（用于每行显示「签证类别 · 状态」）
+  const casesByCustomer = useMemo(() => {
+    const m = new Map<string, Case[]>()
+    for (const cs of cases.data ?? []) {
+      const arr = m.get(cs.customer_id) ?? []
+      arr.push(cs)
+      m.set(cs.customer_id, arr)
+    }
+    return m
+  }, [cases.data])
 
   return (
     <section className="mx-auto max-w-3xl">
@@ -105,9 +120,9 @@ export function CustomerListPage() {
                   </p>
                 )}
                 <ul>
-                  {g.primary && <CustomerRow c={g.primary} />}
+                  {g.primary && <CustomerRow c={g.primary} cases={casesByCustomer.get(g.primary.id) ?? []} />}
                   {g.subs.map((s) => (
-                    <CustomerRow key={s.id} c={s} sub />
+                    <CustomerRow key={s.id} c={s} sub cases={casesByCustomer.get(s.id) ?? []} />
                   ))}
                 </ul>
               </div>

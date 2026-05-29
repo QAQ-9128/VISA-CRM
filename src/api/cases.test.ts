@@ -79,6 +79,39 @@ describe('updateCaseStage', () => {
     )
     expect(result).toEqual(updated)
   })
+
+  it('传 effectiveAt 时写入 effective_at（事后补录过去日期）', async () => {
+    const b = wireFrom(fromMock, { cases: { data: { id: 'c1' } }, case_stage_history: {} })
+    await casesApi.updateCaseStage({
+      caseId: 'c1',
+      fromStage: 'todo',
+      toStage: 'nomination_lodged',
+      effectiveAt: '2026-05-20T09:00:00.000Z',
+    })
+    expect(b.case_stage_history.insert).toHaveBeenCalledWith(
+      expect.objectContaining({ effective_at: '2026-05-20T09:00:00.000Z' }),
+    )
+  })
+})
+
+describe('updateStageHistory', () => {
+  it('按 id UPDATE 实际发生时间，绝不 INSERT', async () => {
+    const b = wireFrom(fromMock, { case_stage_history: { data: { id: 'h1' } } })
+    await casesApi.updateStageHistory('h1', { effective_at: '2026-05-20T09:00:00.000Z' })
+    expect(b.case_stage_history.update).toHaveBeenCalledWith({ effective_at: '2026-05-20T09:00:00.000Z' })
+    expect(b.case_stage_history.eq).toHaveBeenCalledWith('id', 'h1')
+    expect(b.case_stage_history.insert).not.toHaveBeenCalled()
+  })
+})
+
+describe('deleteStageHistory', () => {
+  it('按 id DELETE，不改 cases、不 INSERT', async () => {
+    const b = wireFrom(fromMock, { case_stage_history: {} })
+    await casesApi.deleteStageHistory('h1')
+    expect(b.case_stage_history.delete).toHaveBeenCalled()
+    expect(b.case_stage_history.eq).toHaveBeenCalledWith('id', 'h1')
+    expect(b.case_stage_history.insert).not.toHaveBeenCalled()
+  })
 })
 
 describe('archiveCase', () => {
@@ -97,6 +130,6 @@ describe('getCaseStageHistory', () => {
     await casesApi.getCaseStageHistory('c1')
     expect(fromMock).toHaveBeenCalledWith('case_stage_history')
     expect(b.case_stage_history.eq).toHaveBeenCalledWith('case_id', 'c1')
-    expect(b.case_stage_history.order).toHaveBeenCalledWith('changed_at', { ascending: false })
+    expect(b.case_stage_history.order).toHaveBeenCalledWith('effective_at', { ascending: false })
   })
 })

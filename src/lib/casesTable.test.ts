@@ -1,12 +1,13 @@
 import { describe, expect, it } from 'vitest'
 import {
+  calculateWaitDays,
   elapsedMonthsDays,
   formatElapsed,
   joinFamilyNames,
   selectCaseRows,
   sortCaseRows,
 } from './casesTable'
-import type { Case, CaseApplicant, Customer, Lodgement } from '../types/models'
+import type { Case, CaseApplicant, CaseStageHistory, Customer, Lodgement } from '../types/models'
 
 const TODAY = new Date(2026, 4, 29) // 2026-05-29
 
@@ -16,9 +17,9 @@ const mkCase = (o: Partial<Case>): Case => ({
   is_archived: false, created_at: '', updated_at: '2026-05-20T00:00:00Z', ...o,
 })
 const mkCustomer = (o: Partial<Customer>): Customer => ({
-  id: 'cu1', full_name: '李旻书', is_starred: false, priority_tier: null, primary_applicant_id: null,
+  id: 'cu1', full_name: '李旻书', is_starred: false, client_source: null, primary_applicant_id: null,
   relationship_to_primary: null, birth_date: null, gender: null, passport_no: null, nationality: null, phone: null,
-  email: null, wechat: null, address: null, sponsor_employer_id: null, referrer_id: null, notes: null,
+  email: null, wechat: null, address: null, sponsor_employer_id: null, sponsor_position: null, referrer_id: null, notes: null,
   assigned_to: null, created_by: null, is_archived: false, created_at: '', updated_at: '', ...o,
 })
 const mkLodgement = (o: Partial<Lodgement>): Lodgement => ({
@@ -28,6 +29,45 @@ const mkLodgement = (o: Partial<Lodgement>): Lodgement => ({
 })
 const ca = (case_id: string, customer_id: string): CaseApplicant => ({
   id: `${case_id}-${customer_id}`, case_id, customer_id, created_at: '',
+})
+const mkHistory = (o: Partial<CaseStageHistory>): CaseStageHistory => ({
+  id: 'h1', case_id: 'c1', from_stage: null, to_stage: 'granted', note: null, changed_by: null,
+  changed_at: '2026-01-10T00:00:00Z', effective_at: '2026-01-10T00:00:00Z', ...o,
+})
+
+describe('calculateWaitDays', () => {
+  it('未决：递交 → 今天，继续增长，不冻结', () => {
+    const lodgement = mkLodgement({ case_id: 'c1', lodged_date: '2026-01-01' })
+    const r = calculateWaitDays(lodgement, [], new Date(2026, 2, 1)) // 2026-03-01
+    expect(r).toEqual({ lodged: true, frozen: false, totalDays: 59, months: 2, days: 0, label: '2 个月 0 天' })
+  })
+
+  it('已决（有下签/拒签历史）：递交 → 决定日，冻结，不随今天增长', () => {
+    const lodgement = mkLodgement({ case_id: 'c1', lodged_date: '2026-01-01' })
+    const history = [
+      mkHistory({ case_id: 'c1', to_stage: 'granted', effective_at: '2026-02-15T03:00:00Z' }),
+    ]
+    // 今天远在决定日之后，结果仍冻结到 2026-02-15
+    const r = calculateWaitDays(lodgement, history, new Date(2026, 11, 1))
+    expect(r).toEqual({ lodged: true, frozen: true, totalDays: 45, months: 1, days: 14, label: '1 个月 14 天' })
+  })
+
+  it('多条终态历史取最晚决定日；只认本案件', () => {
+    const lodgement = mkLodgement({ case_id: 'c1', lodged_date: '2026-01-01' })
+    const history = [
+      mkHistory({ id: 'h1', case_id: 'c1', to_stage: 'refused', effective_at: '2026-02-10T00:00:00Z' }),
+      mkHistory({ id: 'h2', case_id: 'c1', to_stage: 'granted', effective_at: '2026-03-01T00:00:00Z' }),
+      mkHistory({ id: 'h3', case_id: 'other', to_stage: 'granted', effective_at: '2026-09-01T00:00:00Z' }),
+    ]
+    const r = calculateWaitDays(lodgement, history, new Date(2026, 11, 1))
+    expect(r.frozen).toBe(true)
+    expect(r.totalDays).toBe(59) // 2026-01-01 → 2026-03-01
+  })
+
+  it('未递交（无 lodged_date）→ 不可计，label —', () => {
+    const r = calculateWaitDays(mkLodgement({ lodged_date: null }), [], new Date(2026, 2, 1))
+    expect(r).toMatchObject({ lodged: false, totalDays: 0, label: '—' })
+  })
 })
 
 describe('elapsedMonthsDays / formatElapsed', () => {
@@ -78,6 +118,69 @@ describe('selectCaseRows', () => {
       currentStage: 'visa_lodged',
     })
     expect(rows[0].elapsed).toEqual(elapsedMonthsDays('2026-03-01', TODAY)) // 取较晚
+  })
+
+  it('终态(下签)冻结距今 = 递交日 → 决定日，不到今天', () => {
+    const cases = [mkCase({ id: 'c1', customer_id: 'cu1', current_stage: 'granted', sync_tracking: true })]
+    const lodgements = [
+      mkLodgement({ case_id: 'c1', type: 'nomination', lodged_date: '2026-01-01' }),
+      mkLodgement({ case_id: 'c1', type: 'visa', lodged_date: '2026-01-01' }),
+    ]
+    const history = [mkHistory({ case_id: 'c1', to_stage: 'granted', effective_at: '2026-01-10T00:00:00Z' })]
+    const rows = selectCaseRows(cases, lodgements, [], [mkCustomer({ id: 'cu1', full_name: '李' })], TODAY, history)
+    expect(rows[0].visaDaysSince).toBe(9) // 1.1 → 1.10 冻结
+    expect(rows[0].nomDaysSince).toBe(9)
+  })
+
+  it('未决：距今 = 递交日 → 今天（继续增长）', () => {
+    const cases = [mkCase({ id: 'c1', customer_id: 'cu1', current_stage: 'visa_lodged', sync_tracking: true })]
+    const lodgements = [mkLodgement({ case_id: 'c1', type: 'visa', lodged_date: '2026-01-01' })]
+    const rows = selectCaseRows(cases, lodgements, [], [mkCustomer({ id: 'cu1', full_name: '李' })], TODAY, [])
+    expect(rows[0].visaDaysSince).toBe(148) // 2026-01-01 → 2026-05-29(TODAY)
+  })
+
+  it('附带 frozen 与各递交 DHA 天数（供等待天数列着色用）', () => {
+    const cu = [mkCustomer({ id: 'cu1', full_name: '李' })]
+    const decided = selectCaseRows(
+      [mkCase({ id: 'c1', customer_id: 'cu1', current_stage: 'refused' })],
+      [mkLodgement({ case_id: 'c1', type: 'visa', lodged_date: '2026-01-01', dha_processing_days: 120 })],
+      [], cu, TODAY,
+      [mkHistory({ case_id: 'c1', to_stage: 'refused', effective_at: '2026-02-01T00:00:00Z' })],
+    )
+    expect(decided[0]).toMatchObject({ frozen: true, visaDhaDays: 120, nomDhaDays: null })
+    const pending = selectCaseRows(
+      [mkCase({ id: 'c1', customer_id: 'cu1', current_stage: 'visa_lodged' })],
+      [mkLodgement({ case_id: 'c1', type: 'nomination', lodged_date: '2026-01-01', dha_processing_days: 90 })],
+      [], cu, TODAY, [],
+    )
+    expect(pending[0]).toMatchObject({ frozen: false, nomDhaDays: 90 })
+  })
+
+  it('今天就决定 → 递交日到今天的天数；终态但无历史 → 回退今天', () => {
+    const lodgements = [mkLodgement({ case_id: 'c1', type: 'visa', lodged_date: '2026-05-20' })]
+    const cu = [mkCustomer({ id: 'cu1', full_name: '李' })]
+    // 今天(2026-05-29)决定
+    const decidedToday = selectCaseRows(
+      [mkCase({ id: 'c1', customer_id: 'cu1', current_stage: 'granted', sync_tracking: true })],
+      lodgements, [], cu, TODAY,
+      [mkHistory({ case_id: 'c1', to_stage: 'granted', effective_at: '2026-05-29T12:00:00Z' })],
+    )
+    expect(decidedToday[0].visaDaysSince).toBe(9) // 5.20 → 5.29
+    // 终态但没有历史记录 → 回退今天（同样 9 天，因为今天就是 5.29）
+    const noHistory = selectCaseRows(
+      [mkCase({ id: 'c1', customer_id: 'cu1', current_stage: 'granted', sync_tracking: true })],
+      lodgements, [], cu, TODAY, [],
+    )
+    expect(noHistory[0].visaDaysSince).toBe(9)
+  })
+
+  it('跨月冻结：1/20 递交 → 3/5 下签 = 1 个月 13 天 / 44 天', () => {
+    const cases = [mkCase({ id: 'c1', customer_id: 'cu1', current_stage: 'granted', sync_tracking: true })]
+    const lodgements = [mkLodgement({ case_id: 'c1', type: 'visa', lodged_date: '2026-01-20' })]
+    const history = [mkHistory({ case_id: 'c1', to_stage: 'granted', effective_at: '2026-03-05T00:00:00Z' })]
+    const rows = selectCaseRows(cases, lodgements, [], [mkCustomer({ id: 'cu1', full_name: '李' })], TODAY, history)
+    expect(rows[0].visaDaysSince).toBe(44)
+    expect(rows[0].visaElapsed).toEqual({ months: 1, days: 13 })
   })
 
   it('提名/签证各自的距今(elapsed/daysSince)分开计算；缺哪边哪边为 null', () => {

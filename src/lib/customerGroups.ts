@@ -1,4 +1,3 @@
-import { CUSTOMER_TIER_ORDER } from '../types/domain'
 import type { Customer } from '../types/models'
 
 export interface FamilyGroup {
@@ -10,15 +9,9 @@ export interface FamilyGroup {
   orphan: boolean
 }
 
-const tierRank = (c: Customer) => (c.priority_tier ? CUSTOMER_TIER_ORDER[c.priority_tier] : 99)
-
-/** 锚定（主申 / 独立）排序：星标 → 等级 → 姓名。 */
+/** 锚定（主申 / 独立）排序：星标 → 姓名。 */
 function compareAnchors(a: Customer, b: Customer): number {
-  return (
-    Number(b.is_starred) - Number(a.is_starred) ||
-    tierRank(a) - tierRank(b) ||
-    a.full_name.localeCompare(b.full_name)
-  )
+  return Number(b.is_starred) - Number(a.is_starred) || a.full_name.localeCompare(b.full_name)
 }
 
 /** 组内副申排序：添加时间 → 姓名。 */

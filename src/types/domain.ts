@@ -88,6 +88,15 @@ export const PAYMENT_METHOD_LABELS: Record<PaymentMethod, string> = {
   other: '其他',
 }
 
+// ── 费用类别（收款记账用；DB 为 text 可空，存中文常量值）──────────────────
+// 主要用于客户收款(from_client)：标注这笔钱属于哪类费用。
+// 想加新类别（如「翻译费」「服务费」），在这里加一项即可，全站下拉自动跟进。
+// 「其他」走手填：UI 选中 FEE_CATEGORY_OTHER 占位项后展开输入框，入库存用户自填文本（不存占位值）。
+export const FEE_CATEGORIES = ['律师费', '文案费'] as const
+export type FeeCategory = (typeof FEE_CATEGORIES)[number]
+/** 下拉里「其他（手填）」的占位 value：仅 UI 用于触发手填输入框，绝不入库。 */
+export const FEE_CATEGORY_OTHER = '__other__'
+
 // ── 跟进渠道 ─────────────────────────────────────────
 export const FOLLOW_UP_CHANNELS = ['call', 'wechat', 'email', 'meeting', 'other'] as const
 export type FollowUpChannel = (typeof FOLLOW_UP_CHANNELS)[number]
@@ -135,23 +144,33 @@ export const DOC_TYPE_LABELS: Record<DocType, string> = {
   other: '其他',
 }
 
-// ── 客户等级（可空 = 未分级）──────────────────────────
-export const CUSTOMER_TIERS = ['vip', 'a', 'b', 'c'] as const
-export type CustomerTier = (typeof CUSTOMER_TIERS)[number]
+// ── 客户来源（可空 = 未分类；DB 为 text，存英文键、显中文）──────────
+// 用颜色标签表达「客户从哪来」，决定服务优先级心智：
+//   red    = 公司派的
+//   green  = 自己的
+//   yellow = 帮别人擦屁股的
+export const CLIENT_SOURCES = ['red', 'green', 'yellow'] as const
+export type ClientSource = (typeof CLIENT_SOURCES)[number]
 
-export const CUSTOMER_TIER_LABELS: Record<CustomerTier, string> = {
-  vip: 'VIP',
-  a: 'A',
-  b: 'B',
-  c: 'C',
+/** 完整中文标签（含说明），下拉/tooltip 用 */
+export const CLIENT_SOURCE_LABELS: Record<ClientSource, string> = {
+  red: '红色（公司派的）',
+  green: '绿色（自己的）',
+  yellow: '黄色（帮别人擦屁股的）',
 }
 
-/** 等级排序权重：vip→a→b→c，未分级(null)排最后 */
-export const CUSTOMER_TIER_ORDER: Record<CustomerTier, number> = {
-  vip: 0,
-  a: 1,
-  b: 2,
-  c: 3,
+/** 下拉选项文案：彩色圆点(emoji) + 中文 + 说明 */
+export const CLIENT_SOURCE_OPTION_LABELS: Record<ClientSource, string> = {
+  red: '🔴 红色（公司派的）',
+  green: '🟢 绿色（自己的）',
+  yellow: '🟡 黄色（帮别人擦屁股的）',
+}
+
+/** 圆点徽章配色（Tailwind 实心）：red-600 / green-600 / yellow-500 */
+export const CLIENT_SOURCE_DOT: Record<ClientSource, string> = {
+  red: 'bg-red-600',
+  green: 'bg-green-600',
+  yellow: 'bg-yellow-500',
 }
 
 // ── 性别（DB 为 text 可空；存英文键、显中文）──────────────

@@ -8,6 +8,7 @@ import {
   useCreatePaymentPlan,
   useUpdatePaymentPlan,
 } from '../../hooks/queries/usePayments'
+import { getCustomerPaymentColor, CUSTOMER_PAYMENT_TEXT_CLASS } from '../../lib/finance'
 import type { ReceivableRow, ReceivableTotals } from '../../lib/finance'
 
 const fmt = (n: number) => n.toLocaleString('en-AU', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
@@ -30,6 +31,7 @@ function ReceivableRowItem({ row }: { row: ReceivableRow }) {
   const [addingReceipt, setAddingReceipt] = useState(false)
 
   const planPending = createPlan.isPending || updatePlan.isPending
+  const nameColor = getCustomerPaymentColor(row.receivable, row.paid, row.unpaid)
 
   function saveReceivable() {
     const val = Number(receivableInput)
@@ -48,6 +50,7 @@ function ReceivableRowItem({ row }: { row: ReceivableRow }) {
         method: v.method,
         paid_at: v.paid_at,
         note: v.note,
+        fee_category: v.fee_category,
       },
       { onSuccess: () => setAddingReceipt(false) },
     )
@@ -63,7 +66,12 @@ function ReceivableRowItem({ row }: { row: ReceivableRow }) {
                 └─
               </span>
             )}
-            <Link to={`/cases/${row.caseId}`} className="font-medium text-indigo-600 hover:underline">
+            <Link
+              to={`/cases/${row.caseId}`}
+              className={`font-medium hover:underline ${
+                nameColor === 'default' ? 'text-indigo-600' : CUSTOMER_PAYMENT_TEXT_CLASS[nameColor]
+              }`}
+            >
               {row.customerName || '（未知客户）'}
             </Link>
             {row.role === 'merged' && row.coApplicantNames.length > 0 && (
@@ -134,6 +142,7 @@ function ReceivableRowItem({ row }: { row: ReceivableRow }) {
               {addingReceipt ? (
                 <PaymentEntryForm
                   submitLabel="加收款"
+                  showFeeCategory
                   pending={createPayment.isPending}
                   onSubmit={addReceipt}
                   onCancel={() => setAddingReceipt(false)}

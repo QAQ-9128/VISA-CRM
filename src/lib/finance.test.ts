@@ -7,7 +7,10 @@ import {
   selectCustomerFinance,
   filterPaymentsByMonth,
   selectRecentCases,
+  getCustomerPaymentColor,
+  selectCasePaymentColors,
 } from './finance'
+import type { ReceivableRow } from './finance'
 import type { Case, Customer, Payment, PaymentPlan, Referrer } from '../types/models'
 
 // 最小工厂
@@ -17,9 +20,9 @@ const mkCase = (o: Partial<Case>): Case => ({
   is_archived: false, created_at: '', updated_at: '', ...o,
 })
 const mkCustomer = (o: Partial<Customer>): Customer => ({
-  id: 'cu1', full_name: '张三', is_starred: false, priority_tier: null, primary_applicant_id: null,
+  id: 'cu1', full_name: '张三', is_starred: false, client_source: null, primary_applicant_id: null,
   relationship_to_primary: null, birth_date: null, gender: null, passport_no: null, nationality: null, phone: null,
-  email: null, wechat: null, address: null, sponsor_employer_id: null, referrer_id: null, notes: null,
+  email: null, wechat: null, address: null, sponsor_employer_id: null, sponsor_position: null, referrer_id: null, notes: null,
   assigned_to: null, created_by: null, is_archived: false, created_at: '', updated_at: '', ...o,
 })
 const mkPlan = (o: Partial<PaymentPlan>): PaymentPlan => ({
@@ -28,7 +31,7 @@ const mkPlan = (o: Partial<PaymentPlan>): PaymentPlan => ({
 })
 const mkPayment = (o: Partial<Payment>): Payment => ({
   id: 'pay1', case_id: 'c1', applicant_id: null, direction: 'from_client', installment_id: null, amount: 0,
-  currency: 'AUD', method: 'transfer', paid_at: null, note: null, invoice_path: null, invoice_name: null,
+  currency: 'AUD', method: 'transfer', paid_at: null, note: null, fee_category: null, invoice_path: null, invoice_name: null,
   recorded_by: null, created_at: '', ...o,
 })
 const mkReferrer = (o: Partial<Referrer>): Referrer => ({
@@ -190,7 +193,7 @@ describe('selectFinanceReceipts', () => {
     const caseById = { c1: mkCase({ id: 'c1', case_number: '12345678', customer_id: 'cu1', visa_subclass: '482' }) }
     const customerById = { cu1: mkCustomer({ id: 'cu1', full_name: '张三' }) }
     const payments = [
-      mkPayment({ id: 'p1', case_id: 'c1', direction: 'from_client', amount: 300, method: 'cash', paid_at: '2026-05-02', note: '定金', invoice_path: 'cu1/c1/inv.pdf', invoice_name: 'inv.pdf' }),
+      mkPayment({ id: 'p1', case_id: 'c1', direction: 'from_client', amount: 300, method: 'cash', paid_at: '2026-05-02', note: '定金', fee_category: '律师费', invoice_path: 'cu1/c1/inv.pdf', invoice_name: 'inv.pdf' }),
       mkPayment({ id: 'p2', case_id: 'c1', direction: 'from_client', amount: 200, paid_at: '2026-05-01' }),
       mkPayment({ id: 'p3', case_id: 'c1', direction: 'to_company', amount: 999 }), // 忽略
       mkPayment({ id: 'p4', case_id: 'c1', direction: 'from_client', amount: -50 }), // 负数不计入合计
@@ -199,8 +202,10 @@ describe('selectFinanceReceipts', () => {
     expect(r.items.map((i) => i.paymentId)).toEqual(['p1', 'p2', 'p4']) // 按日期倒序（无日期最后）
     expect(r.items.find((i) => i.paymentId === 'p1')).toMatchObject({
       amount: 300, method: 'cash', customerName: '张三', visaSubclass: '482', caseNumber: '12345678',
-      customerId: 'cu1', note: '定金', caseId: 'c1', invoicePath: 'cu1/c1/inv.pdf', invoiceName: 'inv.pdf',
+      customerId: 'cu1', note: '定金', feeCategory: '律师费', caseId: 'c1', invoicePath: 'cu1/c1/inv.pdf', invoiceName: 'inv.pdf',
     })
+    // 未填类别的记录 feeCategory 为 null
+    expect(r.items.find((i) => i.paymentId === 'p2')?.feeCategory).toBeNull()
     expect(r.total).toBe(500)
   })
 })
@@ -278,5 +283,42 @@ describe('selectCustomerFinance', () => {
     const r = selectCustomerFinance('cu1', cases, caseApplicants, [], [], customerById, {})
     expect(r.receivables).toHaveLength(1)
     expect(r.receivables[0]).toMatchObject({ role: 'merged', customerName: '张三', coApplicantNames: ['李四'] })
+  })
+})
+
+describe('getCustomerPaymentColor', () => {
+  it('全部付清（未付=0 且 应收>0）→ green', () => {
+    expect(getCustomerPaymentColor(1000, 1000, 0)).toBe('green')
+  })
+  it('部分付清（还欠钱）→ blue', () => {
+    expect(getCustomerPaymentColor(1000, 400, 600)).toBe('blue')
+  })
+  it('全没付（应收>0、未付=应收）→ blue', () => {
+    expect(getCustomerPaymentColor(1000, 0, 1000)).toBe('blue')
+  })
+  it('没立案 / 没收费（应收=0）→ default', () => {
+    expect(getCustomerPaymentColor(0, 0, 0)).toBe('default')
+  })
+  it('超付（未付=0 且 应收>0）仍按付清 → green', () => {
+    expect(getCustomerPaymentColor(1000, 1200, 0)).toBe('green')
+  })
+})
+
+describe('selectCasePaymentColors', () => {
+  const mkRow = (o: Partial<ReceivableRow>): ReceivableRow => ({
+    caseId: 'c1', applicantId: null, role: 'merged', coApplicantNames: [], planId: 'p1',
+    customerId: 'cu1', customerName: '张三', visaSubclass: '482', receivable: 0, paid: 0, unpaid: 0, ...o,
+  })
+  it('按案件聚合应收行 → 客户付款颜色（同案多行合计）', () => {
+    const rows = [
+      mkRow({ caseId: 'paid', receivable: 1000, paid: 1000, unpaid: 0 }),
+      mkRow({ caseId: 'owe', receivable: 1000, paid: 200, unpaid: 800 }),
+      mkRow({ caseId: 'none', receivable: 0, paid: 0, unpaid: 0 }),
+      // 同案主+副两行：一行付清、一行欠 → 合计仍欠 → blue
+      mkRow({ caseId: 'split', receivable: 500, paid: 500, unpaid: 0 }),
+      mkRow({ caseId: 'split', receivable: 500, paid: 0, unpaid: 500 }),
+    ]
+    const m = selectCasePaymentColors(rows)
+    expect(m).toEqual({ paid: 'green', owe: 'blue', none: 'default', split: 'blue' })
   })
 })

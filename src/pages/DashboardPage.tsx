@@ -3,11 +3,11 @@ import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useDashboard } from '../hooks/queries/useDashboard'
 import { useUpdateRecord } from '../hooks/queries/useRecords'
-import { Badge } from '../components/ui/Badge'
 import { LoadingBlock, ErrorBlock } from '../components/ui/states'
+import { ClientSourceDot } from '../components/customers/ClientSourceDot'
+import { CUSTOMER_PAYMENT_TEXT_CLASS } from '../lib/finance'
 import { formatMoney } from '../lib/money'
 import { isTaskOverdue } from '../lib/tasks'
-import { CUSTOMER_TIER_LABELS } from '../types/domain'
 import type { RecordRow } from '../types/models'
 
 /** 我的待办里的内联截止日：点击 → 日历选择，选了即存（更新 records.due_date）。 */
@@ -176,14 +176,14 @@ export function DashboardPage() {
           ))}
         </AlertCard>
 
-        {/* 优先客户 */}
-        <AlertCard title="优先客户" count={d.priorityCustomers.length} empty="暂无标星客户">
+        {/* 星标客户：is_starred = true 的客户 */}
+        <AlertCard title="星标客户" count={d.priorityCustomers.length} empty="暂无标星客户">
           {d.priorityCustomers.map((c) => (
             <Row
               key={c.id}
               to={`/customers/${c.id}`}
               left={c.full_name}
-              right={c.priority_tier ? <Badge>{CUSTOMER_TIER_LABELS[c.priority_tier]}</Badge> : null}
+              right={<ClientSourceDot source={c.client_source} />}
             />
           ))}
         </AlertCard>
@@ -210,7 +210,13 @@ export function DashboardPage() {
                   to={`/customers/${c.customerId}`}
                   className="flex items-center justify-between gap-3 py-2.5 text-sm hover:opacity-70"
                 >
-                  <span className="min-w-0 flex-1 truncate font-medium text-slate-900">{c.customerName}</span>
+                  <span
+                    className={`min-w-0 flex-1 truncate font-medium ${
+                      c.color === 'default' ? 'text-slate-900' : CUSTOMER_PAYMENT_TEXT_CLASS[c.color]
+                    }`}
+                  >
+                    {c.customerName}
+                  </span>
                   <span className="shrink-0 text-right">
                     {c.clientOwes > 0 && (
                       <span className="font-medium text-rose-600">欠你 {formatMoney(c.clientOwes)}</span>

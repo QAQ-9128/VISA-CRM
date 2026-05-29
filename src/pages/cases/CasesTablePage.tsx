@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useLodgedLodgements } from '../../hooks/queries/useLodgements'
-import { useCases } from '../../hooks/queries/useCases'
+import { useCases, useAllStageHistory } from '../../hooks/queries/useCases'
 import { useCustomers } from '../../hooks/queries/useCustomers'
 import { useAllCaseApplicants } from '../../hooks/queries/useCaseApplicants'
 import { selectCaseRows, sortCaseRows } from '../../lib/casesTable'
@@ -12,6 +12,14 @@ import { LoadingBlock, ErrorBlock, EmptyState } from '../../components/ui/states
 
 const fmtElapsed = (e: { months: number; days: number }) =>
   e.months <= 0 ? `${e.days} 天` : `${e.months} 个月 ${e.days} 天`
+
+/** 等待天数着色：已决冻结→灰；未决且超 DHA 处理天数→红；其余默认。与案件详情卡片一致。 */
+const waitClass = (frozen: boolean, daysSince: number | null, dhaDays: number | null) =>
+  frozen
+    ? 'text-slate-400'
+    : daysSince != null && dhaDays != null && daysSince > dhaDays
+      ? 'text-rose-600'
+      : 'text-slate-900'
 
 interface Column {
   key: CaseSortKey
@@ -27,6 +35,7 @@ const COLUMNS: Column[] = [
   { key: 'nomElapsed', label: '提名距今' },
   { key: 'visaDate', label: '签证递交时间' },
   { key: 'visaElapsed', label: '签证距今' },
+  { key: 'elapsed', label: '等待天数' },
   { key: 'updated', label: '最新更新' },
 ]
 
@@ -35,6 +44,7 @@ export function CasesTablePage() {
   const cases = useCases()
   const customers = useCustomers({})
   const applicants = useAllCaseApplicants()
+  const stageHistory = useAllStageHistory()
 
   const [sortKey, setSortKey] = useState<CaseSortKey>('elapsed')
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc')
@@ -46,12 +56,21 @@ export function CasesTablePage() {
     for (const c of customers.data ?? []) customerById[c.id] = c
     const visible = visibleCaseIds(cases.data ?? [], customerById)
     const visibleCases = (cases.data ?? []).filter((c) => visible.has(c.id))
-    return selectCaseRows(visibleCases, lodgements.data ?? [], applicants.data ?? [], customers.data ?? [], today)
-  }, [cases.data, lodgements.data, applicants.data, customers.data, today])
+    return selectCaseRows(
+      visibleCases,
+      lodgements.data ?? [],
+      applicants.data ?? [],
+      customers.data ?? [],
+      today,
+      stageHistory.data ?? [],
+    )
+  }, [cases.data, lodgements.data, applicants.data, customers.data, today, stageHistory.data])
   const sorted = useMemo(() => sortCaseRows(rows, sortKey, sortDir), [rows, sortKey, sortDir])
 
-  const isPending = lodgements.isPending || cases.isPending || customers.isPending || applicants.isPending
-  const isError = lodgements.isError || cases.isError || customers.isError || applicants.isError
+  const isPending =
+    lodgements.isPending || cases.isPending || customers.isPending || applicants.isPending || stageHistory.isPending
+  const isError =
+    lodgements.isError || cases.isError || customers.isError || applicants.isError || stageHistory.isError
 
   function toggleSort(key: CaseSortKey) {
     if (key === sortKey) setSortDir((d) => (d === 'asc' ? 'desc' : 'asc'))
@@ -136,12 +155,16 @@ function CaseRowView({ row }: { row: CaseRow }) {
         <StageBadge stage={row.currentStage} />
       </td>
       <td className="py-2.5 pr-4 whitespace-nowrap tabular-nums text-slate-700">{row.nomLodgedDate || '—'}</td>
-      <td className="py-2.5 pr-4 whitespace-nowrap font-medium text-slate-900">
+      <td className={`py-2.5 pr-4 whitespace-nowrap font-medium ${waitClass(row.frozen, row.nomDaysSince, row.nomDhaDays)}`}>
         {row.nomElapsed ? fmtElapsed(row.nomElapsed) : <span className="text-slate-400">—</span>}
       </td>
       <td className="py-2.5 pr-4 whitespace-nowrap tabular-nums text-slate-700">{row.visaLodgedDate || '—'}</td>
-      <td className="py-2.5 pr-4 whitespace-nowrap font-medium text-slate-900">
+      <td className={`py-2.5 pr-4 whitespace-nowrap font-medium ${waitClass(row.frozen, row.visaDaysSince, row.visaDhaDays)}`}>
         {row.visaElapsed ? fmtElapsed(row.visaElapsed) : <span className="text-slate-400">—</span>}
+      </td>
+      <td className={`py-2.5 pr-4 whitespace-nowrap font-medium ${waitClass(row.frozen, row.lodged ? row.daysSince : null, null)}`}>
+        {row.lodged ? fmtElapsed(row.elapsed) : <span className="text-slate-400">—</span>}
+        {row.frozen && row.lodged && <span className="text-slate-400">（已结案）</span>}
       </td>
       <td className="py-2.5 pr-4 whitespace-nowrap tabular-nums text-slate-400">{row.updatedAt.slice(0, 10)}</td>
     </tr>

@@ -43,6 +43,9 @@ export const VISA_CATALOG: VisaCategory[] = [
       { subclass: '482', name: 'Skills in Demand', streams: s('Core Skills', 'Specialist Skills', 'Labour Agreement'), allowOtherStream: true },
       { subclass: '186', name: 'Employer Nomination Scheme (ENS)', streams: s('Direct Entry', 'Temporary Residence Transition', 'Labour Agreement'), allowOtherStream: true },
       { subclass: '494', name: 'Skilled Employer Sponsored Regional', streams: s('Employer Sponsored', 'Labour Agreement', 'Subsequent Entrant'), allowOtherStream: true },
+      { subclass: '407', name: 'Training Visa（培训签证）', streams: [] },
+      // SBS 严格说是雇主担保「资格」申请、非签证，但属客户实际办理的业务，先并入此处（visa_subclass 为 text）。
+      { subclass: 'SBS', name: 'Standard Business Sponsor（雇主担保资格申请）', streams: [] },
     ],
   },
   {
@@ -121,6 +124,8 @@ export const VISA_CATALOG: VisaCategory[] = [
       { subclass: '408', name: 'Temporary Activity', streams: [] },
       { subclass: '403', name: 'Temporary Work (International Relations)', streams: [] },
       { subclass: 'Citizenship', name: '入籍 Citizenship（独立流程）', streams: [] },
+      // Skill Assessment 严格说是技术评估、非签证，但属客户实际办理的业务，先并入此处（visa_subclass 为 text）。
+      { subclass: 'Skill Assessment', name: '技术评估', streams: [] },
     ],
   },
 ]

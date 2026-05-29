@@ -5,7 +5,7 @@ import { ReceivablesTable } from '../../components/finance/ReceivablesTable'
 import { ReceiptsList } from '../../components/finance/ReceiptsList'
 import { ExpensesPanel } from '../../components/finance/ExpensesPanel'
 import { MonthSelector } from '../../components/finance/MonthSelector'
-import { sumFinanceReceivables } from '../../lib/finance'
+import { sumFinanceReceivables, selectCasePaymentColors } from '../../lib/finance'
 import { formatMoney } from '../../lib/money'
 import { currentMonth } from '../../lib/month'
 
@@ -31,6 +31,8 @@ export function FinancePage() {
 
   const shownRows = showAllReceivables ? receivables : recentRows
   const shownTotals = useMemo(() => sumFinanceReceivables(shownRows), [shownRows])
+  // 收款明细按案件应收状态着色（用全量应收行，确保每笔收款都能匹配到案件状态）
+  const colorByCase = useMemo(() => selectCasePaymentColors(receivables), [receivables])
 
   // 区域 2 月度总计条
   const totalExpense = useMemo(
@@ -101,7 +103,7 @@ export function FinancePage() {
 
         <div>
           <h3 className="mb-2 text-sm font-semibold text-slate-700">收款明细（客户付款）</h3>
-          <ReceiptsList items={receipts.items} total={receipts.total} />
+          <ReceiptsList items={receipts.items} total={receipts.total} colorByCase={colorByCase} />
         </div>
 
         <div>

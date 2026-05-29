@@ -1,6 +1,7 @@
 import { computeAccounting } from './accounting'
+import { getCustomerPaymentColor } from './finance'
+import type { CustomerPaymentColor } from './finance'
 import { utcDayDiff } from './dateDiff'
-import { CUSTOMER_TIER_ORDER } from '../types/domain'
 import type { Case, Customer, Installment, Payment, PaymentPlan, RecordRow } from '../types/models'
 
 type CaseMap = Record<string, Case>
@@ -73,12 +74,11 @@ export function selectOverdueInstallments(
   return items.sort((a, b) => b.daysOverdue - a.daysOverdue)
 }
 
-// ── 优先客户：星标，按等级排序（未分级最后）────────────────
+// ── 星标客户：仅取 is_starred，按姓名排序（不再依赖等级/来源排序）──────
 export function sortPriorityCustomers(customers: Customer[]): Customer[] {
-  const order = (c: Customer) => (c.priority_tier ? CUSTOMER_TIER_ORDER[c.priority_tier] : 99)
   return customers
     .filter((c) => c.is_starred)
-    .sort((a, b) => order(a) - order(b) || a.full_name.localeCompare(b.full_name))
+    .sort((a, b) => a.full_name.localeCompare(b.full_name))
 }
 
 // ── 欠款总览：客户欠款合计 / 欠主代理合计（按案件分组，负数不计）──
@@ -111,6 +111,17 @@ export interface CustomerDebtItem {
   customerName: string
   clientOwes: number
   companyOwes: number
+  /** 客户名按应收状态着色：green=已付清 / blue=还欠钱 / default=未立案 */
+  color: CustomerPaymentColor
+}
+
+interface DebtAcc {
+  customerId: string
+  customerName: string
+  clientOwes: number
+  companyOwes: number
+  clientReceivable: number
+  clientPaid: number
 }
 
 export function selectCustomerDebts(
@@ -119,7 +130,7 @@ export function selectCustomerDebts(
   caseById: CaseMap,
   customerById: CustomerMap,
 ): CustomerDebtItem[] {
-  const byCustomer = new Map<string, CustomerDebtItem>()
+  const byCustomer = new Map<string, DebtAcc>()
   for (const plan of plans) {
     const c = caseById[plan.case_id]
     if (!c) continue
@@ -133,16 +144,22 @@ export function selectCustomerDebts(
       customerName: customerById[customerId]?.full_name ?? '',
       clientOwes: 0,
       companyOwes: 0,
+      clientReceivable: 0,
+      clientPaid: 0,
     }
     entry.clientOwes += Math.max(0, acct.clientOwes)
     entry.companyOwes += Math.max(0, acct.companyOwes)
+    entry.clientReceivable += Number(plan.client_total ?? 0)
+    entry.clientPaid += acct.clientPaid
     byCustomer.set(customerId, entry)
   }
   return [...byCustomer.values()]
     .map((e) => ({
-      ...e,
+      customerId: e.customerId,
+      customerName: e.customerName,
       clientOwes: Math.round(e.clientOwes * 100) / 100,
       companyOwes: Math.round(e.companyOwes * 100) / 100,
+      color: getCustomerPaymentColor(e.clientReceivable, e.clientPaid, e.clientOwes),
     }))
     .filter((e) => e.clientOwes > 0 || e.companyOwes > 0)
     .sort((a, b) => b.clientOwes - a.clientOwes || b.companyOwes - a.companyOwes)

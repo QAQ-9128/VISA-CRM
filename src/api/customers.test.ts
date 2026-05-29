@@ -115,6 +115,31 @@ describe('写操作', () => {
     expect(result).toEqual(row)
   })
 
+  it('createCustomer 透传 client_source（客户来源）', async () => {
+    const b = mockReturn({ data: { id: 'new', full_name: '赵六', client_source: 'red' }, error: null })
+    await customersApi.createCustomer({ full_name: '赵六', client_source: 'red' })
+    expect(b.insert).toHaveBeenCalledWith({ full_name: '赵六', client_source: 'red' })
+  })
+
+  it('updateCustomer 可改 client_source（含清空为 null）', async () => {
+    const b = mockReturn({ data: { id: 'c1' }, error: null })
+    await customersApi.updateCustomer('c1', { client_source: null })
+    expect(b.update).toHaveBeenCalledWith({ client_source: null })
+  })
+
+  it('createCustomer 透传 sponsor_position（担保职位）', async () => {
+    const row = { id: 'new', full_name: '王五', sponsor_position: 'Senior Cook' }
+    const b = mockReturn({ data: row, error: null })
+    await customersApi.createCustomer({ full_name: '王五', sponsor_position: 'Senior Cook' })
+    expect(b.insert).toHaveBeenCalledWith({ full_name: '王五', sponsor_position: 'Senior Cook' })
+  })
+
+  it('updateCustomer 可单独更新 sponsor_position（与雇主互不依赖）', async () => {
+    const b = mockReturn({ data: { id: 'c1' }, error: null })
+    await customersApi.updateCustomer('c1', { sponsor_position: 'Marketing Manager' })
+    expect(b.update).toHaveBeenCalledWith({ sponsor_position: 'Marketing Manager' })
+  })
+
   it('archiveCustomer 是软删除：调用 update({is_archived:true})，绝不 delete', async () => {
     const b = mockReturn({ data: null, error: null })
     await customersApi.archiveCustomer('c1')

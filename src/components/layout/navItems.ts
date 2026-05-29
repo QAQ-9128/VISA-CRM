@@ -1,5 +1,6 @@
 import type { ComponentType, SVGProps } from 'react'
 import {
+  ArchiveIcon,
   BriefcaseIcon,
   BuildingIcon,
   HomeIcon,
@@ -26,5 +27,6 @@ export const NAV_ITEMS: NavItem[] = [
   { to: '/finance', label: '财务', icon: WalletIcon },
   { to: '/employers', label: '雇主', icon: BuildingIcon },
   { to: '/referrers', label: '介绍人', icon: UserPlusIcon },
+  { to: '/storage', label: '档案库', icon: ArchiveIcon },
   { to: '/admin/users', label: '账号', icon: ShieldIcon, adminOnly: true },
 ]

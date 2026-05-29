@@ -17,6 +17,7 @@ import { EmployerFormPage } from '../pages/employers/EmployerFormPage'
 import { ReferrerListPage } from '../pages/referrers/ReferrerListPage'
 import { ReferrerFormPage } from '../pages/referrers/ReferrerFormPage'
 import { FinancePage } from '../pages/finance/FinancePage'
+import { ArchivePage } from '../pages/archive/ArchivePage'
 import { UserManagementPage } from '../pages/admin/UserManagementPage'
 import { NotFoundPage } from '../pages/NotFoundPage'
 
@@ -49,6 +50,7 @@ export const router = createBrowserRouter([
           { path: 'referrers/new', element: <ReferrerFormPage /> },
           { path: 'referrers/:id/edit', element: <ReferrerFormPage /> },
           { path: 'finance', element: <FinancePage /> },
+          { path: 'storage', element: <ArchivePage /> },
           {
             path: 'admin/users',
             element: (

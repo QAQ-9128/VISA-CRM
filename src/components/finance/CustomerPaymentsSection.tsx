@@ -1,4 +1,6 @@
+import { useMemo } from 'react'
 import { useCustomerFinance } from '../../hooks/queries/useCustomerFinance'
+import { selectCasePaymentColors } from '../../lib/finance'
 import { ReceivablesTable } from './ReceivablesTable'
 import { ReceiptsList } from './ReceiptsList'
 import { ExpensesPanel } from './ExpensesPanel'
@@ -9,6 +11,7 @@ import { ExpensesPanel } from './ExpensesPanel'
  */
 export function CustomerPaymentsSection({ customerId }: { customerId: string }) {
   const f = useCustomerFinance(customerId)
+  const colorByCase = useMemo(() => selectCasePaymentColors(f.receivables), [f.receivables])
 
   return (
     <section className="space-y-3">
@@ -26,7 +29,7 @@ export function CustomerPaymentsSection({ customerId }: { customerId: string }) 
 
           <div>
             <p className="mb-2 text-sm font-medium text-slate-600">收款明细</p>
-            <ReceiptsList items={f.receipts.items} total={f.receipts.total} />
+            <ReceiptsList items={f.receipts.items} total={f.receipts.total} colorByCase={colorByCase} />
           </div>
 
           <div>

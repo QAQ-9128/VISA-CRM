@@ -7,8 +7,7 @@ import { Select } from '../ui/Select'
 import { EmployerSelect } from '../employers/EmployerSelect'
 import { ReferrerSelect } from '../referrers/ReferrerSelect'
 import { usePrimaryApplicants } from '../../hooks/queries/useCustomers'
-import { CUSTOMER_TIERS, CUSTOMER_TIER_LABELS, GENDERS, GENDER_LABELS } from '../../types/domain'
-import type { CustomerTier } from '../../types/domain'
+import { CLIENT_SOURCES, CLIENT_SOURCE_OPTION_LABELS, GENDERS, GENDER_LABELS } from '../../types/domain'
 import type { Customer, CustomerInsert } from '../../types/models'
 
 export interface CustomerFormValues extends CustomerInsert {
@@ -19,9 +18,10 @@ interface FormState {
   full_name: string
   primary_applicant_id: string
   relationship_to_primary: string
-  priority_tier: string
+  client_source: string
   is_starred: boolean
   sponsor_employer_id: string
+  sponsor_position: string
   referrer_id: string
   birth_date: string
   gender: string
@@ -33,9 +33,10 @@ function toState(c?: Customer): FormState {
     full_name: c?.full_name ?? '',
     primary_applicant_id: c?.primary_applicant_id ?? '',
     relationship_to_primary: c?.relationship_to_primary ?? '',
-    priority_tier: c?.priority_tier ?? '',
+    client_source: c?.client_source ?? '',
     is_starred: c?.is_starred ?? false,
     sponsor_employer_id: c?.sponsor_employer_id ?? '',
+    sponsor_position: c?.sponsor_position ?? '',
     referrer_id: c?.referrer_id ?? '',
     birth_date: c?.birth_date ?? '',
     gender: c?.gender ?? '',
@@ -53,9 +54,10 @@ function toPayload(s: FormState): CustomerFormValues {
     full_name: s.full_name.trim(),
     primary_applicant_id: isSub ? s.primary_applicant_id : null,
     relationship_to_primary: isSub ? trimOrNull(s.relationship_to_primary) : null,
-    priority_tier: (s.priority_tier || null) as CustomerTier | null,
+    client_source: s.client_source || null,
     is_starred: s.is_starred,
     sponsor_employer_id: s.sponsor_employer_id || null,
+    sponsor_position: trimOrNull(s.sponsor_position),
     referrer_id: s.referrer_id || null,
     birth_date: trimOrNull(s.birth_date),
     gender: s.gender || null,
@@ -86,7 +88,7 @@ export function CustomerForm({ initial, submitting, error, onSubmit, onCancel }:
     .filter((c) => c.id !== initial?.id)
     .map((c) => ({ value: c.id, label: c.full_name }))
 
-  const tierOptions = CUSTOMER_TIERS.map((t) => ({ value: t, label: CUSTOMER_TIER_LABELS[t] }))
+  const sourceOptions = CLIENT_SOURCES.map((s) => ({ value: s, label: CLIENT_SOURCE_OPTION_LABELS[s] }))
 
   function handleSubmit(e: FormEvent) {
     e.preventDefault()
@@ -107,11 +109,11 @@ export function CustomerForm({ initial, submitting, error, onSubmit, onCancel }:
 
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
         <Select
-          label="客户等级"
-          placeholder="未分级"
-          options={tierOptions}
-          value={state.priority_tier}
-          onChange={(e) => set('priority_tier')(e.target.value)}
+          label="客户来源"
+          placeholder="未分类"
+          options={sourceOptions}
+          value={state.client_source}
+          onChange={(e) => set('client_source')(e.target.value)}
         />
         <label className="flex items-end gap-2 pb-2 text-sm text-slate-700 md:pb-3">
           <input
@@ -127,6 +129,13 @@ export function CustomerForm({ initial, submitting, error, onSubmit, onCancel }:
       <EmployerSelect
         value={state.sponsor_employer_id}
         onChange={(id) => set('sponsor_employer_id')(id)}
+      />
+
+      <TextField
+        label="担保职位"
+        value={state.sponsor_position}
+        onChange={(e) => set('sponsor_position')(e.target.value)}
+        placeholder="如：Senior Cook、Marketing Manager"
       />
 
       <ReferrerSelect

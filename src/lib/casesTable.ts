@@ -2,7 +2,7 @@ import { utcDayDiff } from './dateDiff'
 import { formatVisaType } from './visa'
 import { CASE_STAGES } from '../types/domain'
 import type { CaseStage } from '../types/domain'
-import type { Case, CaseApplicant, Customer, Lodgement } from '../types/models'
+import type { Case, CaseApplicant, CaseStageHistory, Customer, Lodgement } from '../types/models'
 
 const STAGE_RANK: Record<string, number> = Object.fromEntries(CASE_STAGES.map((s, i) => [s, i]))
 
@@ -40,6 +40,48 @@ export function formatElapsed(from: string | null | undefined, to: string | Date
   if (!from) return '—'
   const { months, days } = elapsedMonthsDays(from, to)
   return months <= 0 ? `${days} 天` : `${months} 个月 ${days} 天`
+}
+
+export interface WaitDays {
+  /** 是否有递交日期（无则其余字段无意义） */
+  lodged: boolean
+  /** 案件是否已决（该案 case_stage_history 出现 granted/refused）→ 冻结 */
+  frozen: boolean
+  /** 递交 → 终点 的整天数（已决=到决定日；未决=到今天）。用于与 DHA 处理天数比较 */
+  totalDays: number
+  months: number
+  days: number
+  /** "X 个月 Y 天" / "Y 天" / "—" */
+  label: string
+}
+
+/**
+ * 单条递交（提名/签证）的「等待天数」。与递交进度 Excel 表同一套口径（复用 utcDayDiff /
+ * elapsedMonthsDays，不另写）：
+ *  - 案件已决：递交日 → 该案 case_stage_history 里 granted/refused 的最晚决定日(effective_at)，冻结；
+ *  - 案件未决：递交日 → 今天（继续增长）。
+ * stageHistory 传整个案件或全部历史均可，内部按 lodgement.case_id 过滤。
+ */
+export function calculateWaitDays(
+  lodgement: Pick<Lodgement, 'lodged_date' | 'case_id'>,
+  stageHistory: CaseStageHistory[],
+  today: Date = new Date(),
+): WaitDays {
+  let decisionDay: string | null = null
+  for (const h of stageHistory) {
+    if (h.case_id !== lodgement.case_id) continue
+    if (h.to_stage !== 'granted' && h.to_stage !== 'refused') continue
+    const d = (h.effective_at ?? h.changed_at).slice(0, 10)
+    if (!decisionDay || d > decisionDay) decisionDay = d
+  }
+  const frozen = decisionDay != null
+  const from = lodgement.lodged_date
+  if (!from) return { lodged: false, frozen, totalDays: 0, months: 0, days: 0, label: '—' }
+  const end: string | Date = decisionDay ?? today
+  const totalDays = utcDayDiff(from, end)
+  const { months, days } = elapsedMonthsDays(from, end)
+  const label = months <= 0 ? `${days} 天` : `${months} 个月 ${days} 天`
+  return { lodged: true, frozen, totalDays, months, days, label }
 }
 
 /** 案件客户 + 同家庭组成员，案件客户在前，其余主申优先再按名字，"&" 连接。 */
@@ -90,6 +132,11 @@ export interface CaseRow {
   /** 签证递交至今（未递交签证为 null） */
   visaDaysSince: number | null
   visaElapsed: { months: number; days: number } | null
+  /** 案件是否已决（下签/拒签）→ 等待天数已冻结，显示灰色 */
+  frozen: boolean
+  /** 提名 / 签证各自的 DHA 处理天数（用于「超期」红色提示），无则 null */
+  nomDhaDays: number | null
+  visaDhaDays: number | null
   /** 案件最后更新时间（系统自动） */
   updatedAt: string
 }
@@ -103,7 +150,8 @@ function latestLodged(nom: string | null, visa: string | null): string | null {
 /**
  * 递交进度 Excel 式表格行：含全部案件（未递交案件 lodged=false、日期为 null、距今 -1 排末）。
  * 进度追踪始终同步 → 一案件一行（主申 + 副申同列）。sync_tracking 只影响财务核算，不影响此表。
- * 默认按「距今多久」降序（递交最久在前）。
+ * 距今口径：终态(下签/拒签)冻结 = 递交日 → 决定日（取 case_stage_history 的 effective_at）；
+ * 未决 = 递交日 → 今天（继续增长）。默认按「距今多久」降序（递交最久在前）。
  */
 export function selectCaseRows(
   cases: Case[],
@@ -111,6 +159,7 @@ export function selectCaseRows(
   caseApplicants: CaseApplicant[],
   customers: Customer[],
   today: Date = new Date(),
+  stageHistory: CaseStageHistory[] = [],
 ): CaseRow[] {
   const customerById: Record<string, Customer> = {}
   for (const c of customers) customerById[c.id] = c
@@ -120,21 +169,36 @@ export function selectCaseRows(
     list.push(a.customer_id)
     subsByCase.set(a.case_id, list)
   }
+  // 每个案件的「决定日期」：to_stage 为下签/拒签的历史里最晚的 effective_at（取日期部分）
+  const decisionByCase = new Map<string, string>()
+  for (const h of stageHistory) {
+    if (h.to_stage === 'granted' || h.to_stage === 'refused') {
+      const d = (h.effective_at ?? h.changed_at).slice(0, 10)
+      const prev = decisionByCase.get(h.case_id)
+      if (!prev || d > prev) decisionByCase.set(h.case_id, d)
+    }
+  }
+  const isTerminal = (s: Case['current_stage']) => s === 'granted' || s === 'refused'
 
   const rows: CaseRow[] = []
   for (const c of cases) {
-    const nom = lodgements.find((l) => l.case_id === c.id && l.type === 'nomination')?.lodged_date ?? null
-    const visa = lodgements.find((l) => l.case_id === c.id && l.type === 'visa')?.lodged_date ?? null
+    const nomL = lodgements.find((l) => l.case_id === c.id && l.type === 'nomination')
+    const visaL = lodgements.find((l) => l.case_id === c.id && l.type === 'visa')
+    const nom = nomL?.lodged_date ?? null
+    const visa = visaL?.lodged_date ?? null
     const latest = latestLodged(nom, visa)
     const lodged = latest != null
+    // 终态(下签/拒签)冻结到决定日；未决则到今天（继续增长）。终态但无历史记录时回退今天。
+    const decisionDay = isTerminal(c.current_stage) ? decisionByCase.get(c.id) ?? null : null
+    const endRef: string | Date = decisionDay ?? today
     // 未递交：daysSince 用 -1 哨兵，默认距今降序时排在所有已递交之后
-    const daysSince = lodged ? utcDayDiff(latest, today) : -1
-    const elapsed = lodged ? elapsedMonthsDays(latest, today) : { months: 0, days: 0 }
-    // 提名/签证各自的距今（缺哪边哪边为 null）
-    const nomDaysSince = nom ? utcDayDiff(nom, today) : null
-    const nomElapsed = nom ? elapsedMonthsDays(nom, today) : null
-    const visaDaysSince = visa ? utcDayDiff(visa, today) : null
-    const visaElapsed = visa ? elapsedMonthsDays(visa, today) : null
+    const daysSince = lodged ? utcDayDiff(latest, endRef) : -1
+    const elapsed = lodged ? elapsedMonthsDays(latest, endRef) : { months: 0, days: 0 }
+    // 提名/签证各自的距今（缺哪边哪边为 null）；终态冻结、未决到今天
+    const nomDaysSince = nom ? utcDayDiff(nom, endRef) : null
+    const nomElapsed = nom ? elapsedMonthsDays(nom, endRef) : null
+    const visaDaysSince = visa ? utcDayDiff(visa, endRef) : null
+    const visaElapsed = visa ? elapsedMonthsDays(visa, endRef) : null
     const primaryName = customerById[c.customer_id]?.full_name ?? ''
     const subIds = subsByCase.get(c.id) ?? []
     const subNames = subIds.map((id) => customerById[id]?.full_name ?? '').filter(Boolean)
@@ -154,6 +218,9 @@ export function selectCaseRows(
       nomElapsed,
       visaDaysSince,
       visaElapsed,
+      frozen: isTerminal(c.current_stage),
+      nomDhaDays: nomL?.dha_processing_days ?? null,
+      visaDhaDays: visaL?.dha_processing_days ?? null,
       updatedAt: c.updated_at,
     }
 

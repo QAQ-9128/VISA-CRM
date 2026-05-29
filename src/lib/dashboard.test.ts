@@ -12,7 +12,7 @@ const TODAY = new Date(2026, 0, 15)
 
 // 测试用的最小工厂
 const mkCase = (o: Partial<Case>): Case => ({ id: 'c1', case_number: '00000001', customer_id: 'cu1', visa_subclass: '482', visa_stream: null, current_stage: 'visa_lodged', currency: 'AUD', sync_tracking: true, destination_country: 'Australia', assigned_to: null, created_by: null, is_archived: false, created_at: '', updated_at: '', ...o })
-const mkCustomer = (o: Partial<Customer>): Customer => ({ id: 'cu1', full_name: '张三', is_starred: false, priority_tier: null, primary_applicant_id: null, relationship_to_primary: null, birth_date: null, gender: null, passport_no: null, nationality: null, phone: null, email: null, wechat: null, address: null, sponsor_employer_id: null, referrer_id: null, notes: null, assigned_to: null, created_by: null, is_archived: false, created_at: '', updated_at: '', ...o })
+const mkCustomer = (o: Partial<Customer>): Customer => ({ id: 'cu1', full_name: '张三', is_starred: false, client_source: null, primary_applicant_id: null, relationship_to_primary: null, birth_date: null, gender: null, passport_no: null, nationality: null, phone: null, email: null, wechat: null, address: null, sponsor_employer_id: null, sponsor_position: null, referrer_id: null, notes: null, assigned_to: null, created_by: null, is_archived: false, created_at: '', updated_at: '', ...o })
 
 describe('selectCustomersWithOpenTasks', () => {
   const mkTask = (o: Partial<RecordRow>): RecordRow => ({ id: 't', customer_id: 'cu1', case_id: null, type: 'task', content: '待办', due_date: null, is_done: false, done_at: null, assigned_to: null, channel: null, emoji_marker: null, created_by: null, created_at: '', updated_at: '', ...o })
@@ -52,16 +52,16 @@ describe('selectOverdueInstallments', () => {
 })
 
 describe('sortPriorityCustomers', () => {
-  it('星标客户按等级 vip→a→b→c→未分级 排序', () => {
+  it('只取星标客户，按姓名排序（不再依赖等级/来源）', () => {
     const list = [
-      mkCustomer({ id: 'b', full_name: 'B', is_starred: true, priority_tier: 'b' }),
-      mkCustomer({ id: 'none', full_name: 'N', is_starred: true, priority_tier: null }),
-      mkCustomer({ id: 'vip', full_name: 'V', is_starred: true, priority_tier: 'vip' }),
-      mkCustomer({ id: 'a', full_name: 'A', is_starred: true, priority_tier: 'a' }),
-      mkCustomer({ id: 'unstar', full_name: 'U', is_starred: false }),
+      mkCustomer({ id: 'z', full_name: 'Z', is_starred: true, client_source: 'green' }),
+      mkCustomer({ id: 'a', full_name: 'A', is_starred: true, client_source: null }),
+      mkCustomer({ id: 'm', full_name: 'M', is_starred: true, client_source: 'red' }),
+      mkCustomer({ id: 'unstar', full_name: 'AAA', is_starred: false }),
     ]
     const r = sortPriorityCustomers(list)
-    expect(r.map((c) => c.id)).toEqual(['vip', 'a', 'b', 'none'])
+    // 未星标的 AAA 被排除；其余按姓名 A→M→Z（来源不影响排序）
+    expect(r.map((c) => c.id)).toEqual(['a', 'm', 'z'])
   })
 })
 
@@ -113,7 +113,7 @@ describe('selectCustomerDebts', () => {
 
     const r = selectCustomerDebts(plans, payments, cases, customers)
     expect(r.map((x) => x.customerId)).toEqual(['cuB', 'cuA']) // 丙 已结清被剔除
-    expect(r[0]).toMatchObject({ customerName: '乙', clientOwes: 2000, companyOwes: 1000 })
-    expect(r[1]).toMatchObject({ customerName: '甲', clientOwes: 700, companyOwes: 0 }) // c1 700 + c2 0
+    expect(r[0]).toMatchObject({ customerName: '乙', clientOwes: 2000, companyOwes: 1000, color: 'blue' })
+    expect(r[1]).toMatchObject({ customerName: '甲', clientOwes: 700, companyOwes: 0, color: 'blue' }) // c1 700 + c2 0
   })
 })

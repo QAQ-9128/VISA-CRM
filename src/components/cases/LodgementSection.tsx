@@ -7,13 +7,15 @@ import { Textarea } from '../ui/Textarea'
 import { Badge } from '../ui/Badge'
 import { LodgementProgressBar } from './LodgementProgressBar'
 import { useCreateLodgement, useLodgements, useUpdateLodgement } from '../../hooks/queries/useLodgements'
+import { useCaseStageHistory } from '../../hooks/queries/useCases'
+import { calculateWaitDays } from '../../lib/casesTable'
 import {
   LODGEMENT_OUTCOMES,
   LODGEMENT_OUTCOME_LABELS,
   LODGEMENT_TYPE_LABELS,
 } from '../../types/domain'
 import type { LodgementOutcome, LodgementType } from '../../types/domain'
-import type { Lodgement } from '../../types/models'
+import type { CaseStageHistory, Lodgement } from '../../types/models'
 
 /** DHA 官方签证处理时间页 */
 const DHA_PROCESSING_TIMES_URL =
@@ -108,14 +110,31 @@ function LodgementForm({
   )
 }
 
+/** 等待天数行：已决冻结→灰；未决且超 DHA 处理天数→红；其余默认。 */
+function WaitDaysValue({ lodgement, stageHistory }: { lodgement: Lodgement; stageHistory: CaseStageHistory[] }) {
+  const wait = calculateWaitDays(lodgement, stageHistory)
+  if (!wait.lodged) return <dd className="text-right text-slate-900">—</dd>
+  const overdue =
+    !wait.frozen && lodgement.dha_processing_days != null && wait.totalDays > lodgement.dha_processing_days
+  const cls = wait.frozen ? 'text-slate-400' : overdue ? 'text-rose-600' : 'text-slate-900'
+  return (
+    <dd className={`text-right ${cls}`} title={overdue ? '已超过 DHA 平均处理天数' : wait.frozen ? '案件已决，已冻结' : undefined}>
+      {wait.label}
+      {wait.frozen && <span className="text-slate-400">（已结案）</span>}
+    </dd>
+  )
+}
+
 function LodgementSlot({
   caseId,
   type,
   lodgement,
+  stageHistory,
 }: {
   caseId: string
   type: LodgementType
   lodgement?: Lodgement
+  stageHistory: CaseStageHistory[]
 }) {
   const [editing, setEditing] = useState(false)
   const typeLabel = LODGEMENT_TYPE_LABELS[type]
@@ -138,6 +157,8 @@ function LodgementSlot({
           <dl className="grid grid-cols-2 gap-x-4 gap-y-1 text-sm">
             <dt className="text-slate-500">递交日期</dt>
             <dd className="text-right text-slate-900">{lodgement.lodged_date || '未递交'}</dd>
+            <dt className="text-slate-500">等待天数</dt>
+            <WaitDaysValue lodgement={lodgement} stageHistory={stageHistory} />
             <dt className="text-slate-500">参考号</dt>
             <dd className="text-right text-slate-900">{lodgement.reference_number || '—'}</dd>
             {lodgement.outcome !== 'pending' && (
@@ -170,7 +191,9 @@ function LodgementSlot({
 /** 案件的递交区：nomination / visa 两槽 + DHA 处理时间官网入口。 */
 export function LodgementSection({ caseId }: { caseId: string }) {
   const lodgements = useLodgements(caseId)
+  const stageHistory = useCaseStageHistory(caseId)
   const byType = (t: LodgementType) => lodgements.data?.find((l) => l.type === t)
+  const history = stageHistory.data ?? []
 
   return (
     <section className="space-y-3">
@@ -190,8 +213,8 @@ export function LodgementSection({ caseId }: { caseId: string }) {
         <p className="text-sm text-slate-400">加载递交记录…</p>
       ) : (
         <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-          <LodgementSlot caseId={caseId} type="nomination" lodgement={byType('nomination')} />
-          <LodgementSlot caseId={caseId} type="visa" lodgement={byType('visa')} />
+          <LodgementSlot caseId={caseId} type="nomination" lodgement={byType('nomination')} stageHistory={history} />
+          <LodgementSlot caseId={caseId} type="visa" lodgement={byType('visa')} stageHistory={history} />
         </div>
       )}
     </section>

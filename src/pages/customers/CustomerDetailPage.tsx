@@ -29,8 +29,9 @@ import { StageBadge } from '../../components/cases/StageBadge'
 import { DocumentsSection } from '../../components/documents/DocumentsSection'
 import { RecordsSection } from '../../components/records/RecordsSection'
 import { CustomerPaymentsSection } from '../../components/finance/CustomerPaymentsSection'
-import { CUSTOMER_TIER_LABELS, GENDER_LABELS } from '../../types/domain'
-import type { Gender } from '../../types/domain'
+import { CLIENT_SOURCE_LABELS, GENDER_LABELS } from '../../types/domain'
+import { ClientSourceDot } from '../../components/customers/ClientSourceDot'
+import type { ClientSource, Gender } from '../../types/domain'
 import type { Case, Customer } from '../../types/models'
 
 function DetailRow({ label, children }: { label: string; children: ReactNode }) {
@@ -279,7 +280,7 @@ export function CustomerDetailPage() {
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-2">
             <h1 className="text-xl font-semibold text-slate-900 md:text-2xl">{c.full_name}</h1>
-            {c.priority_tier && <Badge>{CUSTOMER_TIER_LABELS[c.priority_tier]}</Badge>}
+            <ClientSourceDot source={c.client_source} size="md" />
             {c.is_archived && <Badge className="bg-gray-200 text-gray-600">已归档</Badge>}
           </div>
         </div>
@@ -293,6 +294,14 @@ export function CustomerDetailPage() {
         <DetailRow label="性别">
           {c.gender ? GENDER_LABELS[c.gender as Gender] ?? c.gender : null}
         </DetailRow>
+        <DetailRow label="客户来源">
+          {c.client_source ? (
+            <span className="inline-flex items-center gap-1.5">
+              <ClientSourceDot source={c.client_source} />
+              {CLIENT_SOURCE_LABELS[c.client_source as ClientSource] ?? c.client_source}
+            </span>
+          ) : null}
+        </DetailRow>
         <DetailRow label="担保雇主">
           {c.sponsor_employer_id ? (
             <Link to={`/employers/${c.sponsor_employer_id}/edit`} className="text-indigo-600 hover:underline">
@@ -300,6 +309,7 @@ export function CustomerDetailPage() {
             </Link>
           ) : null}
         </DetailRow>
+        <DetailRow label="担保职位">{c.sponsor_position}</DetailRow>
         <DetailRow label="介绍人">
           {c.referrer_id ? (
             <Link to={`/referrers/${c.referrer_id}/edit`} className="text-indigo-600 hover:underline">

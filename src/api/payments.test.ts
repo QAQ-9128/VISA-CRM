@@ -82,6 +82,25 @@ describe('payments', () => {
     )
   })
 
+  it('createPayment 透传 fee_category（费用类别）', async () => {
+    const b = wireFrom(fromMock, { payments: { data: { id: 'pay1' } } })
+    await paymentsApi.createPayment({
+      case_id: 'c1',
+      direction: 'from_client',
+      amount: 300,
+      fee_category: '律师费',
+    })
+    expect(b.payments.insert).toHaveBeenCalledWith(
+      expect.objectContaining({ fee_category: '律师费' }),
+    )
+  })
+
+  it('updatePayment 可改 fee_category（含清空为 null）', async () => {
+    const b = wireFrom(fromMock, { payments: { data: { id: 'pay1' } } })
+    await paymentsApi.updatePayment('pay1', { fee_category: null })
+    expect(b.payments.update).toHaveBeenCalledWith({ fee_category: null })
+  })
+
   it('updatePayment 按 id 改金额/方式/备注', async () => {
     const b = wireFrom(fromMock, { payments: { data: { id: 'pay1' } } })
     await paymentsApi.updatePayment('pay1', { amount: 350, method: 'cash', note: '改一下' })

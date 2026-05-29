@@ -35,6 +35,18 @@ export async function listDocumentsByCase(
   return data ?? []
 }
 
+/** 全部已上传文件（排除归档、仅含有实体文件 storage_path 的），按上传时间倒序。用于「档案库」聚合。 */
+export async function listAllDocuments(): Promise<CaseDocument[]> {
+  const { data, error } = await supabase
+    .from('documents')
+    .select('*')
+    .eq('is_archived', false)
+    .not('storage_path', 'is', null)
+    .order('created_at', { ascending: false })
+  if (error) throw error
+  return data ?? []
+}
+
 export async function createDocument(input: DocumentInsert): Promise<CaseDocument> {
   const { data, error } = await supabase.from('documents').insert(input).select().single()
   if (error) throw error

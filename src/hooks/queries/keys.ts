@@ -18,6 +18,7 @@ export const queryKeys = {
     byCustomer: (customerId: string) => ['cases', 'byCustomer', customerId] as const,
     detail: (id: string) => ['cases', 'detail', id] as const,
     stageHistory: (id: string) => ['cases', 'stageHistory', id] as const,
+    stageHistoryAll: ['cases', 'stageHistoryAll'] as const,
   },
   caseApplicants: {
     all: ['case_applicants'] as const,
@@ -30,6 +31,7 @@ export const queryKeys = {
   },
   documents: {
     all: ['documents'] as const,
+    allList: ['documents', 'allList'] as const,
     byCustomer: (customerId: string) => ['documents', 'byCustomer', customerId] as const,
     byCase: (caseId: string) => ['documents', 'byCase', caseId] as const,
   },

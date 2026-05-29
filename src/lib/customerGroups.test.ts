@@ -3,9 +3,9 @@ import { groupCustomersByFamily } from './customerGroups'
 import type { Customer } from '../types/models'
 
 const mk = (o: Partial<Customer>): Customer => ({
-  id: 'cu', full_name: '客户', is_starred: false, priority_tier: null, primary_applicant_id: null,
+  id: 'cu', full_name: '客户', is_starred: false, client_source: null, primary_applicant_id: null,
   relationship_to_primary: null, birth_date: null, gender: null, passport_no: null, nationality: null, phone: null,
-  email: null, wechat: null, address: null, sponsor_employer_id: null, referrer_id: null, notes: null,
+  email: null, wechat: null, address: null, sponsor_employer_id: null, sponsor_position: null, referrer_id: null, notes: null,
   assigned_to: null, created_by: null, is_archived: false, created_at: '2026-01-01T00:00:00Z', updated_at: '', ...o,
 })
 
@@ -24,15 +24,16 @@ describe('groupCustomersByFamily', () => {
     expect(groups.every((g) => !g.orphan)).toBe(true)
   })
 
-  it('锚定排序：星标 → 等级 → 姓名', () => {
+  it('锚定排序：星标 → 姓名（不再依赖等级/来源）', () => {
     const customers = [
-      mk({ id: 'b', full_name: 'B', priority_tier: 'b' }),
-      mk({ id: 'star', full_name: 'Z', is_starred: true, priority_tier: 'c' }),
-      mk({ id: 'vip', full_name: 'M', priority_tier: 'vip' }),
-      mk({ id: 'a', full_name: 'A', priority_tier: 'a' }),
+      mk({ id: 'b', full_name: 'B', client_source: 'red' }),
+      mk({ id: 'star', full_name: 'Z', is_starred: true, client_source: 'yellow' }),
+      mk({ id: 'm', full_name: 'M', client_source: 'green' }),
+      mk({ id: 'a', full_name: 'A' }),
     ]
     const groups = groupCustomersByFamily(customers)
-    expect(groups.map((g) => g.primary?.id)).toEqual(['star', 'vip', 'a', 'b'])
+    // 星标 Z 置顶；其余按姓名 A→B→M（来源不影响排序）
+    expect(groups.map((g) => g.primary?.id)).toEqual(['star', 'a', 'b', 'm'])
   })
 
   it('孤儿副申(主申不在列表)放末尾单独一组并标记 orphan', () => {

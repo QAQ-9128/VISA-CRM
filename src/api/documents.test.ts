@@ -39,6 +39,17 @@ describe('listDocumentsByCase', () => {
   })
 })
 
+describe('listAllDocuments', () => {
+  it('排除归档、仅取有实体文件(storage_path 非空)的，按上传时间倒序', async () => {
+    const b = wireFrom(fromMock, { documents: { data: [] } })
+    await docsApi.listAllDocuments()
+    expect(fromMock).toHaveBeenCalledWith('documents')
+    expect(b.documents.eq).toHaveBeenCalledWith('is_archived', false)
+    expect(b.documents.not).toHaveBeenCalledWith('storage_path', 'is', null)
+    expect(b.documents.order).toHaveBeenCalledWith('created_at', { ascending: false })
+  })
+})
+
 describe('createDocument', () => {
   it('插入并返回', async () => {
     const row = { id: 'd1', customer_id: 'cust1', doc_type: 'passport' }

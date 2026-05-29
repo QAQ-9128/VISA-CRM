@@ -13,7 +13,6 @@
 import type {
   AppRole,
   CaseStage,
-  CustomerTier,
   DocType,
   FollowUpChannel,
   LodgementOutcome,
@@ -125,10 +124,11 @@ export interface Database {
           wechat: string | null
           address: string | null
           sponsor_employer_id: string | null
+          sponsor_position: string | null
           referrer_id: string | null
           primary_applicant_id: string | null
           relationship_to_primary: string | null
-          priority_tier: CustomerTier | null
+          client_source: string | null
           is_starred: boolean
           notes: string | null
           assigned_to: string | null
@@ -149,10 +149,11 @@ export interface Database {
           wechat?: string | null
           address?: string | null
           sponsor_employer_id?: string | null
+          sponsor_position?: string | null
           referrer_id?: string | null
           primary_applicant_id?: string | null
           relationship_to_primary?: string | null
-          priority_tier?: CustomerTier | null
+          client_source?: string | null
           is_starred?: boolean
           notes?: string | null
           assigned_to?: string | null
@@ -259,6 +260,7 @@ export interface Database {
           note: string | null
           changed_by: string | null
           changed_at: Timestamp
+          effective_at: Timestamp
         }
         Insert: {
           id?: string
@@ -268,6 +270,7 @@ export interface Database {
           note?: string | null
           changed_by?: string | null
           changed_at?: Timestamp
+          effective_at?: Timestamp
         }
         Update: Partial<Database['public']['Tables']['case_stage_history']['Insert']>
         Relationships: []
@@ -372,6 +375,7 @@ export interface Database {
           method: PaymentMethod
           paid_at: DateStr | null
           note: string | null
+          fee_category: string | null
           invoice_path: string | null
           invoice_name: string | null
           recorded_by: string | null
@@ -388,6 +392,7 @@ export interface Database {
           method?: PaymentMethod
           paid_at?: DateStr | null
           note?: string | null
+          fee_category?: string | null
           invoice_path?: string | null
           invoice_name?: string | null
           recorded_by?: string | null
@@ -499,7 +504,6 @@ export interface Database {
       payment_method: PaymentMethod
       follow_up_channel: FollowUpChannel
       doc_type: DocType
-      customer_tier: CustomerTier
     }
   }
 }

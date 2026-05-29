@@ -140,6 +140,48 @@ export interface ReceivableTotals {
   unpaid: number
 }
 
+// ── 客户名按应收状态着色（纯展示）────────────────────────────────────────
+export type CustomerPaymentColor = 'green' | 'blue' | 'default'
+
+/**
+ * 根据某客户·案件行的应收/已付/未付，决定客户名显示颜色：
+ *   未付 > 0（还欠钱）            → 'blue'
+ *   未付 = 0 且 应收 > 0（全付清） → 'green'
+ *   应收 = 0（未立案/未收费）       → 'default'（不上色）
+ * （paid 入参为完整签名保留，判定以 receivable/outstanding 为准。）
+ */
+export function getCustomerPaymentColor(
+  receivable: number,
+  _paid: number,
+  outstanding: number,
+): CustomerPaymentColor {
+  if (outstanding > 0) return 'blue'
+  if (receivable > 0) return 'green'
+  return 'default'
+}
+
+/** Tailwind 文本色类；default = 空串（沿用各处现有颜色）。 */
+export const CUSTOMER_PAYMENT_TEXT_CLASS: Record<CustomerPaymentColor, string> = {
+  green: 'text-green-600',
+  blue: 'text-blue-600',
+  default: '',
+}
+
+/** 把应收行按 caseId 聚合（同案主+副合计）→ 每个案件的客户名颜色。用于收款明细等按案件着色。 */
+export function selectCasePaymentColors(rows: ReceivableRow[]): Record<string, CustomerPaymentColor> {
+  const agg = new Map<string, { receivable: number; paid: number; outstanding: number }>()
+  for (const r of rows) {
+    const e = agg.get(r.caseId) ?? { receivable: 0, paid: 0, outstanding: 0 }
+    e.receivable += r.receivable
+    e.paid += r.paid
+    e.outstanding += r.unpaid
+    agg.set(r.caseId, e)
+  }
+  const out: Record<string, CustomerPaymentColor> = {}
+  for (const [caseId, v] of agg) out[caseId] = getCustomerPaymentColor(v.receivable, v.paid, v.outstanding)
+  return out
+}
+
 export function sumFinanceReceivables(rows: ReceivableRow[]): ReceivableTotals {
   const t = rows.reduce(
     (acc, r) => ({
@@ -164,6 +206,8 @@ export interface ReceiptItem {
   caseNumber: string
   paidAt: string | null
   note: string | null
+  /** 费用类别（律师费 / 文案费 / 其他手填）；未填为 null */
+  feeCategory: string | null
   caseId: string
   /** 已附发票的 Storage 路径 / 原始文件名；未上传为 null */
   invoicePath: string | null
@@ -197,6 +241,7 @@ export function selectFinanceReceipts(
       caseNumber: c?.case_number ?? '',
       paidAt: p.paid_at,
       note: p.note,
+      feeCategory: p.fee_category,
       caseId: p.case_id,
       invoicePath: p.invoice_path,
       invoiceName: p.invoice_name,

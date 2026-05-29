@@ -12,10 +12,11 @@ import {
 } from '../../hooks/queries/usePayments'
 import { getDocumentSignedUrl } from '../../api/documents'
 import { formatMoney } from '../../lib/money'
+import { CUSTOMER_PAYMENT_TEXT_CLASS } from '../../lib/finance'
 import { PAYMENT_METHOD_LABELS } from '../../types/domain'
-import type { ReceiptItem } from '../../lib/finance'
+import type { ReceiptItem, CustomerPaymentColor } from '../../lib/finance'
 
-function ReceiptItemRow({ item }: { item: ReceiptItem }) {
+function ReceiptItemRow({ item, color = 'default' }: { item: ReceiptItem; color?: CustomerPaymentColor }) {
   const update = useUpdatePayment(item.caseId)
   const del = useDeletePayment(item.caseId)
   const setInvoice = useSetPaymentInvoice(item.caseId)
@@ -23,7 +24,10 @@ function ReceiptItemRow({ item }: { item: ReceiptItem }) {
 
   function save(v: PaymentEntryValues) {
     update.mutate(
-      { id: item.paymentId, patch: { amount: v.amount, method: v.method, paid_at: v.paid_at, note: v.note } },
+      {
+        id: item.paymentId,
+        patch: { amount: v.amount, method: v.method, paid_at: v.paid_at, note: v.note, fee_category: v.fee_category },
+      },
       { onSuccess: () => setEditing(false) },
     )
   }
@@ -49,8 +53,9 @@ function ReceiptItemRow({ item }: { item: ReceiptItem }) {
     return (
       <li className="border-b border-slate-100 py-2.5 last:border-0">
         <PaymentEntryForm
-          initial={{ amount: item.amount, method: item.method, paid_at: item.paidAt, note: item.note }}
+          initial={{ amount: item.amount, method: item.method, paid_at: item.paidAt, note: item.note, fee_category: item.feeCategory }}
           submitLabel="保存修改"
+          showFeeCategory
           pending={update.isPending}
           onSubmit={save}
           onCancel={() => setEditing(false)}
@@ -62,7 +67,12 @@ function ReceiptItemRow({ item }: { item: ReceiptItem }) {
   return (
     <li className="flex flex-wrap items-center gap-x-3 gap-y-1 border-b border-slate-100 py-2.5 last:border-0">
       <Badge className="bg-emerald-100 text-emerald-800">收款</Badge>
-      <Link to={`/cases/${item.caseId}`} className="text-sm text-slate-900 hover:underline">
+      <Link
+        to={`/cases/${item.caseId}`}
+        className={`text-sm hover:underline ${
+          color === 'default' ? 'text-slate-900' : CUSTOMER_PAYMENT_TEXT_CLASS[color]
+        }`}
+      >
         {item.customerName || '（未知客户）'}
         <span className="text-slate-400"> · {item.visaSubclass}</span>
       </Link>
@@ -75,6 +85,9 @@ function ReceiptItemRow({ item }: { item: ReceiptItem }) {
         {PAYMENT_METHOD_LABELS[item.method]} · {item.paidAt || '无日期'}
         {item.note ? ` · ${item.note}` : ''}
       </span>
+      {item.feeCategory && (
+        <Badge className="bg-sky-100 text-sky-800">{item.feeCategory}</Badge>
+      )}
       <span className="text-sm font-medium tabular-nums text-slate-900">{formatMoney(item.amount)}</span>
 
       {/* 发票：与该收款所属案件编号绑定 */}
@@ -113,7 +126,16 @@ function ReceiptItemRow({ item }: { item: ReceiptItem }) {
   )
 }
 
-export function ReceiptsList({ items, total }: { items: ReceiptItem[]; total: number }) {
+export function ReceiptsList({
+  items,
+  total,
+  colorByCase = {},
+}: {
+  items: ReceiptItem[]
+  total: number
+  /** caseId → 客户名颜色（按该案应收状态）；缺省 default 不上色 */
+  colorByCase?: Record<string, CustomerPaymentColor>
+}) {
   return (
     <div className="space-y-2">
       <div className="text-xs text-slate-500">
@@ -124,7 +146,7 @@ export function ReceiptsList({ items, total }: { items: ReceiptItem[]; total: nu
       ) : (
         <ul className="rounded-lg border border-slate-200 bg-white px-3">
           {items.map((i) => (
-            <ReceiptItemRow key={i.paymentId} item={i} />
+            <ReceiptItemRow key={i.paymentId} item={i} color={colorByCase[i.caseId] ?? 'default'} />
           ))}
         </ul>
       )}
