@@ -1,4 +1,6 @@
 import type { Case, Customer } from '../types/models'
+import { formatVisaType } from './visa'
+import { CASE_STAGE_LABELS } from '../types/domain'
 
 /**
  * 「依附于哪个主案件」下拉的默认候选范围（纯函数）。
@@ -32,6 +34,11 @@ export function selectParentCaseCandidates(
  * 前两种 → UI 把 radio「关联」选项置灰禁用（只能选独立）。
  */
 export type ParentDropdownState = 'no-family-primary' | 'primary-no-cases' | 'has-cases'
+
+/** 主案件下拉每条选项的显示文案：主申请客户名 · 签证类型 · 案件编号 · 当前阶段。 */
+export function parentCaseOptionLabel(c: Case, customerName: string): string {
+  return `${customerName} · ${formatVisaType(c.visa_subclass, c.visa_stream)} · ${c.case_number} · ${CASE_STAGE_LABELS[c.current_stage]}`
+}
 
 export function parentCaseDropdown(
   cases: Case[],

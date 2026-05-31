@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { selectParentCaseCandidates, parentCaseDropdown } from './parentCase'
+import { selectParentCaseCandidates, parentCaseDropdown, parentCaseOptionLabel } from './parentCase'
 import type { Case, Customer } from '../types/models'
 
 const mkCustomer = (o: Partial<Customer>): Customer => ({
@@ -89,5 +89,16 @@ describe('parentCaseDropdown（严格只列家庭主申名下案件 + 空态判�
     const r = parentCaseDropdown(cases, 'sub', CUSTOMERS)
     expect(r.state).toBe('has-cases')
     expect(r.candidates.map((c) => c.id)).toEqual(['p1'])
+  })
+})
+
+describe('parentCaseOptionLabel（下拉每条显示格式：主申名 · 签证类型 · 编号 · 阶段）', () => {
+  it('含主申请客户名', () => {
+    const c = mkCase({ visa_subclass: '186', visa_stream: 'Direct Entry', case_number: '70193357', current_stage: 'todo' })
+    expect(parentCaseOptionLabel(c, '孙佳琪')).toBe('孙佳琪 · 186/Direct Entry · 70193357 · 待办')
+  })
+  it('无 stream 时签证类型只显示类别号', () => {
+    const c = mkCase({ visa_subclass: '500', visa_stream: null, case_number: '11250973', current_stage: 'granted' })
+    expect(parentCaseOptionLabel(c, '陈晨')).toBe('陈晨 · 500 · 11250973 · 下签')
   })
 })

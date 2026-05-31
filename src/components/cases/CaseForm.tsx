@@ -104,6 +104,8 @@ export function CaseForm({
     customersData,
     initial?.id,
   )
+  const customerNameById: Record<string, string> = {}
+  for (const cu of customersData) customerNameById[cu.id] = cu.full_name
   // 无家庭主申 / 主申无案件 → 不能关联，radio 2/3 置灰
   const canLink = parentState === 'has-cases'
   const emptyHint =
@@ -224,7 +226,12 @@ export function CaseForm({
 
           {canLink && isLinked && (
             <div className="space-y-2 border-t border-slate-100 pt-3">
-              <ParentCaseField value={parentCaseId} onChange={setParentCaseId} candidates={parentCandidates} />
+              <ParentCaseField
+                value={parentCaseId}
+                onChange={setParentCaseId}
+                candidates={parentCandidates}
+                customerNameById={customerNameById}
+              />
               {relationship === 'synced' && (
                 <p className="rounded-lg bg-indigo-50 px-3 py-2 text-xs text-indigo-700">
                   🔗 主案件 stage 变化将自动同步到本案件。
