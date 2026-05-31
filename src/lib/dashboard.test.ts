@@ -209,6 +209,19 @@ describe('selectCustomerDebts — 按 billed_to 实际付款方聚合', () => {
     expect(r[0]).toMatchObject({ customerId: 'stranger', customerName: '无关人', clientOwes: 1000 })
   })
 
+  it('billed_to 未设、但计划属于某副申请(applicant_id) → 挂该副申请名下（与财务页一致，不算到主申请头上）', () => {
+    const plans = [mkPlan({ id: 'p1', case_id: 'c1', applicant_id: 'sub', billed_to_customer_id: null })]
+    const r = selectCustomerDebts(plans, [], cases, customers, items)
+    expect(r.map((x) => x.customerId)).toEqual(['sub'])
+    expect(r[0]).toMatchObject({ customerId: 'sub', customerName: '副申请', clientOwes: 1000 })
+  })
+
+  it('归属优先级：billed_to > applicant_id > 案件主申请', () => {
+    const plans = [mkPlan({ id: 'p1', case_id: 'c1', applicant_id: 'sub', billed_to_customer_id: 'stranger' })]
+    const r = selectCustomerDebts(plans, [], cases, customers, items)
+    expect(r[0]).toMatchObject({ customerId: 'stranger' }) // billed_to 优先于 applicant_id
+  })
+
   it('一个客户被多个 case 的 billed_to 指向 → 正确求和', () => {
     const cases2 = { c1: mkCase({ id: 'c1', customer_id: 'primary' }), c2: mkCase({ id: 'c2', customer_id: 'other' }) }
     const plans = [

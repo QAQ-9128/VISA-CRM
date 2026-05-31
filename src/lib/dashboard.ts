@@ -150,14 +150,17 @@ interface DebtAcc {
 }
 
 /**
- * 该 plan 的费用归集到哪个客户：优先 plan.billed_to_customer_id（实际付款方，可跨家庭组/介绍人/任何人），
- * 为空则回落到案件主申请 case.customer_id（向后兼容；billed_to 客户被删后 on delete set null 也回落此值）。
+ * 该 plan 的费用归集到哪个客户，优先级：
+ *   1) plan.billed_to_customer_id —— 显式指定的实际付款方（可跨家庭组/介绍人/任何人）
+ *   2) plan.applicant_id          —— 按申请人分开记账时，这张计划本就属于某副申请（与财务页归属一致）
+ *   3) case.customer_id           —— 合并账单（applicant_id 为空）回落到案件主申请
+ * 这样：副申请自己的账挂副申请名下、不再误算到主申请；billed_to 客户被删 set null 后自然回落到 2/3。
  */
 export function planBilledToCustomerId(
-  plan: Pick<PaymentPlan, 'case_id' | 'billed_to_customer_id'>,
+  plan: Pick<PaymentPlan, 'case_id' | 'applicant_id' | 'billed_to_customer_id'>,
   caseById: CaseMap,
 ): string | null {
-  return plan.billed_to_customer_id ?? caseById[plan.case_id]?.customer_id ?? null
+  return plan.billed_to_customer_id ?? plan.applicant_id ?? caseById[plan.case_id]?.customer_id ?? null
 }
 
 export function selectCustomerDebts(
