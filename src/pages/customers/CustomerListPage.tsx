@@ -9,8 +9,11 @@ import { StarToggle } from '../../components/ui/StarToggle'
 import { StageBadge } from '../../components/cases/StageBadge'
 import { ClientSourceDot } from '../../components/customers/ClientSourceDot'
 import { LoadingBlock, ErrorBlock, EmptyState } from '../../components/ui/states'
+import { useCustomerDebts } from '../../hooks/queries/useCustomerDebts'
 import { groupCustomersByFamily } from '../../lib/customerGroups'
 import { selectCustomerCaseLines, selectDisplayCases } from '../../lib/customerList'
+import { CUSTOMER_PAYMENT_TEXT_CLASS } from '../../lib/finance'
+import type { CustomerPaymentColor } from '../../lib/finance'
 import type { Case, Customer } from '../../types/models'
 
 /** 一行客户：sub=true 时缩进并加连接线，视觉上挂在主申下面。cases = 该客户名下的案件。 */
@@ -19,14 +22,18 @@ function CustomerRow({
   sub = false,
   cases = [],
   employerName = null,
+  paymentColor = 'default',
 }: {
   c: Customer
   sub?: boolean
   cases?: Case[]
   employerName?: string | null
+  paymentColor?: CustomerPaymentColor
 }) {
   const update = useUpdateCustomer()
   const lines = selectCustomerCaseLines(c, cases, employerName)
+  // 付款颜色按「归集后欠款(billed_to)」判断：blue=还欠钱 / green=已付清 / default=无
+  const nameColor = paymentColor === 'default' ? '' : CUSTOMER_PAYMENT_TEXT_CLASS[paymentColor]
   return (
     <li className={`flex items-center gap-2 border-t border-slate-100 first:border-t-0 ${sub ? 'pl-3' : ''}`}>
       {sub && (
@@ -45,7 +52,7 @@ function CustomerRow({
       <Link to={`/customers/${c.id}`} className="flex min-w-0 flex-1 items-center gap-3 py-3 pr-2">
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2">
-            <span className={`truncate text-slate-900 ${sub ? 'text-sm' : 'font-medium'}`}>{c.full_name}</span>
+            <span className={`truncate ${nameColor || 'text-slate-900'} ${sub ? 'text-sm' : 'font-medium'}`}>{c.full_name}</span>
             <ClientSourceDot source={c.client_source} />
             {sub && c.relationship_to_primary && (
               <span className="text-xs text-slate-400">{c.relationship_to_primary}</span>
@@ -83,6 +90,7 @@ export function CustomerListPage() {
   const cases = useCases()
   const applicants = useAllCaseApplicants()
   const employers = useEmployers()
+  const { colorByCustomerId } = useCustomerDebts()
   const groups = useMemo(() => groupCustomersByFamily(customers.data ?? []), [customers.data])
   // 担保雇主 id → name（每行显示「担保雇主」用）
   const employerNameById = useMemo(() => {
@@ -148,6 +156,7 @@ export function CustomerListPage() {
                       c={g.primary}
                       cases={displayCasesOf(g.primary)}
                       employerName={employerNameOf(g.primary)}
+                      paymentColor={colorByCustomerId[g.primary.id] ?? 'default'}
                     />
                   )}
                   {g.subs.map((s) => (
@@ -157,6 +166,7 @@ export function CustomerListPage() {
                       sub
                       cases={displayCasesOf(s)}
                       employerName={employerNameOf(s)}
+                      paymentColor={colorByCustomerId[s.id] ?? 'default'}
                     />
                   ))}
                 </ul>

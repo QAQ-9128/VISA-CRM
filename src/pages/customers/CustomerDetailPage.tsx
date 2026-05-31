@@ -31,6 +31,9 @@ import { StageBadge } from '../../components/cases/StageBadge'
 import { DocumentsSection } from '../../components/documents/DocumentsSection'
 import { RecordsSection } from '../../components/records/RecordsSection'
 import { CustomerPaymentsSection } from '../../components/finance/CustomerPaymentsSection'
+import { useCustomerDebts } from '../../hooks/queries/useCustomerDebts'
+import { CUSTOMER_PAYMENT_TEXT_CLASS } from '../../lib/finance'
+import { formatMoney } from '../../lib/money'
 import { CLIENT_SOURCE_LABELS, GENDER_LABELS } from '../../types/domain'
 import { ClientSourceDot } from '../../components/customers/ClientSourceDot'
 import type { ClientSource, Gender } from '../../types/domain'
@@ -93,6 +96,30 @@ function FamilyGroup({ customer }: { customer: Customer }) {
       ) : (
         <p className="text-sm text-slate-400">暂无副申请人</p>
       )}
+    </div>
+  )
+}
+
+/** 归集欠款汇总：按 billed_to 归到该客户名下的所有案件欠款（含他不是主申请但被指定付款的案件）。 */
+function BilledDebtSummary({ customerId }: { customerId: string }) {
+  const debts = useCustomerDebts()
+  const s = debts.summaryOf(customerId)
+  if (debts.isPending) return null
+  if (s.clientOwes <= 0 && s.companyOwes <= 0) return null
+  return (
+    <div className="rounded-xl border border-rose-200 bg-rose-50/50 px-4 py-3">
+      <p className="text-sm font-medium text-slate-700">归集欠款</p>
+      <p className="mt-1 text-sm">
+        {s.clientOwes > 0 && (
+          <span className={`font-semibold ${CUSTOMER_PAYMENT_TEXT_CLASS[s.color] || 'text-rose-600'}`}>
+            客户欠你 {formatMoney(s.clientOwes)}
+          </span>
+        )}
+        {s.companyOwes > 0 && (
+          <span className="ml-3 text-amber-600">欠主代理 {formatMoney(s.companyOwes)}</span>
+        )}
+      </p>
+      <p className="mt-1 text-xs text-slate-400">含该客户作为「账单付款方」的所有案件（可能涵盖他不是主申请的案件）。</p>
     </div>
   )
 }
@@ -348,6 +375,8 @@ export function CustomerDetailPage() {
       <CasesSection customerId={c.id} />
 
       <CoApplicantCasesSection customerId={c.id} />
+
+      <BilledDebtSummary customerId={c.id} />
 
       <CustomerPaymentsSection customerId={c.id} />
 

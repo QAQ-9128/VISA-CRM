@@ -149,6 +149,17 @@ interface DebtAcc {
   clientPaid: number
 }
 
+/**
+ * 该 plan 的费用归集到哪个客户：优先 plan.billed_to_customer_id（实际付款方，可跨家庭组/介绍人/任何人），
+ * 为空则回落到案件主申请 case.customer_id（向后兼容；billed_to 客户被删后 on delete set null 也回落此值）。
+ */
+export function planBilledToCustomerId(
+  plan: Pick<PaymentPlan, 'case_id' | 'billed_to_customer_id'>,
+  caseById: CaseMap,
+): string | null {
+  return plan.billed_to_customer_id ?? caseById[plan.case_id]?.customer_id ?? null
+}
+
 export function selectCustomerDebts(
   plans: PaymentPlan[],
   payments: Pick<Payment, 'case_id' | 'direction' | 'amount' | 'plan_item_id'>[],
@@ -160,7 +171,8 @@ export function selectCustomerDebts(
   for (const plan of plans) {
     const c = caseById[plan.case_id]
     if (!c) continue
-    const customerId = c.customer_id
+    const customerId = planBilledToCustomerId(plan, caseById)
+    if (!customerId) continue
     const casePayments = payments.filter((p) => p.case_id === plan.case_id)
     // 客户侧应收/已付/未付从款项明细派生；付主代理仍走 computeAccounting
     const totals = getCaseTotals(planItems.filter((i) => i.plan_id === plan.id), casePayments)
@@ -189,4 +201,42 @@ export function selectCustomerDebts(
     }))
     .filter((e) => e.clientOwes > 0 || e.companyOwes > 0)
     .sort((a, b) => b.clientOwes - a.clientOwes || b.companyOwes - a.companyOwes)
+}
+
+export interface CustomerDebtSummary {
+  clientOwes: number
+  companyOwes: number
+  color: CustomerPaymentColor
+}
+
+/**
+ * 某客户名下「归集欠款」汇总：聚合所有 billed_to 指向该客户的案件费用——
+ * 含他作主申请的案件（billed_to 为空回落主申）+ 他被设为 billed_to 的别人案件。
+ * 客户详情页「欠款」区与客户列表付款颜色都按此口径。
+ */
+export function selectCustomerDebtSummary(
+  customerId: string,
+  plans: PaymentPlan[],
+  payments: Pick<Payment, 'case_id' | 'direction' | 'amount' | 'plan_item_id'>[],
+  caseById: CaseMap,
+  planItems: Pick<PaymentPlanItem, 'id' | 'plan_id' | 'amount_due'>[] = [],
+): CustomerDebtSummary {
+  let clientOwes = 0
+  let companyOwes = 0
+  let clientReceivable = 0
+  let clientPaid = 0
+  for (const plan of plans) {
+    if (planBilledToCustomerId(plan, caseById) !== customerId) continue
+    const casePayments = payments.filter((p) => p.case_id === plan.case_id)
+    const totals = getCaseTotals(planItems.filter((i) => i.plan_id === plan.id), casePayments)
+    clientOwes += Math.max(0, totals.totalUnpaid)
+    companyOwes += Math.max(0, computeAccounting(plan, casePayments).companyOwes)
+    clientReceivable += totals.totalDue
+    clientPaid += totals.totalPaid
+  }
+  return {
+    clientOwes: Math.round(clientOwes * 100) / 100,
+    companyOwes: Math.round(companyOwes * 100) / 100,
+    color: getCustomerPaymentColor(clientReceivable, clientPaid, clientOwes),
+  }
 }

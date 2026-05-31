@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import {
   computeDebtTotals,
   selectCustomerDebts,
+  selectCustomerDebtSummary,
   selectCustomersWithOpenTasks,
   selectOverdueInstallments,
   selectTodoCases,
@@ -115,8 +116,8 @@ describe('sortPriorityCustomers', () => {
 describe('computeDebtTotals', () => {
   it('合计客户欠款与欠主代理（按案件分组，负数不计）', () => {
     const plans: PaymentPlan[] = [
-      { id: 'p1', case_id: 'c1', applicant_id: null, client_total: 1000, company_total: 800, currency: 'AUD', note: null, created_at: '', updated_at: '' },
-      { id: 'p2', case_id: 'c2', applicant_id: null, client_total: 500, company_total: 0, currency: 'AUD', note: null, created_at: '', updated_at: '' },
+      { id: 'p1', case_id: 'c1', applicant_id: null, billed_to_customer_id: null, client_total: 1000, company_total: 800, currency: 'AUD', note: null, created_at: '', updated_at: '' },
+      { id: 'p2', case_id: 'c2', applicant_id: null, billed_to_customer_id: null, client_total: 500, company_total: 0, currency: 'AUD', note: null, created_at: '', updated_at: '' },
     ]
     const items = [
       { id: 'i1', plan_id: 'p1', amount_due: 1000 },
@@ -147,7 +148,7 @@ describe('selectCustomerDebts', () => {
       cuC: mkCustomer({ id: 'cuC', full_name: '丙' }),
     }
     const plan = (id: string, caseId: string, ct: number, mt: number): PaymentPlan => ({
-      id, case_id: caseId, applicant_id: null, client_total: ct, company_total: mt, currency: 'AUD', note: null, created_at: '', updated_at: '',
+      id, case_id: caseId, applicant_id: null, billed_to_customer_id: null, client_total: ct, company_total: mt, currency: 'AUD', note: null, created_at: '', updated_at: '',
     })
     const plans = [
       plan('p1', 'c1', 1000, 800),
@@ -172,5 +173,83 @@ describe('selectCustomerDebts', () => {
     expect(r.map((x) => x.customerId)).toEqual(['cuB', 'cuA']) // 丙 已结清被剔除
     expect(r[0]).toMatchObject({ customerName: '乙', clientOwes: 2000, companyOwes: 1000, color: 'blue' })
     expect(r[1]).toMatchObject({ customerName: '甲', clientOwes: 700, companyOwes: 0, color: 'blue' }) // c1 700 + c2 0
+  })
+})
+
+describe('selectCustomerDebts — 按 billed_to 实际付款方聚合', () => {
+  const mkPlan = (o: Partial<PaymentPlan>): PaymentPlan => ({
+    id: 'p1', case_id: 'c1', applicant_id: null, billed_to_customer_id: null, client_total: 0, company_total: 0,
+    currency: 'AUD', note: null, created_at: '', updated_at: '', ...o,
+  })
+  const cases = { c1: mkCase({ id: 'c1', customer_id: 'primary' }) }
+  const customers = {
+    primary: mkCustomer({ id: 'primary', full_name: '主申请' }),
+    sub: mkCustomer({ id: 'sub', full_name: '副申请', primary_applicant_id: 'primary' }),
+    stranger: mkCustomer({ id: 'stranger', full_name: '无关人' }),
+  }
+  const items = [{ id: 'i1', plan_id: 'p1', amount_due: 1000 }] as PaymentPlanItem[]
+
+  it('billed_to 未设(null) → 欠款挂主申请名下（向后兼容；含删除后 set null 回落）', () => {
+    const plans = [mkPlan({ id: 'p1', case_id: 'c1', billed_to_customer_id: null })]
+    const r = selectCustomerDebts(plans, [], cases, customers, items)
+    expect(r).toHaveLength(1)
+    expect(r[0]).toMatchObject({ customerId: 'primary', clientOwes: 1000 })
+  })
+
+  it('billed_to = 副申请 → 欠款挂副申请名下，不挂主申请', () => {
+    const plans = [mkPlan({ id: 'p1', case_id: 'c1', billed_to_customer_id: 'sub' })]
+    const r = selectCustomerDebts(plans, [], cases, customers, items)
+    expect(r.map((x) => x.customerId)).toEqual(['sub'])
+    expect(r[0]).toMatchObject({ customerId: 'sub', customerName: '副申请', clientOwes: 1000 })
+  })
+
+  it('billed_to = 完全无关客户 → 挂该客户名下', () => {
+    const plans = [mkPlan({ id: 'p1', case_id: 'c1', billed_to_customer_id: 'stranger' })]
+    const r = selectCustomerDebts(plans, [], cases, customers, items)
+    expect(r[0]).toMatchObject({ customerId: 'stranger', customerName: '无关人', clientOwes: 1000 })
+  })
+
+  it('一个客户被多个 case 的 billed_to 指向 → 正确求和', () => {
+    const cases2 = { c1: mkCase({ id: 'c1', customer_id: 'primary' }), c2: mkCase({ id: 'c2', customer_id: 'other' }) }
+    const plans = [
+      mkPlan({ id: 'p1', case_id: 'c1', billed_to_customer_id: 'stranger' }),
+      mkPlan({ id: 'p2', case_id: 'c2', billed_to_customer_id: 'stranger' }),
+    ]
+    const items2 = [
+      { id: 'i1', plan_id: 'p1', amount_due: 1000 },
+      { id: 'i2', plan_id: 'p2', amount_due: 500 },
+    ] as PaymentPlanItem[]
+    const r = selectCustomerDebts(plans, [], cases2, customers, items2)
+    expect(r).toHaveLength(1)
+    expect(r[0]).toMatchObject({ customerId: 'stranger', clientOwes: 1500 })
+  })
+})
+
+describe('selectCustomerDebtSummary — 客户详情归集欠款（含他不是主申请但被 billed_to 指向的案件）', () => {
+  const mkPlan = (o: Partial<PaymentPlan>): PaymentPlan => ({
+    id: 'p1', case_id: 'c1', applicant_id: null, billed_to_customer_id: null, client_total: 0, company_total: 0,
+    currency: 'AUD', note: null, created_at: '', updated_at: '', ...o,
+  })
+  // c1 主申=me（自己的案件）；c2 主申=别人，但 billed_to=me
+  const cases = { c1: mkCase({ id: 'c1', customer_id: 'me' }), c2: mkCase({ id: 'c2', customer_id: 'other' }) }
+  const plans = [
+    mkPlan({ id: 'p1', case_id: 'c1', billed_to_customer_id: null }), // 自己案件，挂自己
+    mkPlan({ id: 'p2', case_id: 'c2', billed_to_customer_id: 'me' }), // 别人案件，账单挂自己
+  ]
+  const items = [
+    { id: 'i1', plan_id: 'p1', amount_due: 1000 },
+    { id: 'i2', plan_id: 'p2', amount_due: 500 },
+  ] as PaymentPlanItem[]
+
+  it('汇总所有归集到该客户名下的欠款（自己案件 + 被指向的案件）', () => {
+    const s = selectCustomerDebtSummary('me', plans, [], cases, items)
+    expect(s.clientOwes).toBe(1500)
+    expect(s.color).toBe('blue')
+  })
+
+  it('无归集欠款 → 0、color=default', () => {
+    const s = selectCustomerDebtSummary('nobody', plans, [], cases, items)
+    expect(s.clientOwes).toBe(0)
+    expect(s.color).toBe('default')
   })
 })

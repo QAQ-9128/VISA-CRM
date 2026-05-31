@@ -322,6 +322,7 @@ export interface Database {
           id: string
           case_id: string
           applicant_id: string | null
+          billed_to_customer_id: string | null
           client_total: number | null
           company_total: number | null
           currency: string
@@ -333,6 +334,7 @@ export interface Database {
           id?: string
           case_id: string
           applicant_id?: string | null
+          billed_to_customer_id?: string | null
           client_total?: number | null
           company_total?: number | null
           currency?: string

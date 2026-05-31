@@ -26,7 +26,7 @@ const mkCustomer = (o: Partial<Customer>): Customer => ({
   assigned_to: null, created_by: null, is_archived: false, created_at: '', updated_at: '', ...o,
 })
 const mkPlan = (o: Partial<PaymentPlan>): PaymentPlan => ({
-  id: 'p1', case_id: 'c1', applicant_id: null, client_total: 0, company_total: 0, currency: 'AUD', note: null,
+  id: 'p1', case_id: 'c1', applicant_id: null, billed_to_customer_id: null, client_total: 0, company_total: 0, currency: 'AUD', note: null,
   created_at: '', updated_at: '', ...o,
 })
 // 应收已改为款项明细派生：每个 plan 一条默认款项(amount_due = 该 plan 的应收)
