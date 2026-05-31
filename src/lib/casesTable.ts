@@ -1,5 +1,6 @@
 import { utcDayDiff } from './dateDiff'
 import { formatVisaType } from './visa'
+import { getLodgementLodgedDate } from './lodgementStatus'
 import { CASE_STAGES } from '../types/domain'
 import type { CaseStage } from '../types/domain'
 import type { Case, CaseApplicant, CaseStageHistory, Customer, Lodgement } from '../types/models'
@@ -42,6 +43,21 @@ export function formatElapsed(from: string | null | undefined, to: string | Date
   return months <= 0 ? `${days} 天` : `${months} 个月 ${days} 天`
 }
 
+/**
+ * 把总天数按客户 Excel 的「/30 近似法」拆成 月/天：月 = floor(总天数/30)、天 = 总天数 % 30。
+ * （非日历月对齐——与 elapsedMonthsDays 不同；客户递交进度表/卡片的距今统一用这套。）
+ */
+export function splitWaitDays(totalDays: number): { months: number; days: number } {
+  const d = Math.max(0, totalDays)
+  return { months: Math.floor(d / 30), days: d % 30 }
+}
+
+/** 格式化等待天数：<30 天 → "X 天"（不显示"0 个月"）；>=30 → "X 个月 Y 天"（允许 Y=0）。 */
+export function formatWaitDays(totalDays: number): string {
+  const { months, days } = splitWaitDays(totalDays)
+  return months <= 0 ? `${days} 天` : `${months} 个月 ${days} 天`
+}
+
 export interface WaitDays {
   /** 是否有递交日期（无则其余字段无意义） */
   lodged: boolean
@@ -56,32 +72,31 @@ export interface WaitDays {
 }
 
 /**
- * 单条递交（提名/签证）的「等待天数」。与递交进度 Excel 表同一套口径（复用 utcDayDiff /
- * elapsedMonthsDays，不另写）：
+ * 单条递交（提名/签证）的「等待天数」。lodgedDate 为派生的递交日期（见 getLodgementLodgedDate）。
  *  - 案件已决：递交日 → 该案 case_stage_history 里 granted/refused 的最晚决定日(effective_at)，冻结；
  *  - 案件未决：递交日 → 今天（继续增长）。
- * stageHistory 传整个案件或全部历史均可，内部按 lodgement.case_id 过滤。
+ * 月/天换算用客户 Excel 的 /30 近似法（splitWaitDays），不用日历月。
+ * stageHistory 传整个案件或全部历史均可，内部按 caseId 过滤。
  */
 export function calculateWaitDays(
-  lodgement: Pick<Lodgement, 'lodged_date' | 'case_id'>,
+  lodgedDate: string | null,
+  caseId: string,
   stageHistory: CaseStageHistory[],
   today: Date = new Date(),
 ): WaitDays {
   let decisionDay: string | null = null
   for (const h of stageHistory) {
-    if (h.case_id !== lodgement.case_id) continue
+    if (h.case_id !== caseId) continue
     if (h.to_stage !== 'granted' && h.to_stage !== 'refused') continue
     const d = (h.effective_at ?? h.changed_at).slice(0, 10)
     if (!decisionDay || d > decisionDay) decisionDay = d
   }
   const frozen = decisionDay != null
-  const from = lodgement.lodged_date
-  if (!from) return { lodged: false, frozen, totalDays: 0, months: 0, days: 0, label: '—' }
+  if (!lodgedDate) return { lodged: false, frozen, totalDays: 0, months: 0, days: 0, label: '—' }
   const end: string | Date = decisionDay ?? today
-  const totalDays = utcDayDiff(from, end)
-  const { months, days } = elapsedMonthsDays(from, end)
-  const label = months <= 0 ? `${days} 天` : `${months} 个月 ${days} 天`
-  return { lodged: true, frozen, totalDays, months, days, label }
+  const totalDays = utcDayDiff(lodgedDate, end)
+  const { months, days } = splitWaitDays(totalDays)
+  return { lodged: true, frozen, totalDays, months, days, label: formatWaitDays(totalDays) }
 }
 
 /** 案件客户 + 同家庭组成员，案件客户在前，其余主申优先再按名字，"&" 连接。 */
@@ -169,9 +184,13 @@ export function selectCaseRows(
     list.push(a.customer_id)
     subsByCase.set(a.case_id, list)
   }
-  // 每个案件的「决定日期」：to_stage 为下签/拒签的历史里最晚的 effective_at（取日期部分）
+  // 每个案件的历史（用于派生递交日期）+「决定日期」（终态冻结用）
+  const histByCase = new Map<string, CaseStageHistory[]>()
   const decisionByCase = new Map<string, string>()
   for (const h of stageHistory) {
+    const arr = histByCase.get(h.case_id) ?? []
+    arr.push(h)
+    histByCase.set(h.case_id, arr)
     if (h.to_stage === 'granted' || h.to_stage === 'refused') {
       const d = (h.effective_at ?? h.changed_at).slice(0, 10)
       const prev = decisionByCase.get(h.case_id)
@@ -182,23 +201,27 @@ export function selectCaseRows(
 
   const rows: CaseRow[] = []
   for (const c of cases) {
+    const caseHist = histByCase.get(c.id) ?? []
+    // 递交日期从 stage_history 派生（不再读 lodgements.lodged_date）
+    const nom = getLodgementLodgedDate(caseHist, 'nomination')
+    const visa = getLodgementLodgedDate(caseHist, 'visa')
+    // lodgement 行仅用于取 DHA 处理天数（超期红色提示）
     const nomL = lodgements.find((l) => l.case_id === c.id && l.type === 'nomination')
     const visaL = lodgements.find((l) => l.case_id === c.id && l.type === 'visa')
-    const nom = nomL?.lodged_date ?? null
-    const visa = visaL?.lodged_date ?? null
     const latest = latestLodged(nom, visa)
     const lodged = latest != null
     // 终态(下签/拒签)冻结到决定日；未决则到今天（继续增长）。终态但无历史记录时回退今天。
     const decisionDay = isTerminal(c.current_stage) ? decisionByCase.get(c.id) ?? null : null
     const endRef: string | Date = decisionDay ?? today
     // 未递交：daysSince 用 -1 哨兵，默认距今降序时排在所有已递交之后
+    // 月/天换算统一用 /30 近似法（splitWaitDays），与 lodgement 卡片等待天数同源、对齐客户 Excel
     const daysSince = lodged ? utcDayDiff(latest, endRef) : -1
-    const elapsed = lodged ? elapsedMonthsDays(latest, endRef) : { months: 0, days: 0 }
+    const elapsed = lodged ? splitWaitDays(daysSince) : { months: 0, days: 0 }
     // 提名/签证各自的距今（缺哪边哪边为 null）；终态冻结、未决到今天
     const nomDaysSince = nom ? utcDayDiff(nom, endRef) : null
-    const nomElapsed = nom ? elapsedMonthsDays(nom, endRef) : null
+    const nomElapsed = nomDaysSince != null ? splitWaitDays(nomDaysSince) : null
     const visaDaysSince = visa ? utcDayDiff(visa, endRef) : null
-    const visaElapsed = visa ? elapsedMonthsDays(visa, endRef) : null
+    const visaElapsed = visaDaysSince != null ? splitWaitDays(visaDaysSince) : null
     const primaryName = customerById[c.customer_id]?.full_name ?? ''
     const subIds = subsByCase.get(c.id) ?? []
     const subNames = subIds.map((id) => customerById[id]?.full_name ?? '').filter(Boolean)

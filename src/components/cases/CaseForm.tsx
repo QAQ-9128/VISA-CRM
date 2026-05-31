@@ -12,6 +12,7 @@ export interface CaseFormValues extends CaseInsert {
   visa_subclass: string
   visa_stream: string | null
   sync_tracking: boolean
+  trt_reminder_enabled: boolean
 }
 
 interface CaseFormProps {
@@ -44,7 +45,10 @@ export function CaseForm({
   const [currency, setCurrency] = useState(initial?.currency ?? 'AUD')
   // 仅决定财务核算口径（true=合并账单；false=按申请人分开）。案件进度永远同步追踪，无开关。
   const [financeCombined, setFinanceCombined] = useState(initial?.sync_tracking ?? true)
+  const [trtReminder, setTrtReminder] = useState(initial?.trt_reminder_enabled ?? false)
   const [applicantIds, setApplicantIds] = useState<string[]>(initialApplicantIds ?? [])
+
+  const is482 = visaSubclass.trim().startsWith('482')
 
   // 候选副申请人 = 与主申同家庭组的其他成员（双向：主申↔副申、同主申的副申之间）
   const allCustomers = useCustomers({})
@@ -63,6 +67,8 @@ export function CaseForm({
         destination_country: trimOrNull(destination),
         currency: currency.trim() || 'AUD',
         sync_tracking: financeCombined,
+        // 仅 482 才可能开启；切到非 482 自动清掉，避免残留 true
+        trt_reminder_enabled: is482 ? trtReminder : false,
       },
       applicantIds,
     )
@@ -87,6 +93,23 @@ export function CaseForm({
           setVisaStream(st)
         }}
       />
+
+      {is482 && (
+        <label className="flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50/60 p-3 text-sm text-slate-700">
+          <input
+            type="checkbox"
+            checked={trtReminder}
+            onChange={(e) => setTrtReminder(e.target.checked)}
+            className="mt-0.5 size-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+          />
+          <span>
+            2 年转 186 TRT 提醒
+            <span className="mt-0.5 block text-xs text-slate-500">
+              下签满 22 个月后，在案件/客户/概览处提醒及时启动 186 TRT 永居（开了 186 TRT 案后自动消失）。
+            </span>
+          </span>
+        </label>
+      )}
 
       <fieldset className="rounded-xl border border-slate-200 p-4">
         <legend className="px-1 text-sm font-medium text-slate-600">副申请人 / 财务核算</legend>

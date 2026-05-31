@@ -20,14 +20,26 @@ describe('listByCase', () => {
   })
 })
 
-describe('listLodged', () => {
-  it('只取已递交（lodged_date 非空）的递交记录', async () => {
-    const rows = [{ id: 'l1', lodged_date: '2026-01-01' }]
+describe('listAllLodgements', () => {
+  it('取全部递交记录，不再按 lodged_date 过滤（递交日期已改为派生）', async () => {
+    const rows = [{ id: 'l1', type: 'visa' }]
     const b = wireFrom(fromMock, { lodgements: { data: rows } })
-    const result = await lodgementsApi.listLodged()
+    const result = await lodgementsApi.listAllLodgements()
     expect(fromMock).toHaveBeenCalledWith('lodgements')
-    expect(b.lodgements.not).toHaveBeenCalledWith('lodged_date', 'is', null)
+    expect(b.lodgements.not).not.toHaveBeenCalled()
     expect(result).toEqual(rows)
+  })
+})
+
+describe('ensureLodgement', () => {
+  it('按 (case_id,type) upsert 确保存在，重复则忽略（不覆盖已有字段）', async () => {
+    const b = wireFrom(fromMock, { lodgements: {} })
+    await lodgementsApi.ensureLodgement('c1', 'nomination')
+    expect(fromMock).toHaveBeenCalledWith('lodgements')
+    expect(b.lodgements.upsert).toHaveBeenCalledWith(
+      { case_id: 'c1', type: 'nomination' },
+      { onConflict: 'case_id,type', ignoreDuplicates: true },
+    )
   })
 })
 

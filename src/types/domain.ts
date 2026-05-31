@@ -10,27 +10,35 @@
 // ── 角色 ─────────────────────────────────────────────
 export type AppRole = 'admin' | 'staff'
 
-// ── 案件阶段（客户实际在用的 7 个，顺序即流程推进方向）──────────────
-// 存储键对齐 supabase/migrations/0004 + 0006（case_stage 为 text + check；0006 增 drafted）。
+// ── 案件阶段（顺序即流程推进方向）──────────────
+// 存储键对齐 supabase/migrations/0004 + 0006 + 0016（case_stage 为 text + check）。
+// CASE_STAGES = 下拉/流程展示用（不含已废弃 additional_docs）。
 export const CASE_STAGES = [
   'todo',
   'drafted',
   'nomination_lodged',
+  'nomination_approved',
   'visa_lodged',
-  'additional_docs',
+  'docs_requested',
+  'docs_completed',
   'granted',
   'refused',
 ] as const
-export type CaseStage = (typeof CASE_STAGES)[number]
+/** 已废弃阶段：旧数据仍可能为此值，不在下拉显示，仅用于类型/标签兼容（被「要求补件」「补件完毕」替代）。 */
+export const LEGACY_CASE_STAGES = ['additional_docs'] as const
+export type CaseStage = (typeof CASE_STAGES)[number] | (typeof LEGACY_CASE_STAGES)[number]
 
 export const CASE_STAGE_LABELS: Record<CaseStage, string> = {
   todo: '待办',
   drafted: '已草拟',
   nomination_lodged: '提名递交',
+  nomination_approved: '提名获批',
   visa_lodged: '签证递交',
-  additional_docs: '补件',
+  docs_requested: '要求补件',
+  docs_completed: '补件完毕',
   granted: '下签',
   refused: '拒签',
+  additional_docs: '补件', // 旧数据兼容（已被要求补件/补件完毕替代）
 }
 
 /** Tailwind 类名片段，用于 StageBadge */
@@ -38,10 +46,13 @@ export const CASE_STAGE_STYLES: Record<CaseStage, string> = {
   todo: 'bg-slate-100 text-slate-700',
   drafted: 'bg-amber-100 text-amber-800',
   nomination_lodged: 'bg-blue-100 text-blue-800',
+  nomination_approved: 'bg-cyan-100 text-cyan-800',
   visa_lodged: 'bg-indigo-100 text-indigo-800',
-  additional_docs: 'bg-orange-100 text-orange-800',
+  docs_requested: 'bg-orange-100 text-orange-800',
+  docs_completed: 'bg-teal-100 text-teal-800',
   granted: 'bg-emerald-100 text-emerald-800',
   refused: 'bg-rose-100 text-rose-800',
+  additional_docs: 'bg-orange-100 text-orange-800', // 旧数据兼容
 }
 
 // ── 递交类型 ─────────────────────────────────────────
@@ -146,7 +157,7 @@ export const DOC_TYPE_LABELS: Record<DocType, string> = {
 
 // ── 客户来源（可空 = 未分类；DB 为 text，存英文键、显中文）──────────
 // 用颜色标签表达「客户从哪来」，决定服务优先级心智：
-//   red    = 公司派的
+//   red    = 公司派的（DB 值仍为 'red'，但显示色已改为黑/深色，避免"出事"感）
 //   green  = 自己的
 //   yellow = 帮别人擦屁股的
 export const CLIENT_SOURCES = ['red', 'green', 'yellow'] as const
@@ -154,21 +165,21 @@ export type ClientSource = (typeof CLIENT_SOURCES)[number]
 
 /** 完整中文标签（含说明），下拉/tooltip 用 */
 export const CLIENT_SOURCE_LABELS: Record<ClientSource, string> = {
-  red: '红色（公司派的）',
+  red: '黑色（公司派的）',
   green: '绿色（自己的）',
   yellow: '黄色（帮别人擦屁股的）',
 }
 
 /** 下拉选项文案：彩色圆点(emoji) + 中文 + 说明 */
 export const CLIENT_SOURCE_OPTION_LABELS: Record<ClientSource, string> = {
-  red: '🔴 红色（公司派的）',
+  red: '⚫ 黑色（公司派的）',
   green: '🟢 绿色（自己的）',
   yellow: '🟡 黄色（帮别人擦屁股的）',
 }
 
-/** 圆点徽章配色（Tailwind 实心）：red-600 / green-600 / yellow-500 */
+/** 圆点徽章配色（Tailwind 实心）。'red'（公司派的）显示色改为 slate-900（柔和黑），其余不变。 */
 export const CLIENT_SOURCE_DOT: Record<ClientSource, string> = {
-  red: 'bg-red-600',
+  red: 'bg-slate-900',
   green: 'bg-green-600',
   yellow: 'bg-yellow-500',
 }

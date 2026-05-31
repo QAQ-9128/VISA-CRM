@@ -1,6 +1,8 @@
 import { Link, useNavigate, useParams } from 'react-router-dom'
-import { useArchiveCase, useCase } from '../../hooks/queries/useCases'
+import { useArchiveCase, useCase, useCaseStageHistory } from '../../hooks/queries/useCases'
+import { useCasesByCustomer } from '../../hooks/queries/useCases'
 import { useCustomer } from '../../hooks/queries/useCustomers'
+import { shouldShowTrtReminder, monthsSinceGrant } from '../../lib/trt'
 import { Button } from '../../components/ui/Button'
 import { Badge } from '../../components/ui/Badge'
 import { BackLink } from '../../components/ui/BackLink'
@@ -19,6 +21,8 @@ export function CaseDetailPage() {
   const caseQuery = useCase(id)
   const c = caseQuery.data
   const customer = useCustomer(c?.customer_id)
+  const customerCases = useCasesByCustomer(c?.customer_id)
+  const stageHistory = useCaseStageHistory(c?.id)
   const archive = useArchiveCase()
 
   if (caseQuery.isPending) return <LoadingBlock />
@@ -41,9 +45,20 @@ export function CaseDetailPage() {
     archive.mutate(c!.id, { onSuccess: () => navigate(`/customers/${c!.customer_id}`) })
   }
 
+  const trtHistory = stageHistory.data ?? []
+  const showTrt = shouldShowTrtReminder(c, customerCases.data ?? [c], trtHistory)
+  const trtMonths = monthsSinceGrant(trtHistory)
+
   return (
     <section className="mx-auto max-w-3xl space-y-6">
       <BackLink to="/cases" label="全部案件" />
+
+      {showTrt && (
+        <div className="flex items-start gap-2 rounded-xl border border-amber-300 bg-amber-50 px-4 py-3 text-sm font-medium text-amber-900">
+          <span aria-hidden>⚠️</span>
+          <span>签证已下签 {trtMonths} 个月，可以开始办 186 TRT 永居</span>
+        </div>
+      )}
 
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
@@ -76,7 +91,7 @@ export function CaseDetailPage() {
         </div>
       </div>
 
-      <LodgementSection caseId={c.id} />
+      <LodgementSection caseId={c.id} currentStage={c.current_stage} />
 
       <PaymentsSection caseId={c.id} currency={c.currency} syncTracking={c.sync_tracking} customerId={c.customer_id} />
 

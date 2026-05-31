@@ -176,6 +176,7 @@ export interface Database {
           current_stage: CaseStage
           currency: string
           sync_tracking: boolean
+          trt_reminder_enabled: boolean
           assigned_to: string | null
           created_by: string | null
           is_archived: boolean
@@ -192,6 +193,7 @@ export interface Database {
           current_stage?: CaseStage
           currency?: string
           sync_tracking?: boolean
+          trt_reminder_enabled?: boolean
           assigned_to?: string | null
           created_by?: string | null
           is_archived?: boolean

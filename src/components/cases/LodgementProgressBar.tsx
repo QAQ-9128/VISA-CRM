@@ -21,9 +21,7 @@ export function LodgementProgressBar({
   dhaProcessingDays: number | null
 }) {
   const p = computeLodgementProgress(lodgedDate, dhaProcessingDays)
-  if (!p) {
-    return <p className="text-sm text-slate-400">未递交或未填 DHA 处理时间，无法估算进度</p>
-  }
+  if (!p) return null
 
   const label = p.isOverdue
     ? `已超期 ${Math.abs(p.daysRemaining)} 天`

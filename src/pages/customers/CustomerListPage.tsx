@@ -2,18 +2,31 @@ import { useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useCustomers, useUpdateCustomer } from '../../hooks/queries/useCustomers'
 import { useCases } from '../../hooks/queries/useCases'
+import { useAllCaseApplicants } from '../../hooks/queries/useCaseApplicants'
+import { useEmployers } from '../../hooks/queries/useEmployers'
 import { Button } from '../../components/ui/Button'
 import { StarToggle } from '../../components/ui/StarToggle'
 import { StageBadge } from '../../components/cases/StageBadge'
 import { ClientSourceDot } from '../../components/customers/ClientSourceDot'
 import { LoadingBlock, ErrorBlock, EmptyState } from '../../components/ui/states'
 import { groupCustomersByFamily } from '../../lib/customerGroups'
-import { formatVisaType } from '../../lib/visa'
+import { selectCustomerCaseLines, selectDisplayCases } from '../../lib/customerList'
 import type { Case, Customer } from '../../types/models'
 
 /** 一行客户：sub=true 时缩进并加连接线，视觉上挂在主申下面。cases = 该客户名下的案件。 */
-function CustomerRow({ c, sub = false, cases = [] }: { c: Customer; sub?: boolean; cases?: Case[] }) {
+function CustomerRow({
+  c,
+  sub = false,
+  cases = [],
+  employerName = null,
+}: {
+  c: Customer
+  sub?: boolean
+  cases?: Case[]
+  employerName?: string | null
+}) {
   const update = useUpdateCustomer()
+  const lines = selectCustomerCaseLines(c, cases, employerName)
   return (
     <li className={`flex items-center gap-2 border-t border-slate-100 first:border-t-0 ${sub ? 'pl-3' : ''}`}>
       {sub && (
@@ -41,12 +54,19 @@ function CustomerRow({ c, sub = false, cases = [] }: { c: Customer; sub?: boolea
           {cases.length === 0 ? (
             <p className="mt-0.5 text-sm text-slate-400">暂无案件</p>
           ) : (
-            <div className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-1">
-              {cases.map((cs) => (
-                <span key={cs.id} className="inline-flex items-center gap-1 text-xs text-slate-500">
-                  {formatVisaType(cs.visa_subclass, cs.visa_stream)}
-                  <StageBadge stage={cs.current_stage} />
-                </span>
+            <div className="mt-0.5 space-y-1">
+              {/* 每案一行：签证类型 | 职位 | 担保雇主 | 状态（空字段跳过、| 自适应；状态为彩色徽章） */}
+              {lines.map((line) => (
+                <div key={line.caseId} className="flex flex-wrap items-center gap-x-1.5 gap-y-1 text-xs text-slate-500">
+                  {line.fields.map((f, i) => (
+                    <span key={i} className="flex items-center gap-x-1.5">
+                      {i > 0 && <span className="text-slate-300" aria-hidden>|</span>}
+                      <span>{f}</span>
+                    </span>
+                  ))}
+                  <span className="text-slate-300" aria-hidden>|</span>
+                  <StageBadge stage={line.stage} />
+                </div>
               ))}
             </div>
           )}
@@ -61,17 +81,20 @@ export function CustomerListPage() {
   const [search, setSearch] = useState('')
   const customers = useCustomers({ search })
   const cases = useCases()
+  const applicants = useAllCaseApplicants()
+  const employers = useEmployers()
   const groups = useMemo(() => groupCustomersByFamily(customers.data ?? []), [customers.data])
-  // 客户 id → 其名下案件（用于每行显示「签证类别 · 状态」）
-  const casesByCustomer = useMemo(() => {
-    const m = new Map<string, Case[]>()
-    for (const cs of cases.data ?? []) {
-      const arr = m.get(cs.customer_id) ?? []
-      arr.push(cs)
-      m.set(cs.customer_id, arr)
-    }
+  // 担保雇主 id → name（每行显示「担保雇主」用）
+  const employerNameById = useMemo(() => {
+    const m: Record<string, string> = {}
+    for (const e of employers.data ?? []) m[e.id] = e.name
     return m
-  }, [cases.data])
+  }, [employers.data])
+  const employerNameOf = (c: Customer) =>
+    c.sponsor_employer_id ? employerNameById[c.sponsor_employer_id] ?? null : null
+  // 该行显示的案件：主申优先，否则取作为副申参与的案件（修复副申客户显示"暂无案件"）
+  const displayCasesOf = (c: Customer) =>
+    selectDisplayCases(c.id, cases.data ?? [], applicants.data ?? [])
 
   return (
     <section className="mx-auto max-w-3xl">
@@ -120,9 +143,21 @@ export function CustomerListPage() {
                   </p>
                 )}
                 <ul>
-                  {g.primary && <CustomerRow c={g.primary} cases={casesByCustomer.get(g.primary.id) ?? []} />}
+                  {g.primary && (
+                    <CustomerRow
+                      c={g.primary}
+                      cases={displayCasesOf(g.primary)}
+                      employerName={employerNameOf(g.primary)}
+                    />
+                  )}
                   {g.subs.map((s) => (
-                    <CustomerRow key={s.id} c={s} sub cases={casesByCustomer.get(s.id) ?? []} />
+                    <CustomerRow
+                      key={s.id}
+                      c={s}
+                      sub
+                      cases={displayCasesOf(s)}
+                      employerName={employerNameOf(s)}
+                    />
                   ))}
                 </ul>
               </div>

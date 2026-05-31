@@ -21,7 +21,13 @@ export function StageControl({ caseId, currentStage }: { caseId: string; current
   const mutation = useUpdateCaseStage()
 
   const changed = stage !== currentStage
-  const options = CASE_STAGES.map((s) => ({ value: s, label: CASE_STAGE_LABELS[s] }))
+  // 下拉只列新流程的 9 个阶段；若当前案件停在旧「补件」(additional_docs) 等已废弃值，
+  // 把它补到最前面以便正常显示/可切走（新案件不会看到它）。
+  const isListed = (CASE_STAGES as readonly string[]).includes(currentStage)
+  const options = [
+    ...(isListed ? [] : [{ value: currentStage, label: CASE_STAGE_LABELS[currentStage] }]),
+    ...CASE_STAGES.map((s) => ({ value: s, label: CASE_STAGE_LABELS[s] })),
+  ]
 
   function apply() {
     if (!changed) return

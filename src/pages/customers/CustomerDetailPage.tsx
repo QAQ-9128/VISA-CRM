@@ -8,7 +8,8 @@ import {
   useSubApplicants,
   useUpdateCustomer,
 } from '../../hooks/queries/useCustomers'
-import { useArchiveCase, useCases, useCasesByCustomer } from '../../hooks/queries/useCases'
+import { useArchiveCase, useCases, useCasesByCustomer, useAllStageHistory } from '../../hooks/queries/useCases'
+import { shouldShowTrtReminder } from '../../lib/trt'
 import {
   useAllCaseApplicants,
   useAddCaseApplicant,
@@ -243,6 +244,8 @@ export function CustomerDetailPage() {
   const archive = useArchiveCustomer()
   const employer = useEmployer(query.data?.sponsor_employer_id)
   const referrer = useReferrer(query.data?.referrer_id)
+  const trtCases = useCasesByCustomer(query.data?.id)
+  const allStageHistory = useAllStageHistory()
 
   if (query.isPending) return <LoadingBlock />
   if (query.isError) return <ErrorBlock error={query.error} />
@@ -260,6 +263,10 @@ export function CustomerDetailPage() {
   }
 
   const c = query.data
+
+  const trtTriggered = (trtCases.data ?? []).some((cs) =>
+    shouldShowTrtReminder(cs, trtCases.data ?? [], allStageHistory.data ?? []),
+  )
 
   function handleArchive() {
     if (!window.confirm(`确定归档「${c.full_name}」吗？归档后默认不显示，可随时恢复。`)) return
@@ -281,6 +288,7 @@ export function CustomerDetailPage() {
           <div className="flex flex-wrap items-center gap-2">
             <h1 className="text-xl font-semibold text-slate-900 md:text-2xl">{c.full_name}</h1>
             <ClientSourceDot source={c.client_source} size="md" />
+            {trtTriggered && <Badge className="bg-amber-100 text-amber-800">⚠️ 可办 186 TRT</Badge>}
             {c.is_archived && <Badge className="bg-gray-200 text-gray-600">已归档</Badge>}
           </div>
         </div>

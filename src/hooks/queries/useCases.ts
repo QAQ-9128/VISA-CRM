@@ -13,9 +13,17 @@ import {
   updateStageHistory,
 } from '../../api/cases'
 import type { CaseStageHistoryUpdate, UpdateCaseStageParams } from '../../api/cases'
+import { ensureLodgement } from '../../api/lodgements'
 import type { CaseInsert, CaseUpdate } from '../../types/models'
+import type { CaseStage, LodgementType } from '../../types/domain'
 import { useAuth } from '../useAuth'
 import { queryKeys } from './keys'
+
+/** 阶段 → 对应递交类型：切到这些阶段时自动确保该递交记录存在。 */
+const STAGE_TO_LODGEMENT_TYPE: Partial<Record<CaseStage, LodgementType>> = {
+  nomination_lodged: 'nomination',
+  visa_lodged: 'visa',
+}
 
 export function useCases() {
   return useQuery({ queryKey: queryKeys.cases.list, queryFn: () => listCases() })
@@ -77,11 +85,26 @@ export function useUpdateCaseStage() {
   const qc = useQueryClient()
   const { user } = useAuth()
   return useMutation({
-    mutationFn: (params: Omit<UpdateCaseStageParams, 'changedBy'>) =>
-      updateCaseStage({ ...params, changedBy: user?.id ?? null }),
+    mutationFn: async (params: Omit<UpdateCaseStageParams, 'changedBy'>) => {
+      const result = await updateCaseStage({ ...params, changedBy: user?.id ?? null })
+      // 切到「提名递交/签证递交」→ 自动确保对应递交记录存在（卡片随即出现，递交日期走派生）。
+      // 尽力而为：阶段更新是主操作，自动建档失败不应让其报错（否则重试会重复写阶段历史）。
+      const type = STAGE_TO_LODGEMENT_TYPE[params.toStage]
+      if (type) {
+        try {
+          await ensureLodgement(params.caseId, type)
+        } catch {
+          /* 忽略：用户仍可在递交区手动补 */
+        }
+      }
+      return result
+    },
     onSuccess: (_data, vars) => {
       invalidateCases(qc)
       qc.invalidateQueries({ queryKey: queryKeys.cases.stageHistory(vars.caseId) })
+      // 递交记录可能被自动创建：刷新案件详情的递交区 + 递交进度表
+      qc.invalidateQueries({ queryKey: queryKeys.lodgements.byCase(vars.caseId) })
+      qc.invalidateQueries({ queryKey: queryKeys.lodgements.lodged })
     },
   })
 }

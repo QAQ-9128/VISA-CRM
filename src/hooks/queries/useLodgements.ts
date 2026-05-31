@@ -1,8 +1,8 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import {
   createLodgement,
+  listAllLodgements,
   listByCase,
-  listLodged,
   updateLodgement,
 } from '../../api/lodgements'
 import type { LodgementInsert, LodgementUpdate } from '../../api/lodgements'
@@ -16,9 +16,9 @@ export function useLodgements(caseId: string | undefined) {
   })
 }
 
-/** 全部「已递交」记录，供 /cases 递交总表用。 */
-export function useLodgedLodgements() {
-  return useQuery({ queryKey: queryKeys.lodgements.lodged, queryFn: listLodged })
+/** 全部递交记录，供 /cases 递交总表用（递交日期已改为派生，这里只为 DHA 等字段）。 */
+export function useAllLodgements() {
+  return useQuery({ queryKey: queryKeys.lodgements.lodged, queryFn: listAllLodgements })
 }
 
 export function useCreateLodgement(caseId: string) {

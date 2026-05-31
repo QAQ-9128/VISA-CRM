@@ -187,6 +187,23 @@ export function DashboardPage() {
             />
           ))}
         </AlertCard>
+
+        {/* 转 TRT 提醒：482 下签满 22 个月、可办 186 TRT 永居的客户 */}
+        <AlertCard title="转 TRT 提醒" count={d.trtReminders.length} empty="暂无可转 186 TRT 的案件">
+          {d.trtReminders.map((t) => (
+            <Row
+              key={t.caseId}
+              to={`/customers/${t.customerId}`}
+              left={
+                <>
+                  {t.customerName}
+                  <span className="text-slate-400"> · 案件 {t.caseNumber}</span>
+                </>
+              }
+              right={<span className="text-xs font-medium text-amber-700">下签 {t.monthsSinceGrant} 个月</span>}
+            />
+          ))}
+        </AlertCard>
       </div>
 
       {/* 欠款总览：按客户 */}

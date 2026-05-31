@@ -12,7 +12,7 @@ export type SbBuilder = Record<string, ReturnType<typeof vi.fn>> & {
 /** 构造一个可链式调用、await 时解析为 result 的 supabase query builder mock。 */
 export function makeBuilder(result: SbResult): SbBuilder {
   const builder = {} as SbBuilder
-  const chain = ['select', 'insert', 'update', 'delete', 'eq', 'is', 'not', 'or', 'ilike', 'order', 'limit', 'lt', 'gte', 'lte']
+  const chain = ['select', 'insert', 'upsert', 'update', 'delete', 'eq', 'is', 'not', 'or', 'ilike', 'order', 'limit', 'lt', 'gte', 'lte']
   for (const m of chain) builder[m] = vi.fn(() => builder)
   builder.single = vi.fn(() => builder)
   builder.maybeSingle = vi.fn(() => builder)

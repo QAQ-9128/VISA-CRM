@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { useLodgedLodgements } from '../../hooks/queries/useLodgements'
+import { useAllLodgements } from '../../hooks/queries/useLodgements'
 import { useCases, useAllStageHistory } from '../../hooks/queries/useCases'
 import { useCustomers } from '../../hooks/queries/useCustomers'
 import { useAllCaseApplicants } from '../../hooks/queries/useCaseApplicants'
@@ -36,11 +36,10 @@ const COLUMNS: Column[] = [
   { key: 'visaDate', label: '签证递交时间' },
   { key: 'visaElapsed', label: '签证距今' },
   { key: 'elapsed', label: '等待天数' },
-  { key: 'updated', label: '最新更新' },
 ]
 
 export function CasesTablePage() {
-  const lodgements = useLodgedLodgements()
+  const lodgements = useAllLodgements()
   const cases = useCases()
   const customers = useCustomers({})
   const applicants = useAllCaseApplicants()
@@ -166,7 +165,6 @@ function CaseRowView({ row }: { row: CaseRow }) {
         {row.lodged ? fmtElapsed(row.elapsed) : <span className="text-slate-400">—</span>}
         {row.frozen && row.lodged && <span className="text-slate-400">（已结案）</span>}
       </td>
-      <td className="py-2.5 pr-4 whitespace-nowrap tabular-nums text-slate-400">{row.updatedAt.slice(0, 10)}</td>
     </tr>
   )
 }

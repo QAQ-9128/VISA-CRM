@@ -15,7 +15,9 @@ import {
   sortPriorityCustomers,
 } from '../../lib/dashboard'
 import { getOpenTaskRecords } from '../../api/records'
+import { listAllStageHistory } from '../../api/cases'
 import { selectMyOpenTasks } from '../../lib/tasks'
+import { selectTrtReminders } from '../../lib/trt'
 import { visibleCaseIds } from '../../lib/visibility'
 import { useAuth } from '../useAuth'
 import { queryKeys } from './keys'
@@ -44,8 +46,9 @@ export function useDashboard() {
   const plans = useQuery({ queryKey: queryKeys.dashboard.plans, queryFn: getAllPaymentPlans })
   const payments = useQuery({ queryKey: queryKeys.dashboard.payments, queryFn: getAllPayments })
   const openTasks = useQuery({ queryKey: queryKeys.records.openTasks, queryFn: getOpenTaskRecords })
+  const stageHistory = useQuery({ queryKey: queryKeys.cases.stageHistoryAll, queryFn: listAllStageHistory })
 
-  const all = [unpaidInstallments, activeCases, activeCustomers, plans, payments, openTasks]
+  const all = [unpaidInstallments, activeCases, activeCustomers, plans, payments, openTasks, stageHistory]
   const isPending = all.some((q) => q.isPending)
   const isError = all.some((q) => q.isError)
 
@@ -95,6 +98,11 @@ export function useDashboard() {
     () => selectCustomersWithOpenTasks(openTasks.data ?? [], customerById),
     [openTasks.data, customerById],
   )
+  // 转 186 TRT 提醒：只看在册客户的案件（用 customerById 过滤已在上游 activeCustomers 保证）
+  const trtReminders = useMemo(
+    () => selectTrtReminders(activeCases.data ?? [], stageHistory.data ?? [], customerById),
+    [activeCases.data, stageHistory.data, customerById],
+  )
 
   return {
     isPending,
@@ -105,6 +113,7 @@ export function useDashboard() {
     customerDebts,
     myOpenTasks,
     customersWithOpenTasks,
+    trtReminders,
     // 供「我的待办」按 customer_id 显示并链接客户名
     customerById,
   }
