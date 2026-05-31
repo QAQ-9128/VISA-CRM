@@ -26,6 +26,8 @@ export function PaymentPlanForm({
   const create = useCreatePaymentPlan(caseId)
   const update = useUpdatePaymentPlan(caseId)
   const saving = create.isPending || update.isPending
+  const saveErr = create.error ?? update.error
+  const saveErrMsg = saveErr instanceof Error ? saveErr.message : saveErr ? '保存失败' : null
 
   // 应收客户总额(client_total)已改为「款项明细」派生，这里不再录入；只设主代理/货币/备注。
   const [companyTotal, setCompanyTotal] = useState(initial?.company_total?.toString() ?? '')
@@ -109,6 +111,10 @@ export function PaymentPlanForm({
       </div>
 
       <Textarea label="备注" value={note} onChange={(e) => setNote(e.target.value)} rows={2} />
+
+      {saveErrMsg && (
+        <p className="rounded-lg bg-rose-50 px-3 py-2 text-sm text-rose-700">保存失败：{saveErrMsg}</p>
+      )}
       <div className="flex gap-2">
         <Button type="submit" disabled={saving}>
           {saving ? '保存中…' : '保存'}
