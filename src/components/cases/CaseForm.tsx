@@ -3,8 +3,13 @@ import type { FormEvent } from 'react'
 import { Button } from '../ui/Button'
 import { TextField } from '../ui/TextField'
 import { VisaSubclassField } from './VisaSubclassField'
+import { ParentCaseField } from './ParentCaseField'
 import { useCustomers } from '../../hooks/queries/useCustomers'
+import { useCases } from '../../hooks/queries/useCases'
 import { selectFamilyGroupMembers } from '../../lib/family'
+import { parentCaseDropdown } from '../../lib/parentCase'
+import { relationshipOf, relationshipPatch } from '../../lib/caseRelationship'
+import type { CaseRelationship } from '../../lib/caseRelationship'
 import type { Case, CaseInsert } from '../../types/models'
 
 export interface CaseFormValues extends CaseInsert {
@@ -13,7 +18,15 @@ export interface CaseFormValues extends CaseInsert {
   visa_stream: string | null
   sync_tracking: boolean
   trt_reminder_enabled: boolean
+  parent_case_id: string | null
+  parent_sync_progress: boolean
 }
+
+const RELATIONSHIP_OPTIONS: { value: CaseRelationship; label: string }[] = [
+  { value: 'independent', label: '独立案件（默认）' },
+  { value: 'linked', label: '关联主案件，进度独立' },
+  { value: 'synced', label: '关联主案件，进度同步' },
+]
 
 interface CaseFormProps {
   customerId: string
@@ -46,12 +59,17 @@ export function CaseForm({
   // 仅决定财务核算口径（true=合并账单；false=按申请人分开）。案件进度永远同步追踪，无开关。
   const [financeCombined, setFinanceCombined] = useState(initial?.sync_tracking ?? true)
   const [trtReminder, setTrtReminder] = useState(initial?.trt_reminder_enabled ?? false)
+  const [relationship, setRelationship] = useState<CaseRelationship>(
+    initial ? relationshipOf(initial) : 'independent',
+  )
+  const [parentCaseId, setParentCaseId] = useState<string | null>(initial?.parent_case_id ?? null)
   const [applicantIds, setApplicantIds] = useState<string[]>(initialApplicantIds ?? [])
 
   const is482 = visaSubclass.trim().startsWith('482')
 
   // 候选副申请人 = 与主申同家庭组的其他成员（双向：主申↔副申、同主申的副申之间）
   const allCustomers = useCustomers({})
+  const allCases = useCases()
 
   function toggleApplicant(id: string) {
     setApplicantIds((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]))
@@ -69,12 +87,33 @@ export function CaseForm({
         sync_tracking: financeCombined,
         // 仅 482 才可能开启；切到非 482 自动清掉，避免残留 true
         trt_reminder_enabled: is482 ? trtReminder : false,
+        // 三态关系 → parent_case_id + parent_sync_progress（独立态自动清空两者）
+        ...relationshipPatch(relationship, parentCaseId),
       },
       applicantIds,
     )
   }
 
   const candidates = selectFamilyGroupMembers(customerId, allCustomers.data ?? [])
+  const customersData = allCustomers.data ?? []
+  const casesData = allCases.data ?? []
+  // 主案件下拉：严格只列家庭主申名下案件（排除归档/本案、created_at 倒序）+ 空态判定
+  const { state: parentState, candidates: parentCandidates } = parentCaseDropdown(
+    casesData,
+    customerId,
+    customersData,
+    initial?.id,
+  )
+  // 无家庭主申 / 主申无案件 → 不能关联，radio 2/3 置灰
+  const canLink = parentState === 'has-cases'
+  const emptyHint =
+    parentState === 'no-family-primary'
+      ? '（此客户无家庭主申请，无可关联案件）'
+      : '（主申请尚无案件）'
+
+  const isLinked = relationship !== 'independent'
+  // 关联态必须选主案件才能保存
+  const relationshipIncomplete = isLinked && !parentCaseId
 
   return (
     <form onSubmit={handleSubmit} className="space-y-5">
@@ -153,6 +192,49 @@ export function CaseForm({
         </div>
       </fieldset>
 
+      <fieldset className="rounded-xl border border-slate-200 p-4">
+        <legend className="px-1 text-sm font-medium text-slate-600">与其他案件的关系</legend>
+        <div className="space-y-3">
+          <div className="space-y-2">
+            {RELATIONSHIP_OPTIONS.map((opt) => {
+              // 选项 2/3（关联）在无可关联案件时置灰禁用
+              const disabled = opt.value !== 'independent' && !canLink
+              return (
+                <label
+                  key={opt.value}
+                  className={`flex min-h-11 items-center gap-2 text-sm ${disabled ? 'text-slate-300' : 'text-slate-700'}`}
+                >
+                  <input
+                    type="radio"
+                    name="case-relationship"
+                    disabled={disabled}
+                    checked={relationship === opt.value}
+                    onChange={() => setRelationship(opt.value)}
+                    className="size-4 border-slate-300 text-indigo-600 focus:ring-indigo-500"
+                  />
+                  {opt.label}
+                </label>
+              )
+            })}
+          </div>
+
+          {!canLink && (
+            <p className="rounded-lg bg-slate-50 px-3 py-2 text-xs text-slate-400">{emptyHint}</p>
+          )}
+
+          {canLink && isLinked && (
+            <div className="space-y-2 border-t border-slate-100 pt-3">
+              <ParentCaseField value={parentCaseId} onChange={setParentCaseId} candidates={parentCandidates} />
+              {relationship === 'synced' && (
+                <p className="rounded-lg bg-indigo-50 px-3 py-2 text-xs text-indigo-700">
+                  🔗 主案件 stage 变化将自动同步到本案件。
+                </p>
+              )}
+            </div>
+          )}
+        </div>
+      </fieldset>
+
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
         <TextField label="目的国" value={destination} onChange={(e) => setDestination(e.target.value)} />
         <TextField label="货币" value={currency} onChange={(e) => setCurrency(e.target.value)} placeholder="AUD" />
@@ -161,7 +243,7 @@ export function CaseForm({
       {error && <p className="rounded-lg bg-rose-50 px-3 py-2 text-sm text-rose-700">{error}</p>}
 
       <div className="flex gap-3 pt-2">
-        <Button type="submit" disabled={submitting || visaSubclass.trim() === ''}>
+        <Button type="submit" disabled={submitting || visaSubclass.trim() === '' || relationshipIncomplete}>
           {submitting ? '保存中…' : '保存'}
         </Button>
         <Button type="button" variant="secondary" onClick={onCancel}>

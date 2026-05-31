@@ -147,4 +147,12 @@ describe('写操作', () => {
     expect(b.eq).toHaveBeenCalledWith('id', 'c1')
     expect(b.delete).not.toHaveBeenCalled()
   })
+
+  it('deleteCustomer 彻底删除：真 delete().eq(id)，不是软删', async () => {
+    const b = mockReturn({ data: null, error: null })
+    await customersApi.deleteCustomer('c1')
+    expect(b.delete).toHaveBeenCalled()
+    expect(b.eq).toHaveBeenCalledWith('id', 'c1')
+    expect(b.update).not.toHaveBeenCalled()
+  })
 })

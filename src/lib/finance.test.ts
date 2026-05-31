@@ -11,12 +11,12 @@ import {
   selectCasePaymentColors,
 } from './finance'
 import type { ReceivableRow } from './finance'
-import type { Case, Customer, Payment, PaymentPlan, Referrer } from '../types/models'
+import type { Case, Customer, Payment, PaymentPlan, PaymentPlanItem, Referrer } from '../types/models'
 
 // 最小工厂
 const mkCase = (o: Partial<Case>): Case => ({
   id: 'c1', case_number: '00000001', customer_id: 'cu1', visa_subclass: '482', visa_stream: null, current_stage: 'visa_lodged',
-  currency: 'AUD', sync_tracking: true, trt_reminder_enabled: false, destination_country: 'Australia', assigned_to: null, created_by: null,
+  currency: 'AUD', sync_tracking: true, trt_reminder_enabled: false, parent_case_id: null, parent_sync_progress: false, destination_country: 'Australia', assigned_to: null, created_by: null,
   is_archived: false, created_at: '', updated_at: '', ...o,
 })
 const mkCustomer = (o: Partial<Customer>): Customer => ({
@@ -29,8 +29,12 @@ const mkPlan = (o: Partial<PaymentPlan>): PaymentPlan => ({
   id: 'p1', case_id: 'c1', applicant_id: null, client_total: 0, company_total: 0, currency: 'AUD', note: null,
   created_at: '', updated_at: '', ...o,
 })
+// 应收已改为款项明细派生：每个 plan 一条默认款项(amount_due = 该 plan 的应收)
+const mkItem = (o: Partial<PaymentPlanItem>): PaymentPlanItem => ({
+  id: 'i1', plan_id: 'p1', fee_category: '律师费', amount_due: 0, note: null, created_at: '', updated_at: '', ...o,
+})
 const mkPayment = (o: Partial<Payment>): Payment => ({
-  id: 'pay1', case_id: 'c1', applicant_id: null, direction: 'from_client', installment_id: null, amount: 0,
+  id: 'pay1', case_id: 'c1', applicant_id: null, direction: 'from_client', installment_id: null, plan_item_id: null, amount: 0,
   currency: 'AUD', method: 'transfer', paid_at: null, note: null, fee_category: null, invoice_path: null, invoice_name: null,
   recorded_by: null, created_at: '', ...o,
 })
@@ -93,14 +97,18 @@ describe('selectFinanceReceivables', () => {
       mkPlan({ id: 'p1', case_id: 'c1', client_total: 1000 }),
       mkPlan({ id: 'p2', case_id: 'c2', client_total: 500 }),
     ]
+    const items = [
+      mkItem({ id: 'i1', plan_id: 'p1', amount_due: 1000 }),
+      mkItem({ id: 'i2', plan_id: 'p2', amount_due: 500 }),
+    ]
     const payments = [
-      mkPayment({ id: 'a', case_id: 'c1', direction: 'from_client', amount: 300 }),
-      mkPayment({ id: 'b', case_id: 'c2', direction: 'from_client', amount: 500 }),
+      mkPayment({ id: 'a', case_id: 'c1', direction: 'from_client', amount: 300, plan_item_id: 'i1' }),
+      mkPayment({ id: 'b', case_id: 'c2', direction: 'from_client', amount: 500, plan_item_id: 'i2' }),
       // 这两笔不计入「已付（应收）」
       mkPayment({ id: 'c', case_id: 'c1', direction: 'to_company', amount: 200 }),
       mkPayment({ id: 'd', case_id: 'c1', direction: 'to_referrer', amount: 100 }),
     ]
-    const rows = selectFinanceReceivables(cases, [], plans, payments, customerById)
+    const rows = selectFinanceReceivables(cases, [], plans, payments, customerById, items)
     expect(rows).toHaveLength(2)
     const c1 = rows.find((r) => r.caseId === 'c1')!
     expect(c1).toMatchObject({
@@ -124,11 +132,15 @@ describe('selectFinanceReceivables', () => {
       mkPlan({ id: 'p1', case_id: 'c1', applicant_id: 'cu1', client_total: 1000 }),
       mkPlan({ id: 'p2', case_id: 'c1', applicant_id: 'cu2', client_total: 600 }),
     ]
-    const payments = [
-      mkPayment({ id: 'a', case_id: 'c1', applicant_id: 'cu1', direction: 'from_client', amount: 400 }),
-      mkPayment({ id: 'b', case_id: 'c1', applicant_id: 'cu2', direction: 'from_client', amount: 600 }),
+    const items = [
+      mkItem({ id: 'i1', plan_id: 'p1', amount_due: 1000 }),
+      mkItem({ id: 'i2', plan_id: 'p2', amount_due: 600 }),
     ]
-    const rows = selectFinanceReceivables(cases, caseApplicants, plans, payments, customerById)
+    const payments = [
+      mkPayment({ id: 'a', case_id: 'c1', applicant_id: 'cu1', direction: 'from_client', amount: 400, plan_item_id: 'i1' }),
+      mkPayment({ id: 'b', case_id: 'c1', applicant_id: 'cu2', direction: 'from_client', amount: 600, plan_item_id: 'i2' }),
+    ]
+    const rows = selectFinanceReceivables(cases, caseApplicants, plans, payments, customerById, items)
     expect(rows).toHaveLength(2)
     // 同案件主/副相邻，主申在前
     expect(rows[0].role).toBe('primary')
@@ -147,11 +159,12 @@ describe('selectFinanceReceivables', () => {
       cu2: mkCustomer({ id: 'cu2', full_name: '邓韬', primary_applicant_id: 'cu1' }),
     }
     const plans = [mkPlan({ id: 'p1', case_id: 'c1', applicant_id: null, client_total: 1500 })]
+    const items = [mkItem({ id: 'i1', plan_id: 'p1', amount_due: 1500 })]
     const payments = [
-      mkPayment({ id: 'a', case_id: 'c1', applicant_id: null, direction: 'from_client', amount: 400 }),
-      mkPayment({ id: 'b', case_id: 'c1', applicant_id: 'cu2', direction: 'from_client', amount: 600 }),
+      mkPayment({ id: 'a', case_id: 'c1', applicant_id: null, direction: 'from_client', amount: 400, plan_item_id: 'i1' }),
+      mkPayment({ id: 'b', case_id: 'c1', applicant_id: 'cu2', direction: 'from_client', amount: 600, plan_item_id: 'i1' }),
     ]
-    const rows = selectFinanceReceivables(cases, caseApplicants, plans, payments, customerById)
+    const rows = selectFinanceReceivables(cases, caseApplicants, plans, payments, customerById, items)
     expect(rows).toHaveLength(1)
     expect(rows[0]).toMatchObject({
       applicantId: null, role: 'merged', customerName: '李旻书',
@@ -170,9 +183,10 @@ describe('selectFinanceReceivables', () => {
   it('多收（已付 > 应收）时未付计 0，不出现负数', () => {
     const cases = [mkCase({ id: 'c1', customer_id: 'cu1' })]
     const customerById = { cu1: mkCustomer({ id: 'cu1' }) }
-    const plans = [mkPlan({ case_id: 'c1', client_total: 100 })]
-    const payments = [mkPayment({ case_id: 'c1', direction: 'from_client', amount: 150 })]
-    const rows = selectFinanceReceivables(cases, [], plans, payments, customerById)
+    const plans = [mkPlan({ id: 'p1', case_id: 'c1', client_total: 100 })]
+    const items = [mkItem({ id: 'i1', plan_id: 'p1', amount_due: 100 })]
+    const payments = [mkPayment({ case_id: 'c1', direction: 'from_client', amount: 150, plan_item_id: 'i1' })]
+    const rows = selectFinanceReceivables(cases, [], plans, payments, customerById, items)
     expect(rows[0].unpaid).toBe(0)
     expect(rows[0].paid).toBe(150)
   })
@@ -257,12 +271,16 @@ describe('selectCustomerFinance', () => {
       mkPlan({ id: 'p1', case_id: 'c1', client_total: 1000 }),
       mkPlan({ id: 'p2', case_id: 'c2', client_total: 500 }),
     ]
-    const payments = [
-      mkPayment({ id: 'a', case_id: 'c1', direction: 'from_client', amount: 400 }),
-      mkPayment({ id: 'b', case_id: 'c1', direction: 'to_referrer', amount: 100 }),
-      mkPayment({ id: 'x', case_id: 'c2', direction: 'from_client', amount: 500 }), // 别的客户
+    const items = [
+      mkItem({ id: 'i1', plan_id: 'p1', amount_due: 1000 }),
+      mkItem({ id: 'i2', plan_id: 'p2', amount_due: 500 }),
     ]
-    const r = selectCustomerFinance('cu1', cases, [], plans, payments, customerById, referrerById)
+    const payments = [
+      mkPayment({ id: 'a', case_id: 'c1', direction: 'from_client', amount: 400, plan_item_id: 'i1' }),
+      mkPayment({ id: 'b', case_id: 'c1', direction: 'to_referrer', amount: 100 }),
+      mkPayment({ id: 'x', case_id: 'c2', direction: 'from_client', amount: 500, plan_item_id: 'i2' }), // 别的客户
+    ]
+    const r = selectCustomerFinance('cu1', cases, [], plans, payments, customerById, referrerById, items)
     expect(r.receivables).toHaveLength(1)
     expect(r.receivables[0]).toMatchObject({ caseId: 'c1', receivable: 1000, paid: 400, unpaid: 600 })
     expect(r.receivableTotals).toEqual({ receivable: 1000, paid: 400, unpaid: 600 })

@@ -5,6 +5,7 @@ import {
   useArchiveCustomer,
   useCustomer,
   useCustomers,
+  useDeleteCustomer,
   useSubApplicants,
   useUpdateCustomer,
 } from '../../hooks/queries/useCustomers'
@@ -123,6 +124,7 @@ function CasesSection({ customerId }: { customerId: string }) {
             <li key={cs.id} className="flex items-center hover:bg-slate-50">
               <Link
                 to={`/cases/${cs.id}`}
+                state={{ from: 'customer', customerId }}
                 className="flex flex-1 items-center justify-between py-2.5 pr-2 pl-3 text-sm"
               >
                 <span className="font-medium text-slate-900">{formatVisaType(cs.visa_subclass, cs.visa_stream)} 签证</span>
@@ -191,7 +193,11 @@ function CoApplicantCasesSection({ customerId }: { customerId: string }) {
         <ul className="divide-y divide-slate-100 overflow-hidden rounded-lg border border-slate-200 bg-white">
           {joined.map((c) => (
             <li key={c.id} className="flex items-center justify-between gap-2 px-3 py-2.5 text-sm">
-              <Link to={`/cases/${c.id}`} className="flex min-w-0 items-center gap-2 hover:underline">
+              <Link
+                to={`/cases/${c.id}`}
+                state={{ from: 'customer', customerId }}
+                className="flex min-w-0 items-center gap-2 hover:underline"
+              >
                 <span className="truncate font-medium text-slate-900">{caseLabel(c)}</span>
                 <StageBadge stage={c.current_stage} />
               </Link>
@@ -242,6 +248,7 @@ export function CustomerDetailPage() {
   const query = useCustomer(id)
   const update = useUpdateCustomer()
   const archive = useArchiveCustomer()
+  const del = useDeleteCustomer()
   const employer = useEmployer(query.data?.sponsor_employer_id)
   const referrer = useReferrer(query.data?.referrer_id)
   const trtCases = useCasesByCustomer(query.data?.id)
@@ -271,6 +278,16 @@ export function CustomerDetailPage() {
   function handleArchive() {
     if (!window.confirm(`确定归档「${c.full_name}」吗？归档后默认不显示，可随时恢复。`)) return
     archive.mutate(c.id, { onSuccess: () => navigate('/customers') })
+  }
+
+  function handleDelete() {
+    if (
+      !window.confirm(
+        `彻底删除「${c.full_name}」？\n\n将连同其名下所有案件、递交记录、文件、账目、跟进/待办一并【永久删除，不可恢复】！\n如只想暂时隐藏，请用「归档」。`,
+      )
+    )
+      return
+    del.mutate(c.id, { onSuccess: () => navigate('/customers') })
   }
 
   return (
@@ -342,12 +359,20 @@ export function CustomerDetailPage() {
 
       <div className="flex gap-3 pt-2">
         {!c.primary_applicant_id && (
-          <Link to="/customers/new">
+          <Link to={`/customers/new?primary=${c.id}`}>
             <Button variant="secondary">+ 添加副申请人</Button>
           </Link>
         )}
         <Button variant="ghost" onClick={handleArchive} disabled={archive.isPending}>
           {c.is_archived ? '已归档' : '归档'}
+        </Button>
+        <Button
+          variant="ghost"
+          onClick={handleDelete}
+          disabled={del.isPending}
+          className="text-rose-600 hover:bg-rose-50"
+        >
+          {del.isPending ? '删除中…' : '彻底删除'}
         </Button>
       </div>
     </section>

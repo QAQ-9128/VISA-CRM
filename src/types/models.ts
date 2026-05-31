@@ -14,12 +14,15 @@ export type Lodgement = Tables<'lodgements'>
 export type CaseStageHistory = Tables<'case_stage_history'>
 export type CaseDocument = Tables<'documents'>
 export type PaymentPlan = Tables<'payment_plans'>
+export type PaymentPlanItem = Tables<'payment_plan_items'>
 export type Installment = Tables<'installments'>
 export type Payment = Tables<'payments'>
 export type FollowUp = Tables<'follow_ups'>
 export type Task = Tables<'tasks'>
 /** 合并后的记录行（待办 + 跟进同表）。命名避开 TS 内置 Record<K,V>。 */
 export type RecordRow = Tables<'records'>
+/** 概览独立待办清单项（不关联客户/案件）。 */
+export type ChecklistItem = Tables<'checklist_items'>
 
 // 写入类型（新建 / 更新）
 export type CustomerInsert = TablesInsert<'customers'>

@@ -18,6 +18,8 @@ export interface PaymentEntryValues {
   paid_at: string | null
   note: string | null
   fee_category: string | null
+  /** 归属的款项明细 id（items 模式下有值；否则 null = 未归类） */
+  plan_item_id: string | null
 }
 
 interface Props {
@@ -32,6 +34,9 @@ interface Props {
   pending?: boolean
   /** 是否显示「费用类别」下拉（仅客户收款 from_client 用；支出/付款留默认 false）。 */
   showFeeCategory?: boolean
+  /** 提供则显示「针对哪条款项」下拉（取代费用类别）；fee_category 自动 = 选中款项的类别。 */
+  items?: { id: string; fee_category: string }[]
+  initialItemId?: string
   onSubmit: (v: PaymentEntryValues) => void
   onCancel: () => void
 }
@@ -41,6 +46,8 @@ export function PaymentEntryForm({
   submitLabel = '保存',
   pending,
   showFeeCategory = false,
+  items,
+  initialItemId,
   onSubmit,
   onCancel,
 }: Props) {
@@ -48,6 +55,8 @@ export function PaymentEntryForm({
   const [method, setMethod] = useState<PaymentMethod>(initial?.method ?? 'transfer')
   const [paidAt, setPaidAt] = useState(initial?.paid_at ?? todayStr())
   const [note, setNote] = useState(initial?.note ?? '')
+  const itemMode = !!items && items.length > 0
+  const [itemId, setItemId] = useState(initialItemId ?? (items?.[0]?.id ?? ''))
   // 已有类别：命中预设 → 选中预设；非空但非预设 → 选「其他」并把原值放进手填框；空 → 未分类。
   const initialFee = initial?.fee_category ?? ''
   const initialIsPreset = initialFee !== '' && FEE_CATEGORY_LIST.includes(initialFee)
@@ -65,6 +74,7 @@ export function PaymentEntryForm({
   ]
 
   function resolveFeeCategory(): string | null {
+    if (itemMode) return items!.find((i) => i.id === itemId)?.fee_category ?? null
     if (!showFeeCategory || feeSelect === '') return null
     if (feeSelect === FEE_CATEGORY_OTHER) return feeOther.trim() || null
     return feeSelect
@@ -78,16 +88,26 @@ export function PaymentEntryForm({
       paid_at: paidAt || null,
       note: note.trim() || null,
       fee_category: resolveFeeCategory(),
+      plan_item_id: itemMode ? itemId || null : null,
     })
   }
 
   return (
     <form onSubmit={submit} className="grid grid-cols-1 gap-3 rounded-lg border border-slate-200 bg-slate-50/60 p-3 md:grid-cols-2">
+      {itemMode && (
+        <Select
+          label="针对哪条款项"
+          options={items!.map((i) => ({ value: i.id, label: i.fee_category }))}
+          value={itemId}
+          onChange={(e) => setItemId(e.target.value)}
+          className="md:col-span-2"
+        />
+      )}
       <TextField label="金额（AUD）" type="number" min={0} step="0.01" value={amount} onChange={(e) => setAmount(e.target.value)} />
       <Select label="方式" options={methodOptions} value={method} onChange={(e) => setMethod(e.target.value as PaymentMethod)} />
       <TextField label="日期" type="date" value={paidAt} onChange={(e) => setPaidAt(e.target.value)} />
       <TextField label="备注" value={note} onChange={(e) => setNote(e.target.value)} placeholder="可选" />
-      {showFeeCategory && (
+      {showFeeCategory && !itemMode && (
         <>
           <Select
             label="费用类别"

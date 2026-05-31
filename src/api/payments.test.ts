@@ -115,3 +115,29 @@ describe('payments', () => {
     expect(b.payments.eq).toHaveBeenCalledWith('id', 'pay1')
   })
 })
+
+describe('payment_plan_items', () => {
+  it('getAllPlanItems 取全部款项明细', async () => {
+    const b = wireFrom(fromMock, { payment_plan_items: { data: [] } })
+    await paymentsApi.getAllPlanItems()
+    expect(fromMock).toHaveBeenCalledWith('payment_plan_items')
+    expect(b.payment_plan_items.select).toHaveBeenCalledWith('*')
+  })
+  it('createPlanItem 插入款项', async () => {
+    const b = wireFrom(fromMock, { payment_plan_items: { data: { id: 'i1' } } })
+    await paymentsApi.createPlanItem({ plan_id: 'p1', fee_category: '文案费', amount_due: 2000 })
+    expect(b.payment_plan_items.insert).toHaveBeenCalledWith({ plan_id: 'p1', fee_category: '文案费', amount_due: 2000 })
+  })
+  it('updatePlanItem 按 id 改应收', async () => {
+    const b = wireFrom(fromMock, { payment_plan_items: { data: { id: 'i1' } } })
+    await paymentsApi.updatePlanItem('i1', { amount_due: 1500 })
+    expect(b.payment_plan_items.update).toHaveBeenCalledWith({ amount_due: 1500 })
+    expect(b.payment_plan_items.eq).toHaveBeenCalledWith('id', 'i1')
+  })
+  it('deletePlanItem 真删该款项', async () => {
+    const b = wireFrom(fromMock, { payment_plan_items: {} })
+    await paymentsApi.deletePlanItem('i1')
+    expect(b.payment_plan_items.delete).toHaveBeenCalled()
+    expect(b.payment_plan_items.eq).toHaveBeenCalledWith('id', 'i1')
+  })
+})

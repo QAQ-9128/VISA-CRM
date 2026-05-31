@@ -96,6 +96,15 @@ export async function archiveCustomer(id: string): Promise<void> {
   if (error) throw error
 }
 
+/**
+ * 彻底删除（硬删，不可恢复）：真 DELETE。外键级联会连同其名下案件→递交/阶段历史/账目、
+ * 文件、记录、待办等一并删除；其副申请人的 primary_applicant_id 置空。RLS 仅 admin 可执行。
+ */
+export async function deleteCustomer(id: string): Promise<void> {
+  const { error } = await supabase.from('customers').delete().eq('id', id)
+  if (error) throw error
+}
+
 export async function unarchiveCustomer(id: string): Promise<void> {
   const { error } = await supabase
     .from('customers')

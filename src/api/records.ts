@@ -25,6 +25,16 @@ export async function getOpenTaskRecords(): Promise<RecordRow[]> {
   return data ?? []
 }
 
+/**
+ * 全部未完成记录（待办 + 跟进同表，不按类型过滤）。
+ * 递交进度表「待办」列用：跟进(带表情符号)也要出现，故只筛 is_done=false。
+ */
+export async function getOpenRecords(): Promise<RecordRow[]> {
+  const { data, error } = await supabase.from('records').select('*').eq('is_done', false)
+  if (error) throw error
+  return data ?? []
+}
+
 export async function createRecord(input: RecordInsert): Promise<RecordRow> {
   const { data, error } = await supabase.from('records').insert(input).select().single()
   if (error) throw error

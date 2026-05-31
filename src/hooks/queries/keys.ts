@@ -54,6 +54,7 @@ export const queryKeys = {
     byCustomer: (customerId: string) => ['records', 'byCustomer', customerId] as const,
     byCase: (caseId: string) => ['records', 'byCase', caseId] as const,
     openTasks: ['records', 'openTasks'] as const,
+    open: ['records', 'open'] as const,
   },
   tasks: {
     all: ['tasks'] as const,
@@ -67,6 +68,7 @@ export const queryKeys = {
     activeCustomers: ['dashboard', 'activeCustomers'] as const,
     plans: ['dashboard', 'plans'] as const,
     payments: ['dashboard', 'payments'] as const,
+    planItems: ['dashboard', 'planItems'] as const,
   },
   employers: {
     all: ['employers'] as const,
@@ -80,5 +82,8 @@ export const queryKeys = {
   },
   finance: {
     referrers: ['finance', 'referrers'] as const,
+  },
+  checklist: {
+    all: ['checklist'] as const,
   },
 }

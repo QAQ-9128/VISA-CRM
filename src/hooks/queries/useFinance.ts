@@ -6,6 +6,7 @@ import {
   getAllPaymentPlans,
   getAllPayments,
 } from '../../api/dashboard'
+import { getAllPlanItems } from '../../api/payments'
 import { listReferrers } from '../../api/referrers'
 import { listAllCaseApplicants } from '../../api/caseApplicants'
 import {
@@ -38,6 +39,7 @@ export function useFinance(month: string | null) {
   })
   const plans = useQuery({ queryKey: queryKeys.dashboard.plans, queryFn: getAllPaymentPlans })
   const payments = useQuery({ queryKey: queryKeys.dashboard.payments, queryFn: getAllPayments })
+  const planItems = useQuery({ queryKey: queryKeys.dashboard.planItems, queryFn: getAllPlanItems })
   // 含归档：付给已归档介绍人的款仍需显示其名字
   const referrers = useQuery({
     queryKey: queryKeys.finance.referrers,
@@ -48,7 +50,7 @@ export function useFinance(month: string | null) {
     queryFn: listAllCaseApplicants,
   })
 
-  const all = [cases, customers, plans, payments, referrers, caseApplicants]
+  const all = [cases, customers, plans, payments, planItems, referrers, caseApplicants]
   const isPending = all.some((q) => q.isPending)
   const isError = all.some((q) => q.isError)
 
@@ -75,8 +77,9 @@ export function useFinance(month: string | null) {
         plans.data ?? [],
         visiblePayments,
         customerById,
+        planItems.data ?? [],
       ),
-    [visibleCases, caseApplicants.data, plans.data, visiblePayments, customerById],
+    [visibleCases, caseApplicants.data, plans.data, visiblePayments, customerById, planItems.data],
   )
   const receivableTotals = useMemo(() => sumFinanceReceivables(receivables), [receivables])
 

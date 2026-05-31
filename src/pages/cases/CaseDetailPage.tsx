@@ -1,13 +1,16 @@
-import { Link, useNavigate, useParams } from 'react-router-dom'
-import { useArchiveCase, useCase, useCaseStageHistory } from '../../hooks/queries/useCases'
+import { Link, useLocation, useNavigate, useParams } from 'react-router-dom'
+import { useArchiveCase, useCase, useCaseStageHistory, useDeleteCase } from '../../hooks/queries/useCases'
 import { useCasesByCustomer } from '../../hooks/queries/useCases'
 import { useCustomer } from '../../hooks/queries/useCustomers'
 import { shouldShowTrtReminder, monthsSinceGrant } from '../../lib/trt'
+import { resolveCaseBackLink } from '../../lib/caseBackLink'
 import { Button } from '../../components/ui/Button'
 import { Badge } from '../../components/ui/Badge'
 import { BackLink } from '../../components/ui/BackLink'
 import { LoadingBlock, ErrorBlock } from '../../components/ui/states'
 import { formatVisaType } from '../../lib/visa'
+import { relationshipOf } from '../../lib/caseRelationship'
+import { StageBadge } from '../../components/cases/StageBadge'
 import { StageControl } from '../../components/cases/StageControl'
 import { StageTimeline } from '../../components/cases/StageTimeline'
 import { LodgementSection } from '../../components/cases/LodgementSection'
@@ -18,12 +21,17 @@ import { RecordsSection } from '../../components/records/RecordsSection'
 export function CaseDetailPage() {
   const { id } = useParams()
   const navigate = useNavigate()
+  const location = useLocation()
   const caseQuery = useCase(id)
   const c = caseQuery.data
   const customer = useCustomer(c?.customer_id)
   const customerCases = useCasesByCustomer(c?.customer_id)
+  // 依附的主案件（软关联，纯展示）：getCase 不过滤 is_archived → 主案件即便已归档仍能显示
+  const parentCase = useCase(c?.parent_case_id ?? undefined)
+  const parentCustomer = useCustomer(parentCase.data?.customer_id)
   const stageHistory = useCaseStageHistory(c?.id)
   const archive = useArchiveCase()
+  const del = useDeleteCase()
 
   if (caseQuery.isPending) return <LoadingBlock />
   if (caseQuery.isError) return <ErrorBlock error={caseQuery.error} />
@@ -45,13 +53,26 @@ export function CaseDetailPage() {
     archive.mutate(c!.id, { onSuccess: () => navigate(`/customers/${c!.customer_id}`) })
   }
 
+  function handleDelete() {
+    if (
+      !window.confirm(
+        '彻底删除该案件？\n\n将连同其递交记录、阶段历史、账单/分期/收付款一并【永久删除，不可恢复】！\n如只想暂时隐藏，请用「归档案件」。',
+      )
+    )
+      return
+    del.mutate(c!.id, { onSuccess: () => navigate(`/customers/${c!.customer_id}`) })
+  }
+
   const trtHistory = stageHistory.data ?? []
   const showTrt = shouldShowTrtReminder(c, customerCases.data ?? [c], trtHistory)
   const trtMonths = monthsSinceGrant(trtHistory)
 
   return (
     <section className="mx-auto max-w-3xl space-y-6">
-      <BackLink to="/cases" label="全部案件" />
+      {(() => {
+        const back = resolveCaseBackLink(location.state, c.customer_id)
+        return <BackLink to={back.to} label={back.label} />
+      })()}
 
       {showTrt && (
         <div className="flex items-start gap-2 rounded-xl border border-amber-300 bg-amber-50 px-4 py-3 text-sm font-medium text-amber-900">
@@ -75,6 +96,29 @@ export function CaseDetailPage() {
             </Link>
             {c.destination_country ? ` · ${c.destination_country}` : ''}
           </p>
+          {c.parent_case_id && parentCase.data && (() => {
+            const synced = relationshipOf(c) === 'synced'
+            const parentLabel = `${parentCustomer.data?.full_name ?? '…'} · ${formatVisaType(parentCase.data.visa_subclass, parentCase.data.visa_stream)}`
+            return (
+              <Link
+                to={`/cases/${parentCase.data.id}`}
+                state={{ from: 'cases' }}
+                className={`mt-2 inline-flex flex-wrap items-center gap-1.5 rounded-lg border px-2.5 py-1 text-sm transition-colors ${
+                  synced
+                    ? 'border-indigo-200 bg-indigo-50 text-indigo-700 hover:border-indigo-300'
+                    : 'border-slate-200 bg-slate-50 text-slate-600 hover:border-indigo-300 hover:text-indigo-700'
+                }`}
+              >
+                <span aria-hidden>{synced ? '🔗' : '📎'}</span>
+                <span>
+                  {synced ? '进度同步自主案件：' : '关联主案件：'}
+                  {parentLabel}
+                  <span className="text-xs opacity-70">{synced ? '（stage 自动跟随）' : '（进度独立）'}</span>
+                </span>
+                <StageBadge stage={parentCase.data.current_stage} />
+              </Link>
+            )
+          })()}
         </div>
         <div className="flex shrink-0 gap-2">
           <Link to={`/cases/${c.id}/edit`}>
@@ -84,7 +128,12 @@ export function CaseDetailPage() {
       </div>
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-        <StageControl caseId={c.id} currentStage={c.current_stage} />
+        <StageControl
+          caseId={c.id}
+          currentStage={c.current_stage}
+          disabled={relationshipOf(c) === 'synced'}
+          disabledHint="本案件进度同步自主案件，stage 自动跟随。如需独立编辑请改回「进度独立」。"
+        />
         <div className="rounded-xl border border-slate-200 bg-white p-4">
           <h2 className="mb-3 text-base font-semibold text-slate-900">阶段时间线</h2>
           <StageTimeline caseId={c.id} />
@@ -99,9 +148,17 @@ export function CaseDetailPage() {
 
       <RecordsSection customerId={c.customer_id} caseId={c.id} />
 
-      <div className="pt-2">
+      <div className="flex gap-3 pt-2">
         <Button variant="ghost" onClick={handleArchive} disabled={archive.isPending}>
           {c.is_archived ? '已归档' : '归档案件'}
+        </Button>
+        <Button
+          variant="ghost"
+          onClick={handleDelete}
+          disabled={del.isPending}
+          className="text-rose-600 hover:bg-rose-50"
+        >
+          {del.isPending ? '删除中…' : '彻底删除'}
         </Button>
       </div>
     </section>

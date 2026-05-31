@@ -8,13 +8,13 @@ const mkDoc = (o: Partial<CaseDocument>): CaseDocument => ({
   is_archived: false, created_at: '2026-05-10T00:00:00Z', updated_at: '', ...o,
 })
 const mkPayment = (o: Partial<Payment>): Payment => ({
-  id: 'pay1', case_id: 'c1', applicant_id: null, direction: 'from_client', installment_id: null, amount: 0,
+  id: 'pay1', case_id: 'c1', applicant_id: null, direction: 'from_client', installment_id: null, plan_item_id: null, amount: 0,
   currency: 'AUD', method: 'transfer', paid_at: null, note: null, fee_category: null, invoice_path: null, invoice_name: null,
   recorded_by: null, created_at: '2026-05-01T00:00:00Z', ...o,
 })
 const mkCase = (o: Partial<Case>): Case => ({
   id: 'c1', case_number: '00000001', customer_id: 'cu1', visa_subclass: '482', visa_stream: null, current_stage: 'visa_lodged',
-  currency: 'AUD', sync_tracking: true, trt_reminder_enabled: false, destination_country: 'Australia', assigned_to: null, created_by: null,
+  currency: 'AUD', sync_tracking: true, trt_reminder_enabled: false, parent_case_id: null, parent_sync_progress: false, destination_country: 'Australia', assigned_to: null, created_by: null,
   is_archived: false, created_at: '', updated_at: '', ...o,
 })
 const mkCustomer = (o: Partial<Customer>): Customer => ({

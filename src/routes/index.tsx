@@ -9,7 +9,6 @@ import { CustomerListPage } from '../pages/customers/CustomerListPage'
 import { CustomerDetailPage } from '../pages/customers/CustomerDetailPage'
 import { CustomerFormPage } from '../pages/customers/CustomerFormPage'
 import { CasesTablePage } from '../pages/cases/CasesTablePage'
-import { CaseListPage } from '../pages/cases/CaseListPage'
 import { CaseDetailPage } from '../pages/cases/CaseDetailPage'
 import { CaseFormPage } from '../pages/cases/CaseFormPage'
 import { EmployerListPage } from '../pages/employers/EmployerListPage'
@@ -38,8 +37,7 @@ export const router = createBrowserRouter([
           { path: 'customers/new', element: <CustomerFormPage /> },
           { path: 'customers/:id', element: <CustomerDetailPage /> },
           { path: 'customers/:id/edit', element: <CustomerFormPage /> },
-          { path: 'cases', element: <CaseListPage /> },
-          { path: 'cases/lodged', element: <CasesTablePage /> },
+          { path: 'cases', element: <CasesTablePage /> },
           { path: 'cases/new', element: <CaseFormPage /> },
           { path: 'cases/:id', element: <CaseDetailPage /> },
           { path: 'cases/:id/edit', element: <CaseFormPage /> },

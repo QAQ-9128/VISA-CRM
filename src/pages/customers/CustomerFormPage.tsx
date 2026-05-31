@@ -1,4 +1,4 @@
-import { useNavigate, useParams } from 'react-router-dom'
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { CustomerForm } from '../../components/customers/CustomerForm'
 import type { CustomerFormValues } from '../../components/customers/CustomerForm'
 import {
@@ -13,6 +13,9 @@ export function CustomerFormPage() {
   const { id } = useParams()
   const editing = !!id
   const navigate = useNavigate()
+  const [params] = useSearchParams()
+  // 新建副申请人：从主申档案「+ 添加副申请人」带 ?primary=<主申id> 进来，预选挂靠主申
+  const initialPrimaryId = !editing ? params.get('primary') ?? undefined : undefined
 
   const existing = useCustomer(id)
   const createM = useCreateCustomer()
@@ -52,6 +55,7 @@ export function CustomerFormPage() {
       <div className="mt-6">
         <CustomerForm
           initial={editing ? existing.data ?? undefined : undefined}
+          initialPrimaryId={initialPrimaryId}
           submitting={submitting}
           error={errorMsg}
           onSubmit={handleSubmit}

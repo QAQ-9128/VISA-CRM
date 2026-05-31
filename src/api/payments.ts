@@ -1,9 +1,11 @@
 import { supabase } from '../lib/supabase'
-import type { Installment, Payment, PaymentPlan } from '../types/models'
+import type { Installment, Payment, PaymentPlan, PaymentPlanItem } from '../types/models'
 import type { TablesInsert, TablesUpdate } from '../types/database'
 
 export type PaymentPlanInsert = TablesInsert<'payment_plans'>
 export type PaymentPlanUpdate = TablesUpdate<'payment_plans'>
+export type PaymentPlanItemInsert = TablesInsert<'payment_plan_items'>
+export type PaymentPlanItemUpdate = TablesUpdate<'payment_plan_items'>
 export type InstallmentInsert = TablesInsert<'installments'>
 export type InstallmentUpdate = TablesUpdate<'installments'>
 export type PaymentInsert = TablesInsert<'payments'>
@@ -40,6 +42,43 @@ export async function updatePaymentPlan(
     .single()
   if (error) throw error
   return data
+}
+
+// ── payment_plan_items（按费用类别拆分的应收款项明细）──────────
+/** 全部款项明细（财务/客户/案件页共用，按 plan_id 在前端过滤）。 */
+export async function getAllPlanItems(): Promise<PaymentPlanItem[]> {
+  const { data, error } = await supabase
+    .from('payment_plan_items')
+    .select('*')
+    .order('created_at', { ascending: true })
+  if (error) throw error
+  return data ?? []
+}
+
+export async function createPlanItem(input: PaymentPlanItemInsert): Promise<PaymentPlanItem> {
+  const { data, error } = await supabase.from('payment_plan_items').insert(input).select().single()
+  if (error) throw error
+  return data
+}
+
+export async function updatePlanItem(
+  id: string,
+  patch: PaymentPlanItemUpdate,
+): Promise<PaymentPlanItem> {
+  const { data, error } = await supabase
+    .from('payment_plan_items')
+    .update(patch)
+    .eq('id', id)
+    .select()
+    .single()
+  if (error) throw error
+  return data
+}
+
+/** 真删（RLS 限 admin）。删除守卫「有收款则禁删」在 hook 层用 itemHasPayments 判定。 */
+export async function deletePlanItem(id: string): Promise<void> {
+  const { error } = await supabase.from('payment_plan_items').delete().eq('id', id)
+  if (error) throw error
 }
 
 // ── installments（分期节点）─────────────────────────────────

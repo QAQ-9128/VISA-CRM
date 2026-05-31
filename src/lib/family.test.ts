@@ -10,7 +10,7 @@ const mkCustomer = (o: Partial<Customer>): Customer => ({
 })
 const mkCase = (o: Partial<Case>): Case => ({
   id: 'c1', case_number: '00000001', customer_id: 'head', visa_subclass: '482', visa_stream: null, current_stage: 'todo',
-  currency: 'AUD', sync_tracking: true, trt_reminder_enabled: false, destination_country: 'Australia', assigned_to: null, created_by: null,
+  currency: 'AUD', sync_tracking: true, trt_reminder_enabled: false, parent_case_id: null, parent_sync_progress: false, destination_country: 'Australia', assigned_to: null, created_by: null,
   is_archived: false, created_at: '', updated_at: '', ...o,
 })
 const ca = (case_id: string, customer_id: string): CaseApplicant => ({

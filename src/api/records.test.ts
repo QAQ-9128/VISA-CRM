@@ -31,6 +31,15 @@ describe('getOpenTaskRecords', () => {
   })
 })
 
+describe('getOpenRecords', () => {
+  it('取全部未完成记录（含跟进），不按类型过滤', async () => {
+    const b = wireFrom(fromMock, { records: { data: [] } })
+    await api.getOpenRecords()
+    expect(b.records.eq).toHaveBeenCalledWith('is_done', false)
+    expect(b.records.eq).not.toHaveBeenCalledWith('type', 'task')
+  })
+})
+
 describe('createRecord', () => {
   it('插入并返回', async () => {
     const b = wireFrom(fromMock, { records: { data: { id: 'r1' } } })

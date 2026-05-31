@@ -13,8 +13,19 @@ function todayStr(): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
 }
 
-/** 阶段流转：选择新阶段 + 可填备注 → 写入 case_stage_history。 */
-export function StageControl({ caseId, currentStage }: { caseId: string; currentStage: CaseStage }) {
+/** 阶段流转：选择新阶段 + 可填备注 → 写入 case_stage_history。
+ *  disabled=true（进度同步态）时整块禁用 + 灰显，只读展示当前阶段 + 提示。 */
+export function StageControl({
+  caseId,
+  currentStage,
+  disabled = false,
+  disabledHint,
+}: {
+  caseId: string
+  currentStage: CaseStage
+  disabled?: boolean
+  disabledHint?: string
+}) {
   const [stage, setStage] = useState<CaseStage>(currentStage)
   const [note, setNote] = useState('')
   const [effDate, setEffDate] = useState(todayStr)
@@ -45,29 +56,40 @@ export function StageControl({ caseId, currentStage }: { caseId: string; current
         <span className="text-sm text-slate-500">当前阶段</span>
         <StageBadge stage={currentStage} />
       </div>
-      <Select
-        label="切换到"
-        options={options}
-        value={stage}
-        onChange={(e) => setStage(e.target.value as CaseStage)}
-      />
-      {changed && (
-        <TextField
-          label="备注（可选，记入时间线）"
-          value={note}
-          onChange={(e) => setNote(e.target.value)}
-          placeholder="如 已补充 PTE 成绩"
-        />
+
+      {disabled && (
+        <p className="rounded-lg bg-slate-100 px-3 py-2 text-xs text-slate-500">
+          {disabledHint ?? '本案件进度同步自主案件，stage 自动跟随，无法在此独立编辑。'}
+        </p>
       )}
-      <TextField
-        label="实际发生日期（默认今天，可补录过去）"
-        type="date"
-        value={effDate}
-        onChange={(e) => setEffDate(e.target.value)}
-      />
-      <Button onClick={apply} disabled={!changed || mutation.isPending}>
-        {mutation.isPending ? '更新中…' : '更新阶段'}
-      </Button>
+
+      {/* 禁用态：用 fieldset disabled 原生级联禁用内部所有控件 + 灰显 */}
+      <fieldset disabled={disabled} className={disabled ? 'space-y-3 opacity-50' : 'space-y-3'}>
+        <Select
+          label="切换到"
+          options={options}
+          value={stage}
+          onChange={(e) => setStage(e.target.value as CaseStage)}
+        />
+        {changed && (
+          <TextField
+            label="备注（可选，记入时间线）"
+            value={note}
+            onChange={(e) => setNote(e.target.value)}
+            placeholder="如 已补充 PTE 成绩"
+          />
+        )}
+        <TextField
+          label="实际发生日期（默认今天，可补录过去）"
+          type="date"
+          value={effDate}
+          onChange={(e) => setEffDate(e.target.value)}
+        />
+        <Button onClick={apply} disabled={!changed || mutation.isPending}>
+          {mutation.isPending ? '更新中…' : '更新阶段'}
+        </Button>
+      </fieldset>
+
       {mutation.isError && (
         <p className="text-sm text-rose-700">
           {mutation.error instanceof Error ? mutation.error.message : '更新失败'}

@@ -6,7 +6,7 @@ import type { CaseStageHistory } from '../types/models'
 const mkCase = (o: Partial<Case>): Case => ({
   id: 'c1', case_number: '48200001', customer_id: 'cu1', visa_subclass: '482', visa_stream: null,
   current_stage: 'granted', currency: 'AUD', sync_tracking: true, destination_country: null,
-  assigned_to: null, created_by: null, is_archived: false, trt_reminder_enabled: true,
+  assigned_to: null, created_by: null, is_archived: false, trt_reminder_enabled: true, parent_case_id: null, parent_sync_progress: false,
   created_at: '', updated_at: '', ...o,
 })
 const mkHist = (case_id: string, to_stage: CaseStageHistory['to_stage'], effective_at: string, id = `${case_id}-${to_stage}`): CaseStageHistory => ({

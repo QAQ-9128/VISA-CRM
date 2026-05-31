@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import {
   createRecord,
   deleteRecord,
+  getOpenRecords,
   getOpenTaskRecords,
   listRecordsByCase,
   listRecordsByCustomer,
@@ -30,6 +31,11 @@ export function useRecordsByCase(caseId: string | undefined) {
 /** 全部未完成待办记录（概览用）。 */
 export function useOpenTaskRecords() {
   return useQuery({ queryKey: queryKeys.records.openTasks, queryFn: getOpenTaskRecords })
+}
+
+/** 全部未完成记录（待办 + 跟进，不限类型）——递交进度表「待办」列用。 */
+export function useOpenRecords() {
+  return useQuery({ queryKey: queryKeys.records.open, queryFn: getOpenRecords })
 }
 
 export function useCreateRecord() {

@@ -23,6 +23,11 @@ describe('findVisaType', () => {
     expect(findVisaType('887')).toBeUndefined()
     expect(findVisaType('')).toBeUndefined()
   })
+  it('482 子类别含 Subsequent Entrant（对齐 494 已有的 stream）', () => {
+    const streams = findVisaType('482')?.streams.map((s) => s.value) ?? []
+    expect(streams).toContain('Core Skills')
+    expect(streams).toContain('Subsequent Entrant')
+  })
 })
 
 describe('hasStreamOptions', () => {

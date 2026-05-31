@@ -31,6 +31,12 @@ describe('getCase', () => {
     expect(b.cases.maybeSingle).toHaveBeenCalled()
     expect(result).toEqual(row)
   })
+
+  it('不按 is_archived 过滤 → 已归档的主案件仍能取到（副案件徽章可继续展示）', async () => {
+    const b = wireFrom(fromMock, { cases: { data: { id: 'c1', is_archived: true } } })
+    await casesApi.getCase('c1')
+    expect(b.cases.eq).not.toHaveBeenCalledWith('is_archived', expect.anything())
+  })
 })
 
 describe('createCase', () => {
@@ -41,6 +47,14 @@ describe('createCase', () => {
     expect(b.cases.insert).toHaveBeenCalledWith({ customer_id: 'cust1', visa_subclass: '189' })
     expect(result).toEqual(row)
   })
+
+  it('带 parent_case_id 创建 → 原样写入（软关联）', async () => {
+    const b = wireFrom(fromMock, { cases: { data: { id: 'sub' } } })
+    await casesApi.createCase({ customer_id: 'cust2', visa_subclass: '482', parent_case_id: 'parent1' })
+    expect(b.cases.insert).toHaveBeenCalledWith(
+      expect.objectContaining({ parent_case_id: 'parent1' }),
+    )
+  })
 })
 
 describe('updateCase', () => {
@@ -50,6 +64,16 @@ describe('updateCase', () => {
     await casesApi.updateCase('c1', { visa_subclass: '190' })
     expect(b.cases.update).toHaveBeenCalledWith({ visa_subclass: '190' })
     expect(b.cases.eq).toHaveBeenCalledWith('id', 'c1')
+  })
+
+  it('可设置 / 清空 parent_case_id', async () => {
+    const b1 = wireFrom(fromMock, { cases: { data: { id: 'c1' } } })
+    await casesApi.updateCase('c1', { parent_case_id: 'p1' })
+    expect(b1.cases.update).toHaveBeenCalledWith({ parent_case_id: 'p1' })
+
+    const b2 = wireFrom(fromMock, { cases: { data: { id: 'c1' } } })
+    await casesApi.updateCase('c1', { parent_case_id: null })
+    expect(b2.cases.update).toHaveBeenCalledWith({ parent_case_id: null })
   })
 })
 
@@ -78,6 +102,18 @@ describe('updateCaseStage', () => {
       }),
     )
     expect(result).toEqual(updated)
+  })
+
+  it('阶段流转只写 current_stage、只改本案件行，绝不触碰 parent_case_id（主↔副阶段互不传染）', async () => {
+    const b = wireFrom(fromMock, { cases: { data: { id: 'parent' } }, case_stage_history: {} })
+    await casesApi.updateCaseStage({ caseId: 'parent', fromStage: 'todo', toStage: 'granted' })
+    // 更新载荷只有 current_stage —— 关系字段不在其中
+    expect(b.cases.update).toHaveBeenCalledWith({ current_stage: 'granted' })
+    expect(b.cases.update).not.toHaveBeenCalledWith(
+      expect.objectContaining({ parent_case_id: expect.anything() }),
+    )
+    // 只按本案件 id 更新，不会去改副案件
+    expect(b.cases.eq).toHaveBeenCalledWith('id', 'parent')
   })
 
   it('传 effectiveAt 时写入 effective_at（事后补录过去日期）', async () => {
@@ -121,6 +157,16 @@ describe('archiveCase', () => {
     expect(b.cases.update).toHaveBeenCalledWith({ is_archived: true })
     expect(b.cases.eq).toHaveBeenCalledWith('id', 'c1')
     expect(b.cases.delete).not.toHaveBeenCalled()
+  })
+})
+
+describe('deleteCase', () => {
+  it('彻底删除：真 delete().eq(id)，不是软删', async () => {
+    const b = wireFrom(fromMock, { cases: {} })
+    await casesApi.deleteCase('c1')
+    expect(b.cases.delete).toHaveBeenCalled()
+    expect(b.cases.eq).toHaveBeenCalledWith('id', 'c1')
+    expect(b.cases.update).not.toHaveBeenCalled()
   })
 })
 

@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import {
   archiveEmployer,
   createEmployer,
+  deleteEmployer,
   getEmployer,
   listEmployers,
   updateEmployer,
@@ -44,5 +45,18 @@ export function useArchiveEmployer() {
   return useMutation({
     mutationFn: (id: string) => archiveEmployer(id),
     onSuccess: () => qc.invalidateQueries({ queryKey: queryKeys.employers.all }),
+  })
+}
+
+/** 彻底删除雇主（硬删）。已挂靠客户的 sponsor_employer_id 被置空 → 同时失效客户/概览缓存。 */
+export function useDeleteEmployer() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (id: string) => deleteEmployer(id),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: queryKeys.employers.all })
+      qc.invalidateQueries({ queryKey: queryKeys.customers.all })
+      qc.invalidateQueries({ queryKey: queryKeys.dashboard.activeCustomers })
+    },
   })
 }

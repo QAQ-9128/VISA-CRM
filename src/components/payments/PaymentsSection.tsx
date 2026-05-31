@@ -4,6 +4,7 @@ import { Button } from '../ui/Button'
 import { PaymentPlanForm } from './PaymentPlanForm'
 import { InstallmentsPanel } from './InstallmentsPanel'
 import { PaymentsPanel } from './PaymentsPanel'
+import { PlanItemsTable } from '../finance/PlanItemsTable'
 import { usePaymentPlan, usePaymentsByCase } from '../../hooks/queries/usePayments'
 import { computeAccounting } from '../../lib/accounting'
 import { formatMoney } from '../../lib/money'
@@ -86,58 +87,58 @@ export function PaymentsSection({
   }
 
   return (
-    <section className="space-y-4">
+    <section className="space-y-5">
       <h2 className="text-base font-semibold text-slate-900">付款（双流账目）</h2>
 
       {planQuery.isPending ? (
         <p className="text-sm text-slate-400">加载付款计划…</p>
-      ) : !plan ? (
-        creatingPlan ? (
-          <PaymentPlanForm caseId={caseId} defaultCurrency={currency} onDone={() => setCreatingPlan(false)} />
-        ) : (
-          <div className="flex items-center gap-3 rounded-xl border border-dashed border-slate-300 bg-white px-4 py-6">
-            <span className="text-sm text-slate-500">尚未创建付款计划</span>
-            <Button onClick={() => setCreatingPlan(true)}>创建付款计划</Button>
-          </div>
-        )
       ) : (
         <>
-          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-            <FlowCard
-              title="客户欠你"
-              total={plan.client_total}
-              paid={acct.clientPaid}
-              owes={acct.clientOwes}
-              totalLabel="应收"
-              paidLabel="已收"
-              currency={cur}
-            />
-            <FlowCard
-              title="你欠主代理"
-              total={plan.company_total}
-              paid={acct.companyPaid}
-              owes={acct.companyOwes}
-              totalLabel="应付"
-              paidLabel="已付"
-              currency={cur}
-            />
+          {/* 客户应收：按费用类别拆分的款项明细（每条独立 应收/已付/未付）。无计划时新增款项会自动建计划 */}
+          <div className="space-y-2 rounded-xl border border-slate-200 bg-white p-4">
+            <p className="text-sm font-medium text-slate-600">客户应收 · 款项明细</p>
+            <PlanItemsTable caseId={caseId} planId={plan?.id ?? null} currency={cur} />
           </div>
 
-          {editingPlan ? (
-            <PaymentPlanForm
-              caseId={caseId}
-              initial={plan}
-              defaultCurrency={cur}
-              onDone={() => setEditingPlan(false)}
-            />
-          ) : (
-            <Button variant="ghost" onClick={() => setEditingPlan(true)}>
-              编辑付款计划
-            </Button>
-          )}
+          {/* 主代理（双流另一侧），保持原结构；无计划时可创建以设置主代理应付 */}
+          {plan ? (
+            <>
+              <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                <FlowCard
+                  title="你欠主代理"
+                  total={plan.company_total}
+                  paid={acct.companyPaid}
+                  owes={acct.companyOwes}
+                  totalLabel="应付"
+                  paidLabel="已付"
+                  currency={cur}
+                />
+              </div>
 
-          <InstallmentsPanel planId={plan.id} currency={cur} />
-          <PaymentsPanel caseId={caseId} planId={plan.id} currency={cur} />
+              {editingPlan ? (
+                <PaymentPlanForm
+                  caseId={caseId}
+                  initial={plan}
+                  defaultCurrency={cur}
+                  onDone={() => setEditingPlan(false)}
+                />
+              ) : (
+                <Button variant="ghost" onClick={() => setEditingPlan(true)}>
+                  编辑主代理应付 / 货币
+                </Button>
+              )}
+
+              <InstallmentsPanel planId={plan.id} currency={cur} />
+              <PaymentsPanel caseId={caseId} planId={plan.id} currency={cur} />
+            </>
+          ) : creatingPlan ? (
+            <PaymentPlanForm caseId={caseId} defaultCurrency={currency} onDone={() => setCreatingPlan(false)} />
+          ) : (
+            <div className="flex items-center gap-3 rounded-xl border border-dashed border-slate-300 bg-white px-4 py-4">
+              <span className="text-sm text-slate-500">如需登记「付主代理」账目，可创建付款计划</span>
+              <Button variant="secondary" onClick={() => setCreatingPlan(true)}>创建付款计划</Button>
+            </div>
+          )}
         </>
       )}
     </section>

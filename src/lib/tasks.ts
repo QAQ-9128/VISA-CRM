@@ -40,6 +40,22 @@ export function selectCaseTasks(tasks: RecordRow[], caseId: string, limit = 3): 
 }
 
 /**
+ * 递交进度表「待办」列：某案件下未完成的全部记录（待办 + 跟进，不限类型——跟进带表情符号也要出现），
+ * 按 updated_at 倒序（最近更新在前），取前 limit 条。
+ * 与 selectCaseTasks 区别：这里按更新时间排序（表格列预览用）且含跟进，后者按截止日且仅待办。
+ */
+export function selectCaseTodoPreviews(tasks: RecordRow[], caseId: string, limit = 3): RecordRow[] {
+  return tasks
+    .filter((t) => t.case_id === caseId && !t.is_done)
+    .sort(
+      (a, b) =>
+        (b.updated_at ?? '').localeCompare(a.updated_at ?? '') ||
+        (b.created_at ?? '').localeCompare(a.created_at ?? ''),
+    )
+    .slice(0, limit)
+}
+
+/**
  * 「我的待办」：未完成、且（分配给我 或 我创建的）全部待办——不再限「有截止日且临近」，
  * 也不再仅看 assigned_to（避免新建/迁移待办因 assigned_to 没对上而被筛掉），确保概览一眼可见。
  * 排序：有截止日的在前、按截止日升序（逾期/临近自然靠前）；无截止日的排后、按创建时间倒序。

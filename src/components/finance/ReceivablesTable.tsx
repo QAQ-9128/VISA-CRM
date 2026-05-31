@@ -1,13 +1,6 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
-import { Button } from '../ui/Button'
-import { PaymentEntryForm } from './PaymentEntryForm'
-import type { PaymentEntryValues } from './PaymentEntryForm'
-import {
-  useCreatePayment,
-  useCreatePaymentPlan,
-  useUpdatePaymentPlan,
-} from '../../hooks/queries/usePayments'
+import { PlanItemsTable } from './PlanItemsTable'
 import { getCustomerPaymentColor, CUSTOMER_PAYMENT_TEXT_CLASS } from '../../lib/finance'
 import type { ReceivableRow, ReceivableTotals } from '../../lib/finance'
 
@@ -21,40 +14,8 @@ const ROLE_TAG: Record<string, string> = {
 }
 
 function ReceivableRowItem({ row }: { row: ReceivableRow }) {
-  const createPlan = useCreatePaymentPlan(row.caseId)
-  const updatePlan = useUpdatePaymentPlan(row.caseId)
-  const createPayment = useCreatePayment(row.caseId)
-
   const [open, setOpen] = useState(false)
-  const [editingReceivable, setEditingReceivable] = useState(false)
-  const [receivableInput, setReceivableInput] = useState(String(row.receivable))
-  const [addingReceipt, setAddingReceipt] = useState(false)
-
-  const planPending = createPlan.isPending || updatePlan.isPending
   const nameColor = getCustomerPaymentColor(row.receivable, row.paid, row.unpaid)
-
-  function saveReceivable() {
-    const val = Number(receivableInput)
-    const onSuccess = () => setEditingReceivable(false)
-    if (row.planId) updatePlan.mutate({ id: row.planId, patch: { client_total: val } }, { onSuccess })
-    else createPlan.mutate({ case_id: row.caseId, applicant_id: row.applicantId, client_total: val }, { onSuccess })
-  }
-
-  function addReceipt(v: PaymentEntryValues) {
-    createPayment.mutate(
-      {
-        case_id: row.caseId,
-        applicant_id: row.applicantId,
-        direction: 'from_client',
-        amount: v.amount,
-        method: v.method,
-        paid_at: v.paid_at,
-        note: v.note,
-        fee_category: v.fee_category,
-      },
-      { onSuccess: () => setAddingReceipt(false) },
-    )
-  }
 
   return (
     <>
@@ -68,6 +29,7 @@ function ReceivableRowItem({ row }: { row: ReceivableRow }) {
             )}
             <Link
               to={`/cases/${row.caseId}`}
+              state={{ from: 'finance' }}
               className={`font-medium hover:underline ${
                 nameColor === 'default' ? 'text-indigo-600' : CUSTOMER_PAYMENT_TEXT_CLASS[nameColor]
               }`}
@@ -102,57 +64,8 @@ function ReceivableRowItem({ row }: { row: ReceivableRow }) {
       {open && (
         <tr className="border-b border-slate-100 bg-slate-50/40">
           <td colSpan={5} className="px-2 py-3">
-            <div className="space-y-3">
-              <div className="flex flex-wrap items-center gap-2">
-                <span className="text-sm text-slate-500">应收总额</span>
-                {editingReceivable ? (
-                  <>
-                    <input
-                      type="number"
-                      min={0}
-                      step="0.01"
-                      value={receivableInput}
-                      onChange={(e) => setReceivableInput(e.target.value)}
-                      className="w-32 rounded-lg border border-slate-300 px-2 py-1.5 text-sm tabular-nums outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200"
-                    />
-                    <Button type="button" onClick={saveReceivable} disabled={planPending}>
-                      {planPending ? '保存中…' : '保存'}
-                    </Button>
-                    <Button type="button" variant="ghost" onClick={() => setEditingReceivable(false)}>
-                      取消
-                    </Button>
-                  </>
-                ) : (
-                  <>
-                    <span className="text-sm font-medium tabular-nums text-slate-900">{fmt(row.receivable)}</span>
-                    <Button
-                      type="button"
-                      variant="secondary"
-                      onClick={() => {
-                        setReceivableInput(String(row.receivable))
-                        setEditingReceivable(true)
-                      }}
-                    >
-                      改应收
-                    </Button>
-                  </>
-                )}
-              </div>
-
-              {addingReceipt ? (
-                <PaymentEntryForm
-                  submitLabel="加收款"
-                  showFeeCategory
-                  pending={createPayment.isPending}
-                  onSubmit={addReceipt}
-                  onCancel={() => setAddingReceipt(false)}
-                />
-              ) : (
-                <Button type="button" onClick={() => setAddingReceipt(true)}>
-                  + 加收款
-                </Button>
-              )}
-            </div>
+            {/* 款项明细表：按费用类别拆分的多条应收，每条独立 改应收 / 收款 / 删除 */}
+            <PlanItemsTable caseId={row.caseId} planId={row.planId} applicantId={row.applicantId} />
           </td>
         </tr>
       )}

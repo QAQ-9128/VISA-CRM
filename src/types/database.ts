@@ -177,6 +177,8 @@ export interface Database {
           currency: string
           sync_tracking: boolean
           trt_reminder_enabled: boolean
+          parent_case_id: string | null
+          parent_sync_progress: boolean
           assigned_to: string | null
           created_by: string | null
           is_archived: boolean
@@ -194,6 +196,8 @@ export interface Database {
           currency?: string
           sync_tracking?: boolean
           trt_reminder_enabled?: boolean
+          parent_case_id?: string | null
+          parent_sync_progress?: boolean
           assigned_to?: string | null
           created_by?: string | null
           is_archived?: boolean
@@ -339,6 +343,28 @@ export interface Database {
         Update: Partial<Database['public']['Tables']['payment_plans']['Insert']>
         Relationships: []
       }
+      payment_plan_items: {
+        Row: {
+          id: string
+          plan_id: string
+          fee_category: string
+          amount_due: number
+          note: string | null
+          created_at: Timestamp
+          updated_at: Timestamp
+        }
+        Insert: {
+          id?: string
+          plan_id: string
+          fee_category: string
+          amount_due?: number
+          note?: string | null
+          created_at?: Timestamp
+          updated_at?: Timestamp
+        }
+        Update: Partial<Database['public']['Tables']['payment_plan_items']['Insert']>
+        Relationships: []
+      }
       installments: {
         Row: {
           id: string
@@ -372,6 +398,7 @@ export interface Database {
           applicant_id: string | null
           direction: PaymentDirection
           installment_id: string | null
+          plan_item_id: string | null
           amount: number
           currency: string
           method: PaymentMethod
@@ -389,6 +416,7 @@ export interface Database {
           applicant_id?: string | null
           direction: PaymentDirection
           installment_id?: string | null
+          plan_item_id?: string | null
           amount: number
           currency?: string
           method?: PaymentMethod
@@ -461,6 +489,24 @@ export interface Database {
           updated_at?: Timestamp
         }
         Update: Partial<Database['public']['Tables']['records']['Insert']>
+        Relationships: []
+      }
+      checklist_items: {
+        Row: {
+          id: string
+          content: string
+          is_done: boolean
+          created_at: Timestamp
+          updated_at: Timestamp
+        }
+        Insert: {
+          id?: string
+          content: string
+          is_done?: boolean
+          created_at?: Timestamp
+          updated_at?: Timestamp
+        }
+        Update: Partial<Database['public']['Tables']['checklist_items']['Insert']>
         Relationships: []
       }
       tasks: {

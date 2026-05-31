@@ -4,22 +4,27 @@ import { useAllLodgements } from '../../hooks/queries/useLodgements'
 import { useCases, useAllStageHistory } from '../../hooks/queries/useCases'
 import { useCustomers } from '../../hooks/queries/useCustomers'
 import { useAllCaseApplicants } from '../../hooks/queries/useCaseApplicants'
+import { useOpenRecords } from '../../hooks/queries/useRecords'
 import { selectCaseRows, sortCaseRows } from '../../lib/casesTable'
 import type { CaseRow, CaseSortKey } from '../../lib/casesTable'
+import { selectCaseTodoPreviews } from '../../lib/tasks'
 import { visibleCaseIds } from '../../lib/visibility'
 import { StageBadge } from '../../components/cases/StageBadge'
 import { LoadingBlock, ErrorBlock, EmptyState } from '../../components/ui/states'
+import type { RecordRow } from '../../types/models'
 
 const fmtElapsed = (e: { months: number; days: number }) =>
   e.months <= 0 ? `${e.days} 天` : `${e.months} 个月 ${e.days} 天`
 
-/** 等待天数着色：已决冻结→灰；未决且超 DHA 处理天数→红；其余默认。与案件详情卡片一致。 */
+/** 距今着色：已决冻结→灰；未决且超 DHA 处理天数→红；其余默认。 */
 const waitClass = (frozen: boolean, daysSince: number | null, dhaDays: number | null) =>
   frozen
     ? 'text-slate-400'
     : daysSince != null && dhaDays != null && daysSince > dhaDays
       ? 'text-rose-600'
       : 'text-slate-900'
+
+const truncate = (s: string, n = 30) => (s.length > n ? s.slice(0, n) + '…' : s)
 
 interface Column {
   key: CaseSortKey
@@ -35,7 +40,6 @@ const COLUMNS: Column[] = [
   { key: 'nomElapsed', label: '提名距今' },
   { key: 'visaDate', label: '签证递交时间' },
   { key: 'visaElapsed', label: '签证距今' },
-  { key: 'elapsed', label: '等待天数' },
 ]
 
 export function CasesTablePage() {
@@ -44,8 +48,10 @@ export function CasesTablePage() {
   const customers = useCustomers({})
   const applicants = useAllCaseApplicants()
   const stageHistory = useAllStageHistory()
+  const tasks = useOpenRecords()
 
-  const [sortKey, setSortKey] = useState<CaseSortKey>('elapsed')
+  // 默认按「提名递交时间」倒序（最近递交在最上，未递交的排最下）
+  const [sortKey, setSortKey] = useState<CaseSortKey>('nomDate')
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc')
 
   const today = useMemo(() => new Date(), [])
@@ -67,33 +73,26 @@ export function CasesTablePage() {
   const sorted = useMemo(() => sortCaseRows(rows, sortKey, sortDir), [rows, sortKey, sortDir])
 
   const isPending =
-    lodgements.isPending || cases.isPending || customers.isPending || applicants.isPending || stageHistory.isPending
+    lodgements.isPending || cases.isPending || customers.isPending || applicants.isPending || stageHistory.isPending || tasks.isPending
   const isError =
-    lodgements.isError || cases.isError || customers.isError || applicants.isError || stageHistory.isError
+    lodgements.isError || cases.isError || customers.isError || applicants.isError || stageHistory.isError || tasks.isError
 
   function toggleSort(key: CaseSortKey) {
     if (key === sortKey) setSortDir((d) => (d === 'asc' ? 'desc' : 'asc'))
     else {
       setSortKey(key)
-      setSortDir(
-        key === 'elapsed' || key === 'nomElapsed' || key === 'visaElapsed' || key === 'updated'
-          ? 'desc'
-          : 'asc',
-      )
+      setSortDir(['nomDate', 'visaDate', 'nomElapsed', 'visaElapsed'].includes(key) ? 'desc' : 'asc')
     }
   }
 
   if (isPending) return <LoadingBlock />
   if (isError) return <ErrorBlock error={new Error('递交记录加载失败，请刷新重试')} />
 
+  const allTasks = tasks.data ?? []
+
   return (
     <section className="mx-auto max-w-6xl">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <h1 className="text-xl font-semibold text-slate-900 md:text-2xl">递交进度</h1>
-        <Link to="/cases" className="text-sm font-medium text-indigo-600 hover:underline">
-          ← 全部案件
-        </Link>
-      </div>
+      <h1 className="text-xl font-semibold text-slate-900 md:text-2xl">递交进度</h1>
 
       {sorted.length === 0 ? (
         <div className="mt-4">
@@ -125,11 +124,12 @@ export function CasesTablePage() {
                     </button>
                   </th>
                 ))}
+                <th className="py-2 pr-4 font-medium whitespace-nowrap">待办</th>
               </tr>
             </thead>
             <tbody>
               {sorted.map((r) => (
-                <CaseRowView key={r.rowKey} row={r} />
+                <CaseRowView key={r.rowKey} row={r} tasks={allTasks} />
               ))}
             </tbody>
           </table>
@@ -139,11 +139,12 @@ export function CasesTablePage() {
   )
 }
 
-function CaseRowView({ row }: { row: CaseRow }) {
+function CaseRowView({ row, tasks }: { row: CaseRow; tasks: RecordRow[] }) {
+  const todos = selectCaseTodoPreviews(tasks, row.caseId)
   return (
     <tr className="border-b border-slate-100 align-top hover:bg-slate-50/60">
       <td className="py-2.5 pr-4 whitespace-nowrap">
-        <Link to={`/cases/${row.caseId}`} className="font-medium text-indigo-600 hover:underline">
+        <Link to={`/cases/${row.caseId}`} state={{ from: 'cases' }} className="font-medium text-indigo-600 hover:underline">
           {row.caseNumber}
         </Link>
       </td>
@@ -161,9 +162,19 @@ function CaseRowView({ row }: { row: CaseRow }) {
       <td className={`py-2.5 pr-4 whitespace-nowrap font-medium ${waitClass(row.frozen, row.visaDaysSince, row.visaDhaDays)}`}>
         {row.visaElapsed ? fmtElapsed(row.visaElapsed) : <span className="text-slate-400">—</span>}
       </td>
-      <td className={`py-2.5 pr-4 whitespace-nowrap font-medium ${waitClass(row.frozen, row.lodged ? row.daysSince : null, null)}`}>
-        {row.lodged ? fmtElapsed(row.elapsed) : <span className="text-slate-400">—</span>}
-        {row.frozen && row.lodged && <span className="text-slate-400">（已结案）</span>}
+      <td className="py-2.5 pr-4 min-w-[14rem]">
+        {todos.length === 0 ? (
+          <span className="text-slate-400">—</span>
+        ) : (
+          <ul className="space-y-0.5">
+            {todos.map((t) => (
+              <li key={t.id} className="text-sm text-slate-700" title={t.content}>
+                <span className="mr-1">{t.emoji_marker || '📝'}</span>
+                {truncate(t.content)}
+              </li>
+            ))}
+          </ul>
+        )}
       </td>
     </tr>
   )

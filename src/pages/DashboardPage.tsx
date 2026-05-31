@@ -5,6 +5,7 @@ import { useDashboard } from '../hooks/queries/useDashboard'
 import { useUpdateRecord } from '../hooks/queries/useRecords'
 import { LoadingBlock, ErrorBlock } from '../components/ui/states'
 import { ClientSourceDot } from '../components/customers/ClientSourceDot'
+import { ChecklistCard } from '../components/dashboard/ChecklistCard'
 import { CUSTOMER_PAYMENT_TEXT_CLASS } from '../lib/finance'
 import { formatMoney } from '../lib/money'
 import { isTaskOverdue } from '../lib/tasks'
@@ -72,10 +73,21 @@ function AlertCard({
   )
 }
 
-function Row({ to, left, right }: { to: string; left: ReactNode; right: ReactNode }) {
+function Row({
+  to,
+  left,
+  right,
+  state,
+}: {
+  to: string
+  left: ReactNode
+  right: ReactNode
+  state?: unknown
+}) {
   return (
     <Link
       to={to}
+      state={state}
       className="flex items-center justify-between gap-3 border-b border-slate-100 py-2.5 text-sm last:border-0 hover:opacity-70"
     >
       <span className="min-w-0 flex-1 truncate text-slate-900">{left}</span>
@@ -120,6 +132,7 @@ export function DashboardPage() {
                   {t.case_id && (
                     <Link
                       to={`/cases/${t.case_id}`}
+                      state={{ from: 'dashboard' }}
                       className="ml-1.5 text-xs text-indigo-600 hover:underline"
                     >
                       案件 ›
@@ -154,24 +167,27 @@ export function DashboardPage() {
             <Row
               key={x.installmentId}
               to={`/cases/${x.caseId}`}
+              state={{ from: 'dashboard' }}
               left={`${x.customerName} · ${formatMoney(x.amount)}`}
               right={<span className="text-xs font-medium text-rose-600">逾期 {x.daysOverdue} 天</span>}
             />
           ))}
         </AlertCard>
 
-        {/* 待办客户清单：有未完成待办的客户 */}
-        <AlertCard
-          title="待办客户清单"
-          count={d.customersWithOpenTasks.length}
-          empty="暂无有待办的客户"
-        >
-          {d.customersWithOpenTasks.map((c) => (
+        {/* 待办案件：case_stage = 待办、未归档，按创建时间倒序 */}
+        <AlertCard title="待办案件" count={d.todoCases.length} empty="暂无待办案件">
+          {d.todoCases.map((t) => (
             <Row
-              key={c.customerId}
-              to={`/customers/${c.customerId}`}
-              left={c.customerName}
-              right={<span className="text-xs font-medium text-slate-500">{c.openCount} 项待办</span>}
+              key={t.caseId}
+              to={`/cases/${t.caseId}`}
+              state={{ from: 'dashboard' }}
+              left={
+                <>
+                  {t.customerName}
+                  <span className="text-slate-400"> · {t.visaLabel}</span>
+                </>
+              }
+              right={null}
             />
           ))}
         </AlertCard>
@@ -205,6 +221,9 @@ export function DashboardPage() {
           ))}
         </AlertCard>
       </div>
+
+      {/* 独立待办清单（不关联客户/案件，随手记） */}
+      <ChecklistCard />
 
       {/* 欠款总览：按客户 */}
       <section className="rounded-xl border border-slate-200 bg-white p-4">

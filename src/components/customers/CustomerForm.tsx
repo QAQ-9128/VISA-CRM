@@ -8,79 +8,30 @@ import { EmployerSelect } from '../employers/EmployerSelect'
 import { ReferrerSelect } from '../referrers/ReferrerSelect'
 import { usePrimaryApplicants } from '../../hooks/queries/useCustomers'
 import { CLIENT_SOURCES, CLIENT_SOURCE_OPTION_LABELS, GENDERS, GENDER_LABELS } from '../../types/domain'
-import type { Customer, CustomerInsert } from '../../types/models'
+import { initialFormState, toPayload } from '../../lib/customerForm'
+import type { CustomerFormState, CustomerFormValues } from '../../lib/customerForm'
+import type { Customer } from '../../types/models'
 
-export interface CustomerFormValues extends CustomerInsert {
-  full_name: string
-}
-
-interface FormState {
-  full_name: string
-  primary_applicant_id: string
-  relationship_to_primary: string
-  client_source: string
-  is_starred: boolean
-  sponsor_employer_id: string
-  sponsor_position: string
-  referrer_id: string
-  birth_date: string
-  gender: string
-  notes: string
-}
-
-function toState(c?: Customer): FormState {
-  return {
-    full_name: c?.full_name ?? '',
-    primary_applicant_id: c?.primary_applicant_id ?? '',
-    relationship_to_primary: c?.relationship_to_primary ?? '',
-    client_source: c?.client_source ?? '',
-    is_starred: c?.is_starred ?? false,
-    sponsor_employer_id: c?.sponsor_employer_id ?? '',
-    sponsor_position: c?.sponsor_position ?? '',
-    referrer_id: c?.referrer_id ?? '',
-    birth_date: c?.birth_date ?? '',
-    gender: c?.gender ?? '',
-    notes: c?.notes ?? '',
-  }
-}
-
-const trimOrNull = (s: string) => (s.trim() === '' ? null : s.trim())
-
-// 注意：电话/微信/邮箱/护照号/国籍/地址 已从表单移除，且**不写进 payload** —
-// 编辑时这些键不出现在 update patch 里，数据库现有数据得以保留（不被清空）。
-function toPayload(s: FormState): CustomerFormValues {
-  const isSub = s.primary_applicant_id !== ''
-  return {
-    full_name: s.full_name.trim(),
-    primary_applicant_id: isSub ? s.primary_applicant_id : null,
-    relationship_to_primary: isSub ? trimOrNull(s.relationship_to_primary) : null,
-    client_source: s.client_source || null,
-    is_starred: s.is_starred,
-    sponsor_employer_id: s.sponsor_employer_id || null,
-    sponsor_position: trimOrNull(s.sponsor_position),
-    referrer_id: s.referrer_id || null,
-    birth_date: trimOrNull(s.birth_date),
-    gender: s.gender || null,
-    notes: trimOrNull(s.notes),
-  }
-}
+export type { CustomerFormValues }
 
 interface CustomerFormProps {
   /** 编辑时传入现有客户 */
   initial?: Customer
+  /** 新建时预选「挂靠到的主申请人」id（从主申档案「+ 添加副申请人」带 ?primary= 进来）。 */
+  initialPrimaryId?: string
   submitting?: boolean
   error?: string | null
   onSubmit: (values: CustomerFormValues) => void
   onCancel: () => void
 }
 
-export function CustomerForm({ initial, submitting, error, onSubmit, onCancel }: CustomerFormProps) {
-  const [state, setState] = useState<FormState>(() => toState(initial))
+export function CustomerForm({ initial, initialPrimaryId, submitting, error, onSubmit, onCancel }: CustomerFormProps) {
+  const [state, setState] = useState<CustomerFormState>(() => initialFormState(initial, initialPrimaryId))
   const primaries = usePrimaryApplicants()
 
   const set =
-    <K extends keyof FormState>(key: K) =>
-    (value: FormState[K]) =>
+    <K extends keyof CustomerFormState>(key: K) =>
+    (value: CustomerFormState[K]) =>
       setState((prev) => ({ ...prev, [key]: value }))
 
   // 主申请人下拉：排除自己（编辑时），未归档的主申请人

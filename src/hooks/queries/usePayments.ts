@@ -4,24 +4,32 @@ import {
   createInstallment,
   createPayment,
   createPaymentPlan,
+  createPlanItem,
   deleteInstallment,
   deletePayment,
+  deletePlanItem,
+  getAllPlanItems,
   getPaymentPlanByCase,
   listInstallments,
   listPaymentsByCase,
   updateInstallment,
   updatePayment,
   updatePaymentPlan,
+  updatePlanItem,
 } from '../../api/payments'
 import type {
   InstallmentInsert,
   InstallmentUpdate,
   PaymentInsert,
   PaymentPlanInsert,
+  PaymentPlanItemInsert,
+  PaymentPlanItemUpdate,
   PaymentPlanUpdate,
   PaymentUpdate,
 } from '../../api/payments'
 import { uploadFile } from '../../api/documents'
+import { itemHasPayments } from '../../lib/planItems'
+import type { Payment } from '../../types/models'
 import { useAuth } from '../useAuth'
 import { queryKeys } from './keys'
 
@@ -36,6 +44,43 @@ function invalidatePayments(qc: QueryClient, caseId: string) {
 function invalidatePlans(qc: QueryClient, caseId: string) {
   qc.invalidateQueries({ queryKey: queryKeys.payments.plan(caseId) })
   qc.invalidateQueries({ queryKey: queryKeys.dashboard.plans })
+}
+/** 款项明细变更 → 失效全局款项缓存（财务/客户/案件三处共用同一份，改一处全刷新）。 */
+function invalidatePlanItems(qc: QueryClient) {
+  qc.invalidateQueries({ queryKey: queryKeys.dashboard.planItems })
+}
+
+// ── payment plan items（按费用类别拆分的应收款项明细）──────────
+export function useAllPlanItems() {
+  return useQuery({ queryKey: queryKeys.dashboard.planItems, queryFn: getAllPlanItems })
+}
+
+export function useCreatePlanItem() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (input: PaymentPlanItemInsert) => createPlanItem(input),
+    onSuccess: () => invalidatePlanItems(qc),
+  })
+}
+
+export function useUpdatePlanItem() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ id, patch }: { id: string; patch: PaymentPlanItemUpdate }) => updatePlanItem(id, patch),
+    onSuccess: () => invalidatePlanItems(qc),
+  })
+}
+
+/** 删除款项守卫：名下已有收款 → 抛错「该款项已有收款记录，无法删除」，否则真删。 */
+export function useDeletePlanItem() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async ({ id, payments }: { id: string; payments: Pick<Payment, 'plan_item_id'>[] }) => {
+      if (itemHasPayments(id, payments)) throw new Error('该款项已有收款记录，无法删除')
+      await deletePlanItem(id)
+    },
+    onSuccess: () => invalidatePlanItems(qc),
+  })
 }
 
 // ── payment plan ────────────────────────────────────────────

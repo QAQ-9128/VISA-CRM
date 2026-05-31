@@ -1,6 +1,7 @@
 import { useMemo } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { getActiveCustomers, getAllPaymentPlans, getAllPayments } from '../../api/dashboard'
+import { getAllPlanItems } from '../../api/payments'
 import { listReferrers } from '../../api/referrers'
 import { listAllCaseApplicants } from '../../api/caseApplicants'
 import { listCasesByCustomer } from '../../api/cases'
@@ -34,6 +35,7 @@ export function useCustomerFinance(customerId: string | undefined) {
   })
   const plans = useQuery({ queryKey: queryKeys.dashboard.plans, queryFn: getAllPaymentPlans })
   const payments = useQuery({ queryKey: queryKeys.dashboard.payments, queryFn: getAllPayments })
+  const planItems = useQuery({ queryKey: queryKeys.dashboard.planItems, queryFn: getAllPlanItems })
   const referrers = useQuery({
     queryKey: queryKeys.finance.referrers,
     queryFn: () => listReferrers({ includeArchived: true }),
@@ -48,7 +50,7 @@ export function useCustomerFinance(customerId: string | undefined) {
     queryFn: getActiveCustomers,
   })
 
-  const all = [cases, customer, plans, payments, referrers, caseApplicants, allCustomers]
+  const all = [cases, customer, plans, payments, planItems, referrers, caseApplicants, allCustomers]
   const isPending = all.some((q) => q.isPending)
   const isError = all.some((q) => q.isError)
 
@@ -73,8 +75,9 @@ export function useCustomerFinance(customerId: string | undefined) {
         payments.data ?? [],
         customerById,
         referrerById,
+        planItems.data ?? [],
       ),
-    [customerId, cases.data, caseApplicants.data, plans.data, payments.data, customerById, referrerById],
+    [customerId, cases.data, caseApplicants.data, plans.data, payments.data, customerById, referrerById, planItems.data],
   )
 
   const caseOptions = useMemo(

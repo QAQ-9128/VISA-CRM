@@ -1,11 +1,12 @@
 import { Link } from 'react-router-dom'
-import { useArchiveReferrer, useReferrers } from '../../hooks/queries/useReferrers'
+import { useArchiveReferrer, useDeleteReferrer, useReferrers } from '../../hooks/queries/useReferrers'
 import { Button } from '../../components/ui/Button'
 import { LoadingBlock, ErrorBlock, EmptyState } from '../../components/ui/states'
 import type { Referrer } from '../../types/models'
 
 function ReferrerRow({ r }: { r: Referrer }) {
   const archive = useArchiveReferrer()
+  const del = useDeleteReferrer()
   return (
     <li className="flex items-center gap-3 border-b border-slate-100 py-3 last:border-0">
       <div className="min-w-0 flex-1">
@@ -20,12 +21,23 @@ function ReferrerRow({ r }: { r: Referrer }) {
       <button
         type="button"
         disabled={archive.isPending}
-        className="shrink-0 text-xs text-slate-400 hover:text-rose-600"
+        className="shrink-0 text-xs text-slate-400 hover:text-slate-700"
         onClick={() => {
           if (window.confirm(`归档介绍人「${r.name}」？已挂靠的客户不受影响。`)) archive.mutate(r.id)
         }}
       >
         归档
+      </button>
+      <button
+        type="button"
+        disabled={del.isPending}
+        className="shrink-0 text-xs text-slate-400 hover:text-rose-600"
+        onClick={() => {
+          if (window.confirm(`彻底删除介绍人「${r.name}」？【不可恢复】，已挂靠客户的「介绍人」将被清空。如只想隐藏请用「归档」。`))
+            del.mutate(r.id)
+        }}
+      >
+        彻底删除
       </button>
     </li>
   )

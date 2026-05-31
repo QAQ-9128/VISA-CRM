@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { formatDueCountdown, isTaskOverdue, selectCaseTasks, selectMyOpenTasks } from './tasks'
+import { formatDueCountdown, isTaskOverdue, selectCaseTasks, selectCaseTodoPreviews, selectMyOpenTasks } from './tasks'
 import type { RecordRow } from '../types/models'
 
 const TODAY = new Date(2026, 0, 15)
@@ -20,6 +20,44 @@ const mk = (o: Partial<RecordRow>): RecordRow => ({
   created_at: '',
   updated_at: '',
   ...o,
+})
+
+describe('selectCaseTodoPreviews（递交进度表「待办」列：案件下未完成记录(待办+跟进)，按 updated_at 倒序取前 3）', () => {
+  it('0 条 → 空数组', () => {
+    expect(selectCaseTodoPreviews([], 'c1')).toEqual([])
+  })
+  it('1 条', () => {
+    const r = selectCaseTodoPreviews([mk({ id: 'a', case_id: 'c1', content: '催材料', updated_at: '2026-01-01T00:00:00Z' })], 'c1')
+    expect(r.map((t) => t.id)).toEqual(['a'])
+  })
+  it('恰好 3 条，按 updated_at 倒序', () => {
+    const rows = [
+      mk({ id: 'a', case_id: 'c1', updated_at: '2026-01-01T00:00:00Z' }),
+      mk({ id: 'b', case_id: 'c1', updated_at: '2026-03-01T00:00:00Z' }),
+      mk({ id: 'c', case_id: 'c1', updated_at: '2026-02-01T00:00:00Z' }),
+    ]
+    expect(selectCaseTodoPreviews(rows, 'c1').map((t) => t.id)).toEqual(['b', 'c', 'a'])
+  })
+  it('超过 3 条 → 只取最近 3 条', () => {
+    const rows = [
+      mk({ id: 'a', case_id: 'c1', updated_at: '2026-01-01T00:00:00Z' }),
+      mk({ id: 'b', case_id: 'c1', updated_at: '2026-01-02T00:00:00Z' }),
+      mk({ id: 'c', case_id: 'c1', updated_at: '2026-01-03T00:00:00Z' }),
+      mk({ id: 'd', case_id: 'c1', updated_at: '2026-01-04T00:00:00Z' }),
+      mk({ id: 'e', case_id: 'c1', updated_at: '2026-01-05T00:00:00Z' }),
+    ]
+    expect(selectCaseTodoPreviews(rows, 'c1').map((t) => t.id)).toEqual(['e', 'd', 'c'])
+  })
+  it('过滤：已完成 / 别的案件不计入；跟进(follow_up，带表情符号)照常计入', () => {
+    const rows = [
+      mk({ id: 'ok', case_id: 'c1', updated_at: '2026-01-05T00:00:00Z' }),
+      mk({ id: 'done', case_id: 'c1', is_done: true, updated_at: '2026-01-09T00:00:00Z' }),
+      mk({ id: 'fu', case_id: 'c1', type: 'follow_up', emoji_marker: '📞', updated_at: '2026-01-08T00:00:00Z' }),
+      mk({ id: 'other', case_id: 'c2', updated_at: '2026-01-07T00:00:00Z' }),
+    ]
+    // 跟进 fu 更新更晚 → 排在前；已完成 done、别的案件 other 仍排除
+    expect(selectCaseTodoPreviews(rows, 'c1').map((t) => t.id)).toEqual(['fu', 'ok'])
+  })
 })
 
 describe('isTaskOverdue', () => {

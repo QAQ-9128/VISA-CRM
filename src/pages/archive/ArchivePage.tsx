@@ -59,7 +59,7 @@ function LinkedTo({ file }: { file: ArchiveFile }) {
         <span className="text-slate-400">（未知客户）</span>
       )}
       {file.caseId && (
-        <Link to={`/cases/${file.caseId}`} className="text-slate-400 hover:text-indigo-600 hover:underline">
+        <Link to={`/cases/${file.caseId}`} state={{ from: 'archive' }} className="text-slate-400 hover:text-indigo-600 hover:underline">
           · {file.visaSubclass || '案件'}
         </Link>
       )}

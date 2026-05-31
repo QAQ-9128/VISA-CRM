@@ -1,11 +1,12 @@
 import { Link } from 'react-router-dom'
-import { useArchiveEmployer, useEmployers } from '../../hooks/queries/useEmployers'
+import { useArchiveEmployer, useDeleteEmployer, useEmployers } from '../../hooks/queries/useEmployers'
 import { Button } from '../../components/ui/Button'
 import { LoadingBlock, ErrorBlock, EmptyState } from '../../components/ui/states'
 import type { Employer } from '../../types/models'
 
 function EmployerRow({ e }: { e: Employer }) {
   const archive = useArchiveEmployer()
+  const del = useDeleteEmployer()
   return (
     <li className="flex items-center gap-3 border-b border-slate-100 py-3 last:border-0">
       <div className="min-w-0 flex-1">
@@ -20,12 +21,23 @@ function EmployerRow({ e }: { e: Employer }) {
       <button
         type="button"
         disabled={archive.isPending}
-        className="shrink-0 text-xs text-slate-400 hover:text-rose-600"
+        className="shrink-0 text-xs text-slate-400 hover:text-slate-700"
         onClick={() => {
           if (window.confirm(`归档雇主「${e.name}」？已挂靠的客户不受影响。`)) archive.mutate(e.id)
         }}
       >
         归档
+      </button>
+      <button
+        type="button"
+        disabled={del.isPending}
+        className="shrink-0 text-xs text-slate-400 hover:text-rose-600"
+        onClick={() => {
+          if (window.confirm(`彻底删除雇主「${e.name}」？【不可恢复】，已挂靠客户的「担保雇主」将被清空。如只想隐藏请用「归档」。`))
+            del.mutate(e.id)
+        }}
+      >
+        彻底删除
       </button>
     </li>
   )

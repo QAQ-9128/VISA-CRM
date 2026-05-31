@@ -136,3 +136,12 @@ export async function archiveCase(id: string): Promise<void> {
   const { error } = await supabase.from('cases').update({ is_archived: true }).eq('id', id)
   if (error) throw error
 }
+
+/**
+ * 彻底删除（硬删，不可恢复）：真 DELETE。级联删除该案件的递交记录、阶段历史、付款计划/分期/收付款、
+ * 副申请关联、案件级文件/记录/待办。RLS 仅 admin 可执行。
+ */
+export async function deleteCase(id: string): Promise<void> {
+  const { error } = await supabase.from('cases').delete().eq('id', id)
+  if (error) throw error
+}

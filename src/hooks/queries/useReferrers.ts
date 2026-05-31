@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import {
   archiveReferrer,
   createReferrer,
+  deleteReferrer,
   getReferrer,
   listReferrers,
   updateReferrer,
@@ -44,5 +45,18 @@ export function useArchiveReferrer() {
   return useMutation({
     mutationFn: (id: string) => archiveReferrer(id),
     onSuccess: () => qc.invalidateQueries({ queryKey: queryKeys.referrers.all }),
+  })
+}
+
+/** 彻底删除介绍人（硬删）。已挂靠客户的 referrer_id 被置空 → 同时失效客户/概览缓存。 */
+export function useDeleteReferrer() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (id: string) => deleteReferrer(id),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: queryKeys.referrers.all })
+      qc.invalidateQueries({ queryKey: queryKeys.customers.all })
+      qc.invalidateQueries({ queryKey: queryKeys.dashboard.activeCustomers })
+    },
   })
 }

@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import {
   archiveCustomer,
   createCustomer,
+  deleteCustomer,
   getCustomer,
   getSubApplicants,
   listCustomers,
@@ -70,5 +71,14 @@ export function useArchiveCustomer() {
   return useMutation({
     mutationFn: (id: string) => archiveCustomer(id),
     onSuccess: () => invalidateCustomers(qc),
+  })
+}
+
+/** 彻底删除客户（硬删，级联删其案件/文件/账目/记录）。影响面广，成功后失效全部查询缓存。 */
+export function useDeleteCustomer() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (id: string) => deleteCustomer(id),
+    onSuccess: () => qc.invalidateQueries(),
   })
 }

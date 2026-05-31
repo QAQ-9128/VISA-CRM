@@ -7,11 +7,12 @@ import {
   getAllPayments,
   getUnpaidInstallments,
 } from '../../api/dashboard'
+import { getAllPlanItems } from '../../api/payments'
 import {
   computeDebtTotals,
   selectCustomerDebts,
-  selectCustomersWithOpenTasks,
   selectOverdueInstallments,
+  selectTodoCases,
   sortPriorityCustomers,
 } from '../../lib/dashboard'
 import { getOpenTaskRecords } from '../../api/records'
@@ -45,10 +46,11 @@ export function useDashboard() {
   })
   const plans = useQuery({ queryKey: queryKeys.dashboard.plans, queryFn: getAllPaymentPlans })
   const payments = useQuery({ queryKey: queryKeys.dashboard.payments, queryFn: getAllPayments })
+  const planItems = useQuery({ queryKey: queryKeys.dashboard.planItems, queryFn: getAllPlanItems })
   const openTasks = useQuery({ queryKey: queryKeys.records.openTasks, queryFn: getOpenTaskRecords })
   const stageHistory = useQuery({ queryKey: queryKeys.cases.stageHistoryAll, queryFn: listAllStageHistory })
 
-  const all = [unpaidInstallments, activeCases, activeCustomers, plans, payments, openTasks, stageHistory]
+  const all = [unpaidInstallments, activeCases, activeCustomers, plans, payments, planItems, openTasks, stageHistory]
   const isPending = all.some((q) => q.isPending)
   const isError = all.some((q) => q.isError)
 
@@ -83,20 +85,21 @@ export function useDashboard() {
     [activeCustomers.data],
   )
   const debtTotals = useMemo(
-    () => computeDebtTotals(visiblePlans, payments.data ?? []),
-    [visiblePlans, payments.data],
+    () => computeDebtTotals(visiblePlans, payments.data ?? [], planItems.data ?? []),
+    [visiblePlans, payments.data, planItems.data],
   )
   const customerDebts = useMemo(
-    () => selectCustomerDebts(visiblePlans, payments.data ?? [], caseById, customerById),
-    [visiblePlans, payments.data, caseById, customerById],
+    () => selectCustomerDebts(visiblePlans, payments.data ?? [], caseById, customerById, planItems.data ?? []),
+    [visiblePlans, payments.data, caseById, customerById, planItems.data],
   )
   const myOpenTasks = useMemo(
     () => selectMyOpenTasks(openTasks.data ?? [], user?.id, customerById),
     [openTasks.data, user?.id, customerById],
   )
-  const customersWithOpenTasks = useMemo(
-    () => selectCustomersWithOpenTasks(openTasks.data ?? [], customerById),
-    [openTasks.data, customerById],
+  // 待办案件：current_stage='todo' 且未归档，按 created_at 倒序
+  const todoCases = useMemo(
+    () => selectTodoCases(activeCases.data ?? [], customerById),
+    [activeCases.data, customerById],
   )
   // 转 186 TRT 提醒：只看在册客户的案件（用 customerById 过滤已在上游 activeCustomers 保证）
   const trtReminders = useMemo(
@@ -112,7 +115,7 @@ export function useDashboard() {
     debtTotals,
     customerDebts,
     myOpenTasks,
-    customersWithOpenTasks,
+    todoCases,
     trtReminders,
     // 供「我的待办」按 customer_id 显示并链接客户名
     customerById,

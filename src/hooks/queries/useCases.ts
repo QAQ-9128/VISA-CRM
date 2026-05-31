@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import {
   archiveCase,
   createCase,
+  deleteCase,
   deleteStageHistory,
   getCase,
   getCaseStageHistory,
@@ -140,5 +141,14 @@ export function useArchiveCase() {
   return useMutation({
     mutationFn: (id: string) => archiveCase(id),
     onSuccess: () => invalidateCases(qc),
+  })
+}
+
+/** 彻底删除案件（硬删，级联删递交/阶段历史/账目等）。影响面广，成功后失效全部查询缓存。 */
+export function useDeleteCase() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (id: string) => deleteCase(id),
+    onSuccess: () => qc.invalidateQueries(),
   })
 }

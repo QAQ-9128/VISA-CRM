@@ -59,3 +59,13 @@ describe('archiveReferrer', () => {
     expect(b.referrers.delete).not.toHaveBeenCalled()
   })
 })
+
+describe('deleteReferrer', () => {
+  it('彻底删除：真 delete().eq(id)', async () => {
+    const b = wireFrom(fromMock, { referrers: {} })
+    await api.deleteReferrer('r1')
+    expect(b.referrers.delete).toHaveBeenCalled()
+    expect(b.referrers.eq).toHaveBeenCalledWith('id', 'r1')
+    expect(b.referrers.update).not.toHaveBeenCalled()
+  })
+})

@@ -59,3 +59,13 @@ describe('archiveEmployer', () => {
     expect(b.employers.delete).not.toHaveBeenCalled()
   })
 })
+
+describe('deleteEmployer', () => {
+  it('彻底删除：真 delete().eq(id)', async () => {
+    const b = wireFrom(fromMock, { employers: {} })
+    await api.deleteEmployer('e1')
+    expect(b.employers.delete).toHaveBeenCalled()
+    expect(b.employers.eq).toHaveBeenCalledWith('id', 'e1')
+    expect(b.employers.update).not.toHaveBeenCalled()
+  })
+})

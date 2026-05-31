@@ -1,5 +1,13 @@
-import { computeAccounting } from './accounting'
-import type { Case, CaseApplicant, Customer, Payment, PaymentPlan, Referrer } from '../types/models'
+import { getCaseTotals } from './planItems'
+import type {
+  Case,
+  CaseApplicant,
+  Customer,
+  Payment,
+  PaymentPlan,
+  PaymentPlanItem,
+  Referrer,
+} from '../types/models'
 import type { PaymentMethod } from '../types/domain'
 
 type AmountLike = number | string | null | undefined
@@ -64,8 +72,9 @@ export function selectFinanceReceivables(
   cases: Case[],
   caseApplicants: CaseApplicant[],
   plans: PaymentPlan[],
-  payments: Pick<Payment, 'case_id' | 'applicant_id' | 'direction' | 'amount'>[],
+  payments: Pick<Payment, 'case_id' | 'applicant_id' | 'direction' | 'amount' | 'plan_item_id'>[],
   customerById: CustomerMap,
+  planItems: Pick<PaymentPlanItem, 'id' | 'plan_id' | 'amount_due'>[] = [],
 ): ReceivableRow[] {
   const subsByCase = new Map<string, string[]>()
   for (const a of caseApplicants) {
@@ -81,10 +90,12 @@ export function selectFinanceReceivables(
     applicantId: string | null,
     role: ReceivableRole,
     coApplicantNames: string[],
-    unitPayments: Pick<Payment, 'direction' | 'amount'>[],
+    unitPayments: Pick<Payment, 'direction' | 'amount' | 'plan_item_id'>[],
   ): ReceivableRow => {
     const plan = planFor(c.id, applicantId)
-    const acct = computeAccounting(plan, unitPayments)
+    // 应收/已付/未付一律从款项明细(items)派生（client_total 列保留但不再读）
+    const items = plan ? planItems.filter((i) => i.plan_id === plan.id) : []
+    const totals = getCaseTotals(items, unitPayments)
     const linkId = applicantId ?? c.customer_id
     return {
       caseId: c.id,
@@ -95,9 +106,9 @@ export function selectFinanceReceivables(
       customerId: linkId,
       customerName: customerById[linkId]?.full_name ?? '',
       visaSubclass: c.visa_subclass,
-      receivable: round2(num(plan?.client_total)),
-      paid: round2(acct.clientPaid),
-      unpaid: round2(Math.max(0, acct.clientOwes)),
+      receivable: totals.totalDue,
+      paid: totals.totalPaid,
+      unpaid: round2(Math.max(0, totals.totalUnpaid)),
     }
   }
 
@@ -323,6 +334,7 @@ export function selectCustomerFinance(
   payments: Payment[],
   customerById: CustomerMap,
   referrerById: ReferrerMap,
+  planItems: PaymentPlanItem[] = [],
 ): CustomerFinance {
   // 该客户作为主申的案件（家庭账单挂在主申名下管理）
   const myCases = cases.filter((c) => c.customer_id === customerId)
@@ -330,8 +342,10 @@ export function selectCustomerFinance(
   const caseById: CaseMap = Object.fromEntries(myCases.map((c) => [c.id, c]))
   const myApplicants = caseApplicants.filter((a) => myCaseIds.has(a.case_id))
   const myPlans = plans.filter((p) => myCaseIds.has(p.case_id))
+  const myPlanIds = new Set(myPlans.map((p) => p.id))
+  const myPlanItems = planItems.filter((i) => myPlanIds.has(i.plan_id))
   const myPayments = payments.filter((p) => myCaseIds.has(p.case_id))
-  const receivables = selectFinanceReceivables(myCases, myApplicants, myPlans, myPayments, customerById)
+  const receivables = selectFinanceReceivables(myCases, myApplicants, myPlans, myPayments, customerById, myPlanItems)
   return {
     receivables,
     receivableTotals: sumFinanceReceivables(receivables),

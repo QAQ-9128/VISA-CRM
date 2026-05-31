@@ -69,6 +69,7 @@ function ReceiptItemRow({ item, color = 'default' }: { item: ReceiptItem; color?
       <Badge className="bg-emerald-100 text-emerald-800">收款</Badge>
       <Link
         to={`/cases/${item.caseId}`}
+        state={{ from: 'finance' }}
         className={`text-sm hover:underline ${
           color === 'default' ? 'text-slate-900' : CUSTOMER_PAYMENT_TEXT_CLASS[color]
         }`}

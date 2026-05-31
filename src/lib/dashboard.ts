@@ -1,8 +1,10 @@
 import { computeAccounting } from './accounting'
+import { formatVisaType } from './visa'
+import { getCaseTotals } from './planItems'
 import { getCustomerPaymentColor } from './finance'
 import type { CustomerPaymentColor } from './finance'
 import { utcDayDiff } from './dateDiff'
-import type { Case, Customer, Installment, Payment, PaymentPlan, RecordRow } from '../types/models'
+import type { Case, Customer, Installment, Payment, PaymentPlan, PaymentPlanItem, RecordRow } from '../types/models'
 
 type CaseMap = Record<string, Case>
 type CustomerMap = Record<string, Customer>
@@ -36,6 +38,27 @@ export function selectCustomersWithOpenTasks(
   return [...byCustomer.values()].sort(
     (a, b) => b.openCount - a.openCount || a.customerName.localeCompare(b.customerName),
   )
+}
+
+// ── 待办案件：current_stage = 'todo' 且未归档，按 created_at 倒序 ──────────
+export interface TodoCaseItem {
+  caseId: string
+  customerId: string
+  customerName: string
+  /** 签证类型（含子类别，如 482/Core Skills） */
+  visaLabel: string
+}
+
+export function selectTodoCases(cases: Case[], customerById: CustomerMap): TodoCaseItem[] {
+  return cases
+    .filter((c) => c.current_stage === 'todo' && !c.is_archived)
+    .sort((a, b) => b.created_at.localeCompare(a.created_at) || a.id.localeCompare(b.id))
+    .map((c) => ({
+      caseId: c.id,
+      customerId: c.customer_id,
+      customerName: customerById[c.customer_id]?.full_name ?? '',
+      visaLabel: formatVisaType(c.visa_subclass, c.visa_stream),
+    }))
 }
 
 // ── 逾期未付款：未付且 due_date < 今天 ───────────────────────
@@ -89,15 +112,17 @@ export interface DebtTotals {
 
 export function computeDebtTotals(
   plans: PaymentPlan[],
-  payments: Pick<Payment, 'case_id' | 'direction' | 'amount'>[],
+  payments: Pick<Payment, 'case_id' | 'direction' | 'amount' | 'plan_item_id'>[],
+  planItems: Pick<PaymentPlanItem, 'id' | 'plan_id' | 'amount_due'>[] = [],
 ): DebtTotals {
   let clientOwesTotal = 0
   let companyOwesTotal = 0
   for (const plan of plans) {
     const casePayments = payments.filter((p) => p.case_id === plan.case_id)
-    const acct = computeAccounting(plan, casePayments)
-    clientOwesTotal += Math.max(0, acct.clientOwes)
-    companyOwesTotal += Math.max(0, acct.companyOwes)
+    // 客户欠款从款项明细派生；付主代理仍走 computeAccounting（company_total 不变）
+    const items = planItems.filter((i) => i.plan_id === plan.id)
+    clientOwesTotal += Math.max(0, getCaseTotals(items, casePayments).totalUnpaid)
+    companyOwesTotal += Math.max(0, computeAccounting(plan, casePayments).companyOwes)
   }
   return {
     clientOwesTotal: Math.round(clientOwesTotal * 100) / 100,
@@ -126,19 +151,20 @@ interface DebtAcc {
 
 export function selectCustomerDebts(
   plans: PaymentPlan[],
-  payments: Pick<Payment, 'case_id' | 'direction' | 'amount'>[],
+  payments: Pick<Payment, 'case_id' | 'direction' | 'amount' | 'plan_item_id'>[],
   caseById: CaseMap,
   customerById: CustomerMap,
+  planItems: Pick<PaymentPlanItem, 'id' | 'plan_id' | 'amount_due'>[] = [],
 ): CustomerDebtItem[] {
   const byCustomer = new Map<string, DebtAcc>()
   for (const plan of plans) {
     const c = caseById[plan.case_id]
     if (!c) continue
     const customerId = c.customer_id
-    const acct = computeAccounting(
-      plan,
-      payments.filter((p) => p.case_id === plan.case_id),
-    )
+    const casePayments = payments.filter((p) => p.case_id === plan.case_id)
+    // 客户侧应收/已付/未付从款项明细派生；付主代理仍走 computeAccounting
+    const totals = getCaseTotals(planItems.filter((i) => i.plan_id === plan.id), casePayments)
+    const companyOwes = computeAccounting(plan, casePayments).companyOwes
     const entry = byCustomer.get(customerId) ?? {
       customerId,
       customerName: customerById[customerId]?.full_name ?? '',
@@ -147,10 +173,10 @@ export function selectCustomerDebts(
       clientReceivable: 0,
       clientPaid: 0,
     }
-    entry.clientOwes += Math.max(0, acct.clientOwes)
-    entry.companyOwes += Math.max(0, acct.companyOwes)
-    entry.clientReceivable += Number(plan.client_total ?? 0)
-    entry.clientPaid += acct.clientPaid
+    entry.clientOwes += Math.max(0, totals.totalUnpaid)
+    entry.companyOwes += Math.max(0, companyOwes)
+    entry.clientReceivable += totals.totalDue
+    entry.clientPaid += totals.totalPaid
     byCustomer.set(customerId, entry)
   }
   return [...byCustomer.values()]

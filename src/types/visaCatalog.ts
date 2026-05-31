@@ -40,7 +40,7 @@ export const VISA_CATALOG: VisaCategory[] = [
   {
     label: '工作 / 雇主担保',
     types: [
-      { subclass: '482', name: 'Skills in Demand', streams: s('Core Skills', 'Specialist Skills', 'Labour Agreement'), allowOtherStream: true },
+      { subclass: '482', name: 'Skills in Demand', streams: s('Core Skills', 'Specialist Skills', 'Labour Agreement', 'Subsequent Entrant'), allowOtherStream: true },
       { subclass: '186', name: 'Employer Nomination Scheme (ENS)', streams: s('Direct Entry', 'Temporary Residence Transition', 'Labour Agreement'), allowOtherStream: true },
       { subclass: '494', name: 'Skilled Employer Sponsored Regional', streams: s('Employer Sponsored', 'Labour Agreement', 'Subsequent Entrant'), allowOtherStream: true },
       { subclass: '407', name: 'Training Visa（培训签证）', streams: [] },
