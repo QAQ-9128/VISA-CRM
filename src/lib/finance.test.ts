@@ -330,6 +330,24 @@ describe('selectCustomerFinance', () => {
     expect(r.receivables).toHaveLength(1)
     expect(r.receivables[0]).toMatchObject({ role: 'merged', customerName: '张三', coApplicantNames: ['李四'] })
   })
+
+  it('分阶段案件：客户详情应收行带 stages（继承财务页同款折叠数据），数值=聚合结果', () => {
+    const cases = [mkCase({ id: 'c1', customer_id: 'cu1', sync_tracking: true })]
+    const customerById = { cu1: mkCustomer({ id: 'cu1', full_name: '张三' }) }
+    const plans = [mkPlan({ id: 'p1', case_id: 'c1', staged_billing: true })]
+    const items = [
+      mkItem({ id: 's1', plan_id: 'p1', fee_category: '意向金', amount_due: 5000, created_at: '2026-01-01' }),
+      mkItem({ id: 's2', plan_id: 'p1', fee_category: '递交签证', amount_due: 80000, created_at: '2026-02-01' }),
+    ]
+    const payments = [mkPayment({ id: 'a', case_id: 'c1', direction: 'from_client', amount: 5000, plan_item_id: 's1' })]
+    const r = selectCustomerFinance('cu1', cases, [], plans, payments, customerById, {}, items)
+    // 行级数值=聚合结果（展示不变，口径不变）
+    expect(r.receivables[0]).toMatchObject({ receivable: 85000, paid: 5000, unpaid: 80000, staged: true })
+    // 阶段折叠数据继承自共用组件的数据源
+    expect(r.receivables[0].stages.map((s) => [s.name, s.unpaid])).toEqual([['意向金', 0], ['递交签证', 80000]])
+    // 合计行
+    expect(r.receivableTotals).toMatchObject({ receivable: 85000, paid: 5000, unpaid: 80000 })
+  })
 })
 
 describe('getCustomerPaymentColor', () => {
