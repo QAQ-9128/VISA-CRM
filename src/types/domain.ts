@@ -23,6 +23,8 @@ export const CASE_STAGES = [
   'docs_completed',
   'granted',
   'refused',
+  'appeal',
+  'withdrawn',
 ] as const
 /** 已废弃阶段：旧数据仍可能为此值，不在下拉显示，仅用于类型/标签兼容（被「要求补件」「补件完毕」替代）。 */
 export const LEGACY_CASE_STAGES = ['additional_docs'] as const
@@ -38,6 +40,8 @@ export const CASE_STAGE_LABELS: Record<CaseStage, string> = {
   docs_completed: '补件完毕',
   granted: '下签',
   refused: '拒签',
+  appeal: '上诉/复议',
+  withdrawn: '主动撤签',
   additional_docs: '补件', // 旧数据兼容（已被要求补件/补件完毕替代）
 }
 
@@ -52,6 +56,8 @@ export const CASE_STAGE_STYLES: Record<CaseStage, string> = {
   docs_completed: 'bg-teal-100 text-teal-800',
   granted: 'bg-emerald-100 text-emerald-800',
   refused: 'bg-rose-100 text-rose-800',
+  appeal: 'bg-purple-100 text-purple-800',
+  withdrawn: 'bg-zinc-200 text-zinc-600',
   additional_docs: 'bg-orange-100 text-orange-800', // 旧数据兼容
 }
 
