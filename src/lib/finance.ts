@@ -1,4 +1,5 @@
-import { getCaseTotals } from './planItems'
+import { getCaseTotals, getItemPaid } from './planItems'
+import { formatMoney } from './money'
 import type {
   Case,
   CaseApplicant,
@@ -50,6 +51,15 @@ export function selectRecentCases(cases: Case[], limit: number): Case[] {
 /** 账单单元角色：merged=同步合并（覆盖主+副）；primary=主申；secondary=副申。 */
 export type ReceivableRole = 'merged' | 'primary' | 'secondary'
 
+/** 单个阶段（payment_plan_item）的只读汇总，供财务页「分 N 期」折叠子行用。 */
+export interface StageSummary {
+  stageId: string
+  name: string
+  receivable: number
+  paid: number
+  unpaid: number
+}
+
 export interface ReceivableRow {
   caseId: string
   /** 账单归属申请人；null = 合并(同步) */
@@ -68,6 +78,18 @@ export interface ReceivableRow {
   unpaid: number
   /** 该计划是否分阶段收费（驱动展开处显示阶段表/款项明细） */
   staged: boolean
+  /** 各阶段（款项明细）只读汇总，按 created_at 升序；行级数值 = Σ stages。 */
+  stages: StageSummary[]
+}
+
+/** 「未付 / 状态」chip：应收未设(=0)灰、已结清绿、欠款红。纯函数。 */
+export function receivableStatus(r: { receivable: number; unpaid: number }): {
+  kind: 'unset' | 'settled' | 'owing'
+  label: string
+} {
+  if (r.receivable === 0) return { kind: 'unset', label: '未设应收' }
+  if (r.unpaid <= 0) return { kind: 'settled', label: '已结清' }
+  return { kind: 'owing', label: `欠 ${formatMoney(r.unpaid)}` }
 }
 
 export function selectFinanceReceivables(
@@ -76,7 +98,7 @@ export function selectFinanceReceivables(
   plans: PaymentPlan[],
   payments: Pick<Payment, 'case_id' | 'applicant_id' | 'direction' | 'amount' | 'plan_item_id'>[],
   customerById: CustomerMap,
-  planItems: Pick<PaymentPlanItem, 'id' | 'plan_id' | 'amount_due'>[] = [],
+  planItems: Pick<PaymentPlanItem, 'id' | 'plan_id' | 'amount_due' | 'fee_category' | 'created_at'>[] = [],
 ): ReceivableRow[] {
   const subsByCase = new Map<string, string[]>()
   for (const a of caseApplicants) {
@@ -99,6 +121,20 @@ export function selectFinanceReceivables(
     const items = plan ? planItems.filter((i) => i.plan_id === plan.id) : []
     const totals = getCaseTotals(items, unitPayments)
     const linkId = applicantId ?? c.customer_id
+    // 各阶段只读汇总（行级 = Σ stages，口径不变）；created_at 升序，缺失退到 id 稳定排序
+    const stages: StageSummary[] = items
+      .slice()
+      .sort((a, b) => (a.created_at ?? '').localeCompare(b.created_at ?? '') || a.id.localeCompare(b.id))
+      .map((it) => {
+        const paid = getItemPaid(it.id, unitPayments)
+        return {
+          stageId: it.id,
+          name: it.fee_category,
+          receivable: num(it.amount_due),
+          paid,
+          unpaid: round2(Math.max(0, num(it.amount_due) - paid)),
+        }
+      })
     return {
       caseId: c.id,
       applicantId,
@@ -112,6 +148,7 @@ export function selectFinanceReceivables(
       paid: totals.totalPaid,
       unpaid: round2(Math.max(0, totals.totalUnpaid)),
       staged: plan?.staged_billing ?? false,
+      stages,
     }
   }
 

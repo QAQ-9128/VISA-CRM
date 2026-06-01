@@ -9,6 +9,7 @@ import {
   selectRecentCases,
   getCustomerPaymentColor,
   selectCasePaymentColors,
+  receivableStatus,
 } from './finance'
 import type { ReceivableRow } from './finance'
 import type { Case, Customer, Payment, PaymentPlan, PaymentPlanItem, Referrer } from '../types/models'
@@ -121,6 +122,33 @@ describe('selectFinanceReceivables', () => {
     expect(rows[0].caseId).toBe('c1')
   })
 
+  it('分阶段案件：派生各阶段汇总 stages，行级 = Σstages（口径不变）', () => {
+    const cases = [mkCase({ id: 'c1', customer_id: 'cu1' })]
+    const customerById = { cu1: mkCustomer({ id: 'cu1', full_name: '张三' }) }
+    const plans = [mkPlan({ id: 'p1', case_id: 'c1', staged_billing: true })]
+    const items = [
+      mkItem({ id: 's1', plan_id: 'p1', fee_category: '意向金', amount_due: 5000, periods: 1, created_at: '2026-01-01' }),
+      mkItem({ id: 's2', plan_id: 'p1', fee_category: '递交签证', amount_due: 80000, periods: 1, created_at: '2026-02-01' }),
+    ]
+    const payments = [mkPayment({ id: 'a', case_id: 'c1', direction: 'from_client', amount: 5000, plan_item_id: 's1' })]
+    const row = selectFinanceReceivables(cases, [], plans, payments, customerById, items)[0]
+    // 行级口径不变
+    expect(row).toMatchObject({ receivable: 85000, paid: 5000, unpaid: 80000, staged: true })
+    // 阶段汇总（created_at 升序：意向金→递交签证）
+    expect(row.stages.map((s) => [s.name, s.receivable, s.paid, s.unpaid])).toEqual([
+      ['意向金', 5000, 5000, 0],
+      ['递交签证', 80000, 0, 80000],
+    ])
+  })
+
+  it('非分阶段/无 plan → stages 为空，行级数值与现状一致', () => {
+    const cases = [mkCase({ id: 'c1', customer_id: 'cu1' })]
+    const customerById = { cu1: mkCustomer({ id: 'cu1' }) }
+    const row = selectFinanceReceivables(cases, [], [], [], customerById, [])[0]
+    expect(row.stages).toEqual([])
+    expect(row).toMatchObject({ receivable: 0, paid: 0, unpaid: 0 })
+  })
+
   it('不同步案件：主申+每个副申各一行，按 applicant_id 分别归集已付', () => {
     const cases = [mkCase({ id: 'c1', customer_id: 'cu1', visa_subclass: '482', sync_tracking: false })]
     const caseApplicants = [{ id: 'a1', case_id: 'c1', customer_id: 'cu2', created_at: '' }]
@@ -195,8 +223,8 @@ describe('selectFinanceReceivables', () => {
 describe('sumFinanceReceivables', () => {
   it('各列合计', () => {
     const totals = sumFinanceReceivables([
-      { caseId: 'c1', applicantId: null, role: 'merged', coApplicantNames: [], planId: 'p1', customerId: 'a', customerName: 'A', visaSubclass: '482', receivable: 1000, paid: 300, unpaid: 700, staged: false },
-      { caseId: 'c2', applicantId: null, role: 'merged', coApplicantNames: [], planId: null, customerId: 'b', customerName: 'B', visaSubclass: '186', receivable: 500, paid: 500, unpaid: 0, staged: false },
+      { caseId: 'c1', applicantId: null, role: 'merged', coApplicantNames: [], planId: 'p1', customerId: 'a', customerName: 'A', visaSubclass: '482', receivable: 1000, paid: 300, unpaid: 700, staged: false, stages: [] },
+      { caseId: 'c2', applicantId: null, role: 'merged', coApplicantNames: [], planId: null, customerId: 'b', customerName: 'B', visaSubclass: '186', receivable: 500, paid: 500, unpaid: 0, staged: false, stages: [] },
     ])
     expect(totals).toEqual({ receivable: 1500, paid: 800, unpaid: 700 })
   })
@@ -325,7 +353,7 @@ describe('getCustomerPaymentColor', () => {
 describe('selectCasePaymentColors', () => {
   const mkRow = (o: Partial<ReceivableRow>): ReceivableRow => ({
     caseId: 'c1', applicantId: null, role: 'merged', coApplicantNames: [], planId: 'p1',
-    customerId: 'cu1', customerName: '张三', visaSubclass: '482', receivable: 0, paid: 0, unpaid: 0, staged: false, ...o,
+    customerId: 'cu1', customerName: '张三', visaSubclass: '482', receivable: 0, paid: 0, unpaid: 0, staged: false, stages: [], ...o,
   })
   it('按案件聚合应收行 → 客户付款颜色（同案多行合计）', () => {
     const rows = [
@@ -338,5 +366,18 @@ describe('selectCasePaymentColors', () => {
     ]
     const m = selectCasePaymentColors(rows)
     expect(m).toEqual({ paid: 'green', owe: 'blue', none: 'default', split: 'blue' })
+  })
+})
+
+describe('receivableStatus（未付/状态 chip）', () => {
+  it('应收=0 → 未设应收（灰）', () => {
+    expect(receivableStatus({ receivable: 0, unpaid: 0 })).toMatchObject({ kind: 'unset', label: '未设应收' })
+  })
+  it('未付=0 且应收>0 → 已结清（绿）', () => {
+    expect(receivableStatus({ receivable: 1000, unpaid: 0 })).toMatchObject({ kind: 'settled', label: '已结清' })
+  })
+  it('未付>0 → 欠 金额（红）', () => {
+    expect(receivableStatus({ receivable: 1000, unpaid: 700 })).toMatchObject({ kind: 'owing' })
+    expect(receivableStatus({ receivable: 1000, unpaid: 700 }).label).toContain('700')
   })
 })
