@@ -24,6 +24,17 @@ describe('groupCustomersByFamily', () => {
     expect(groups.every((g) => !g.orphan)).toBe(true)
   })
 
+  it('一键添加的家庭成员（仅 primary_applicant_id+姓名，其余 null）照常缩进归属到主申请下', () => {
+    const customers = [
+      mk({ id: 'p1', full_name: '主申' }),
+      // 模拟快速添加产出：只挂靠 + 姓名，gender/birth_date/relationship 都空
+      mk({ id: 'quick', full_name: '快速成员', primary_applicant_id: 'p1', gender: null, birth_date: null, relationship_to_primary: null }),
+    ]
+    const groups = groupCustomersByFamily(customers)
+    expect(groups.map((g) => g.primary?.id)).toEqual(['p1']) // 成员不在顶层
+    expect(groups[0].subs.map((s) => s.id)).toEqual(['quick']) // 缩进挂在主申下
+  })
+
   it('锚定排序：星标 → 姓名（不再依赖等级/来源）', () => {
     const customers = [
       mk({ id: 'b', full_name: 'B', client_source: 'red' }),

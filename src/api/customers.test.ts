@@ -115,6 +115,25 @@ describe('写操作', () => {
     expect(result).toEqual(row)
   })
 
+  it('addFamilyMember 只建一个挂靠主申请的客户行（四字段 + primary_applicant_id，不建 case）', async () => {
+    const b = mockReturn({ data: { id: 'm1', full_name: '小明' }, error: null })
+    await customersApi.addFamilyMember('primary1', {
+      full_name: '小明',
+      gender: 'male',
+      birth_date: '2010-01-01',
+      relationship_to_primary: '子女',
+    })
+    expect(fromMock).toHaveBeenCalledWith('customers')
+    expect(fromMock).not.toHaveBeenCalledWith('cases')
+    expect(b.insert).toHaveBeenCalledWith({
+      full_name: '小明',
+      gender: 'male',
+      birth_date: '2010-01-01',
+      relationship_to_primary: '子女',
+      primary_applicant_id: 'primary1',
+    })
+  })
+
   it('createCustomer 透传 client_source（客户来源）', async () => {
     const b = mockReturn({ data: { id: 'new', full_name: '赵六', client_source: 'red' }, error: null })
     await customersApi.createCustomer({ full_name: '赵六', client_source: 'red' })

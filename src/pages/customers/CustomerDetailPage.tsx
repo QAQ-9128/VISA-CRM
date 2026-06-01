@@ -36,6 +36,7 @@ import { CUSTOMER_PAYMENT_TEXT_CLASS } from '../../lib/finance'
 import { formatMoney } from '../../lib/money'
 import { CLIENT_SOURCE_LABELS, GENDER_LABELS } from '../../types/domain'
 import { ClientSourceDot } from '../../components/customers/ClientSourceDot'
+import { QuickAddFamilyMember } from '../../components/customers/QuickAddFamilyMember'
 import type { ClientSource, Gender } from '../../types/domain'
 import type { Case, Customer } from '../../types/models'
 
@@ -386,12 +387,17 @@ export function CustomerDetailPage() {
 
       <FamilyGroup customer={c} />
 
-      <div className="flex gap-3 pt-2">
+      {/* 家庭组成员操作：完整流程（+ 添加副申请人）与轻量入口（+ 一键添加家庭成员）并排 */}
+      <div className="flex flex-wrap items-start gap-3">
         {!c.primary_applicant_id && (
           <Link to={`/customers/new?primary=${c.id}`}>
             <Button variant="secondary">+ 添加副申请人</Button>
           </Link>
         )}
+        <QuickAddFamilyMember customer={c} />
+      </div>
+
+      <div className="flex gap-3 pt-2">
         <Button variant="ghost" onClick={handleArchive} disabled={archive.isPending}>
           {c.is_archived ? '已归档' : '归档'}
         </Button>

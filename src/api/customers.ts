@@ -76,6 +76,28 @@ export async function createCustomer(input: CustomerInsert): Promise<Customer> {
   return data
 }
 
+export interface FamilyMemberInput {
+  full_name: string
+  gender: string | null
+  birth_date: string | null
+  relationship_to_primary: string | null
+}
+
+/**
+ * 「一键添加家庭成员」：仅创建一个 primary_applicant_id 指向主申请的 customer 行，
+ * 只写四个字段，其余留空（DB 默认 null）。绝不创建 case、不联动 sync、不触发 TRT。
+ * 复用 createCustomer 的单一插入路径。
+ */
+export async function addFamilyMember(primaryId: string, input: FamilyMemberInput): Promise<Customer> {
+  return createCustomer({
+    full_name: input.full_name,
+    gender: input.gender,
+    birth_date: input.birth_date,
+    relationship_to_primary: input.relationship_to_primary,
+    primary_applicant_id: primaryId,
+  })
+}
+
 export async function updateCustomer(id: string, patch: CustomerUpdate): Promise<Customer> {
   const { data, error } = await supabase
     .from('customers')

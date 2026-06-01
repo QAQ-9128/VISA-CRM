@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import {
+  addFamilyMember,
   archiveCustomer,
   createCustomer,
   deleteCustomer,
@@ -9,7 +10,7 @@ import {
   listPrimaryApplicants,
   updateCustomer,
 } from '../../api/customers'
-import type { ListCustomersOptions } from '../../api/customers'
+import type { FamilyMemberInput, ListCustomersOptions } from '../../api/customers'
 import type { CustomerInsert, CustomerUpdate } from '../../types/models'
 import { queryKeys } from './keys'
 
@@ -63,6 +64,19 @@ export function useUpdateCustomer() {
     mutationFn: ({ id, patch }: { id: string; patch: CustomerUpdate }) =>
       updateCustomer(id, patch),
     onSuccess: () => invalidateCustomers(qc),
+  })
+}
+
+/** 一键添加家庭成员：建一个挂靠 primaryId 的客户行。成功后失效客户列表/家庭组（customers 前缀含 subApplicants）。 */
+export function useAddFamilyMember(primaryId: string) {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (input: FamilyMemberInput) => addFamilyMember(primaryId, input),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: queryKeys.customers.all })
+      qc.invalidateQueries({ queryKey: queryKeys.customers.subApplicants(primaryId) })
+      qc.invalidateQueries({ queryKey: queryKeys.dashboard.activeCustomers })
+    },
   })
 }
 
