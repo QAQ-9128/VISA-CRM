@@ -118,6 +118,16 @@ describe('payments', () => {
     expect(b.payments.eq).toHaveBeenCalledWith('id', 'pay1')
   })
 
+  it('createPayment / updatePayment 透传 from_client_customer_id（实际付款方）', async () => {
+    const b1 = wireFrom(fromMock, { payments: { data: { id: 'pay1' } } })
+    await paymentsApi.createPayment({ case_id: 'c1', direction: 'from_client', amount: 5000, from_client_customer_id: 'cuSub' })
+    expect(b1.payments.insert).toHaveBeenCalledWith(expect.objectContaining({ from_client_customer_id: 'cuSub' }))
+
+    const b2 = wireFrom(fromMock, { payments: { data: { id: 'pay1' } } })
+    await paymentsApi.updatePayment('pay1', { from_client_customer_id: null })
+    expect(b2.payments.update).toHaveBeenCalledWith({ from_client_customer_id: null })
+  })
+
   it('deletePayment 删除一笔', async () => {
     const b = wireFrom(fromMock, { payments: {} })
     await paymentsApi.deletePayment('pay1')

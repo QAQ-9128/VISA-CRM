@@ -37,7 +37,7 @@ const mkItem = (o: Partial<PaymentPlanItem>): PaymentPlanItem => ({
 const mkPayment = (o: Partial<Payment>): Payment => ({
   id: 'pay1', case_id: 'c1', applicant_id: null, direction: 'from_client', installment_id: null, plan_item_id: null, amount: 0,
   currency: 'AUD', method: 'transfer', paid_at: null, note: null, fee_category: null, invoice_path: null, invoice_name: null,
-  recorded_by: null, created_at: '', ...o,
+  from_client_customer_id: null, recorded_by: null, created_at: '', ...o,
 })
 const mkReferrer = (o: Partial<Referrer>): Referrer => ({
   id: 'r1', name: '王介绍', contact_phone: null, contact_email: null, notes: null,
@@ -251,6 +251,44 @@ describe('selectFinanceReceipts', () => {
     // 未填类别的记录 feeCategory 为 null
     expect(r.items.find((i) => i.paymentId === 'p2')?.feeCategory).toBeNull()
     expect(r.total).toBe(500)
+  })
+})
+
+describe('selectFinanceReceipts — 实际付款方(from_client_customer_id)', () => {
+  const caseById = { c1: mkCase({ id: 'c1', customer_id: 'cuPrimary', case_number: '70193357', visa_subclass: '482' }) }
+  const customerById = {
+    cuPrimary: mkCustomer({ id: 'cuPrimary', full_name: '孙佳琪' }),
+    cuSub: mkCustomer({ id: 'cuSub', full_name: '邓韬', primary_applicant_id: 'cuPrimary' }),
+  }
+
+  it('设了付款方 → 名字与链接=付款方，不是主申', () => {
+    const r = selectFinanceReceipts(
+      [mkPayment({ id: 'p1', case_id: 'c1', direction: 'from_client', amount: 5000, from_client_customer_id: 'cuSub' })],
+      caseById, customerById,
+    )
+    expect(r.items[0]).toMatchObject({ customerName: '邓韬', payerId: 'cuSub', fromClientCustomerId: 'cuSub' })
+    // 发票路径仍用案件主申，不变
+    expect(r.items[0].customerId).toBe('cuPrimary')
+  })
+
+  it('付款方为空 → 回落案件主申名字与链接', () => {
+    const r = selectFinanceReceipts(
+      [mkPayment({ id: 'p1', case_id: 'c1', direction: 'from_client', amount: 5000, from_client_customer_id: null })],
+      caseById, customerById,
+    )
+    expect(r.items[0]).toMatchObject({ customerName: '孙佳琪', payerId: 'cuPrimary', fromClientCustomerId: null })
+  })
+
+  it('同一案件、不同付款方的两条收款 → 两个不同名字（孙佳琪场景）；合计不变', () => {
+    const r = selectFinanceReceipts(
+      [
+        mkPayment({ id: 'a', case_id: 'c1', direction: 'from_client', amount: 5000, from_client_customer_id: 'cuPrimary', paid_at: '2026-05-02' }),
+        mkPayment({ id: 'b', case_id: 'c1', direction: 'from_client', amount: 80000, from_client_customer_id: 'cuSub', paid_at: '2026-05-01' }),
+      ],
+      caseById, customerById,
+    )
+    expect(r.items.map((i) => i.customerName)).toEqual(['孙佳琪', '邓韬'])
+    expect(r.total).toBe(85000)
   })
 })
 

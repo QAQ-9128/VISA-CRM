@@ -3,6 +3,7 @@ import type { FormEvent } from 'react'
 import { Button } from '../ui/Button'
 import { TextField } from '../ui/TextField'
 import { Select } from '../ui/Select'
+import { useCustomers } from '../../hooks/queries/useCustomers'
 import { FEE_CATEGORIES, FEE_CATEGORY_OTHER, PAYMENT_METHOD_LABELS } from '../../types/domain'
 import type { PaymentMethod } from '../../types/domain'
 
@@ -20,6 +21,8 @@ export interface PaymentEntryValues {
   fee_category: string | null
   /** 归属的款项明细 id（items 模式下有值；否则 null = 未归类） */
   plan_item_id: string | null
+  /** 实际付款方客户 id（showPayer 时可选；空 = 回落案件主申） */
+  from_client_customer_id: string | null
 }
 
 interface Props {
@@ -29,11 +32,16 @@ interface Props {
     paid_at?: string | null
     note?: string | null
     fee_category?: string | null
+    from_client_customer_id?: string | null
   }
   submitLabel?: string
   pending?: boolean
   /** 是否显示「费用类别」下拉（仅客户收款 from_client 用；支出/付款留默认 false）。 */
   showFeeCategory?: boolean
+  /** 是否显示「付款方」下拉（仅客户收款 from_client 用）。 */
+  showPayer?: boolean
+  /** 「付款方」默认项指向的客户（案件主申）id，用于占位文案；空 = 「主申请」。 */
+  defaultPayerCustomerId?: string
   /** 提供则显示「针对哪条款项」下拉（取代费用类别）；fee_category 自动 = 选中款项的类别。 */
   items?: { id: string; fee_category: string }[]
   initialItemId?: string
@@ -46,6 +54,8 @@ export function PaymentEntryForm({
   submitLabel = '保存',
   pending,
   showFeeCategory = false,
+  showPayer = false,
+  defaultPayerCustomerId,
   items,
   initialItemId,
   onSubmit,
@@ -55,6 +65,12 @@ export function PaymentEntryForm({
   const [method, setMethod] = useState<PaymentMethod>(initial?.method ?? 'transfer')
   const [paidAt, setPaidAt] = useState(initial?.paid_at ?? todayStr())
   const [note, setNote] = useState(initial?.note ?? '')
+  const [payerId, setPayerId] = useState(initial?.from_client_customer_id ?? '')
+  // 付款方候选：全部在册客户（可选家庭组成员/任意客户）。仅 showPayer 时用。
+  const allCustomers = useCustomers({})
+  const customerList = allCustomers.data ?? []
+  const defaultPayerName =
+    customerList.find((c) => c.id === defaultPayerCustomerId)?.full_name ?? '主申请'
   const itemMode = !!items && items.length > 0
   const [itemId, setItemId] = useState(initialItemId ?? (items?.[0]?.id ?? ''))
   // 已有类别：命中预设 → 选中预设；非空但非预设 → 选「其他」并把原值放进手填框；空 → 未分类。
@@ -89,6 +105,7 @@ export function PaymentEntryForm({
       note: note.trim() || null,
       fee_category: resolveFeeCategory(),
       plan_item_id: itemMode ? itemId || null : null,
+      from_client_customer_id: showPayer ? payerId || null : initial?.from_client_customer_id ?? null,
     })
   }
 
@@ -100,6 +117,16 @@ export function PaymentEntryForm({
           options={items!.map((i) => ({ value: i.id, label: i.fee_category }))}
           value={itemId}
           onChange={(e) => setItemId(e.target.value)}
+          className="md:col-span-2"
+        />
+      )}
+      {showPayer && (
+        <Select
+          label="付款方"
+          placeholder={`（默认：${defaultPayerName}）`}
+          options={customerList.map((c) => ({ value: c.id, label: c.full_name }))}
+          value={payerId}
+          onChange={(e) => setPayerId(e.target.value)}
           className="md:col-span-2"
         />
       )}

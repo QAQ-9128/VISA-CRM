@@ -405,6 +405,7 @@ export interface Database {
           direction: PaymentDirection
           installment_id: string | null
           plan_item_id: string | null
+          from_client_customer_id: string | null
           amount: number
           currency: string
           method: PaymentMethod
@@ -423,6 +424,7 @@ export interface Database {
           direction: PaymentDirection
           installment_id?: string | null
           plan_item_id?: string | null
+          from_client_customer_id?: string | null
           amount: number
           currency?: string
           method?: PaymentMethod

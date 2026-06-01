@@ -8,7 +8,7 @@ const mkItem = (o: Partial<PaymentPlanItem>): PaymentPlanItem => ({
 const mkPay = (o: Partial<Payment>): Payment => ({
   id: 'pay1', case_id: 'c1', applicant_id: null, direction: 'from_client', installment_id: null, plan_item_id: 'it1',
   amount: 0, currency: 'AUD', method: 'transfer', paid_at: null, note: null, fee_category: null, invoice_path: null,
-  invoice_name: null, recorded_by: null, created_at: '', ...o,
+  invoice_name: null, from_client_customer_id: null, recorded_by: null, created_at: '', ...o,
 })
 
 describe('stageUnitAmount（应收金额=每期=总额/期数，派生）', () => {

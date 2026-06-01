@@ -10,7 +10,7 @@ const mkDoc = (o: Partial<CaseDocument>): CaseDocument => ({
 const mkPayment = (o: Partial<Payment>): Payment => ({
   id: 'pay1', case_id: 'c1', applicant_id: null, direction: 'from_client', installment_id: null, plan_item_id: null, amount: 0,
   currency: 'AUD', method: 'transfer', paid_at: null, note: null, fee_category: null, invoice_path: null, invoice_name: null,
-  recorded_by: null, created_at: '2026-05-01T00:00:00Z', ...o,
+  from_client_customer_id: null, recorded_by: null, created_at: '2026-05-01T00:00:00Z', ...o,
 })
 const mkCase = (o: Partial<Case>): Case => ({
   id: 'c1', case_number: '00000001', customer_id: 'cu1', visa_subclass: '482', visa_stream: null, current_stage: 'visa_lodged',

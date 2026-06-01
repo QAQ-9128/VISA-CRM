@@ -13,6 +13,7 @@ import {
   useCreatePaymentPlan,
   usePaymentsByCase,
 } from '../../hooks/queries/usePayments'
+import { useCase } from '../../hooks/queries/useCases'
 import { getCaseTotals } from '../../lib/planItems'
 import { stageUnitAmount, buildStagePayload, validateStage, stageDisplay } from '../../lib/staged'
 
@@ -71,6 +72,7 @@ export function StagedBillingTable({
 }) {
   const allItems = useAllPlanItems()
   const paymentsQ = usePaymentsByCase(caseId)
+  const caseQ = useCase(caseId)
   const createItem = useCreatePlanItem()
   const updateItem = useUpdatePlanItem()
   const delItem = useDeletePlanItem()
@@ -110,6 +112,7 @@ export function StagedBillingTable({
         applicant_id: applicantId,
         direction: 'from_client',
         plan_item_id: v.plan_item_id ?? itemId,
+        from_client_customer_id: v.from_client_customer_id,
         fee_category: v.fee_category,
         amount: v.amount,
         method: v.method,
@@ -242,6 +245,8 @@ export function StagedBillingTable({
           items={itemOptions}
           initialItemId={payId}
           submitLabel="记账"
+          showPayer
+          defaultPayerCustomerId={caseQ.data?.customer_id}
           pending={createPayment.isPending}
           onSubmit={(v) => addPayment(payId, v)}
           onCancel={() => setPayId(null)}

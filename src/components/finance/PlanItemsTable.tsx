@@ -13,6 +13,7 @@ import {
   useCreatePaymentPlan,
   usePaymentsByCase,
 } from '../../hooks/queries/usePayments'
+import { useCase } from '../../hooks/queries/useCases'
 import { getItemPaid, getItemUnpaid, getCaseTotals } from '../../lib/planItems'
 import { formatMoney } from '../../lib/money'
 import { FEE_CATEGORIES, FEE_CATEGORY_OTHER } from '../../types/domain'
@@ -65,6 +66,7 @@ export function PlanItemsTable({
 }) {
   const allItems = useAllPlanItems()
   const paymentsQ = usePaymentsByCase(caseId)
+  const caseQ = useCase(caseId)
   const createItem = useCreatePlanItem()
   const updateItem = useUpdatePlanItem()
   const delItem = useDeletePlanItem()
@@ -104,6 +106,7 @@ export function PlanItemsTable({
         applicant_id: applicantId,
         direction: 'from_client',
         plan_item_id: v.plan_item_id ?? itemId,
+        from_client_customer_id: v.from_client_customer_id,
         fee_category: v.fee_category,
         amount: v.amount,
         method: v.method,
@@ -223,6 +226,8 @@ export function PlanItemsTable({
           items={itemOptions}
           initialItemId={payId}
           submitLabel="收款"
+          showPayer
+          defaultPayerCustomerId={caseQ.data?.customer_id}
           pending={createPayment.isPending}
           onSubmit={(v) => addPayment(payId, v)}
           onCancel={() => setPayId(null)}

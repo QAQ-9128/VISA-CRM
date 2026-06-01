@@ -259,8 +259,14 @@ export interface ReceiptItem {
   paymentId: string
   amount: number
   method: PaymentMethod
+  /** 显示名 = 实际付款方(from_client_customer_id)，为空回落案件主申 */
   customerName: string
+  /** 案件主申 id：发票上传路径用（与案件绑定，不随付款方变） */
   customerId: string
+  /** 名字链接目标 = 付款方档案（from_client_customer_id ?? 案件主申） */
+  payerId: string
+  /** 原始付款方字段（编辑回填用；为空表示回落主申） */
+  fromClientCustomerId: string | null
   visaSubclass: string
   /** 这笔收款对应的案件编号（发票与案件编号绑定用） */
   caseNumber: string
@@ -289,14 +295,19 @@ export function selectFinanceReceipts(
   for (const p of payments) {
     if (p.direction !== 'from_client') continue
     const c = caseById[p.case_id]
-    const customer = c ? customerById[c.customer_id] : undefined
+    const caseCustomerId = c?.customer_id ?? ''
+    // 实际付款方：from_client_customer_id 优先，为空回落案件主申
+    const payerId = p.from_client_customer_id ?? caseCustomerId
+    const payerName = customerById[payerId]?.full_name ?? customerById[caseCustomerId]?.full_name ?? ''
     total += Math.max(0, num(p.amount))
     items.push({
       paymentId: p.id,
       amount: num(p.amount),
       method: p.method,
-      customerName: customer?.full_name ?? '',
-      customerId: c?.customer_id ?? '',
+      customerName: payerName,
+      customerId: caseCustomerId,
+      payerId,
+      fromClientCustomerId: p.from_client_customer_id ?? null,
       visaSubclass: c?.visa_subclass ?? '',
       caseNumber: c?.case_number ?? '',
       paidAt: p.paid_at,

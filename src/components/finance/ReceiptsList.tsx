@@ -26,7 +26,10 @@ function ReceiptItemRow({ item, color = 'default' }: { item: ReceiptItem; color?
     update.mutate(
       {
         id: item.paymentId,
-        patch: { amount: v.amount, method: v.method, paid_at: v.paid_at, note: v.note, fee_category: v.fee_category },
+        patch: {
+          amount: v.amount, method: v.method, paid_at: v.paid_at, note: v.note,
+          fee_category: v.fee_category, from_client_customer_id: v.from_client_customer_id,
+        },
       },
       { onSuccess: () => setEditing(false) },
     )
@@ -53,9 +56,11 @@ function ReceiptItemRow({ item, color = 'default' }: { item: ReceiptItem; color?
     return (
       <li className="border-b border-slate-100 py-2.5 last:border-0">
         <PaymentEntryForm
-          initial={{ amount: item.amount, method: item.method, paid_at: item.paidAt, note: item.note, fee_category: item.feeCategory }}
+          initial={{ amount: item.amount, method: item.method, paid_at: item.paidAt, note: item.note, fee_category: item.feeCategory, from_client_customer_id: item.fromClientCustomerId }}
           submitLabel="保存修改"
           showFeeCategory
+          showPayer
+          defaultPayerCustomerId={item.customerId}
           pending={update.isPending}
           onSubmit={save}
           onCancel={() => setEditing(false)}
@@ -67,15 +72,18 @@ function ReceiptItemRow({ item, color = 'default' }: { item: ReceiptItem; color?
   return (
     <li className="flex flex-wrap items-center gap-x-3 gap-y-1 border-b border-slate-100 py-2.5 last:border-0">
       <Badge className="bg-emerald-100 text-emerald-800">收款</Badge>
+      {/* 名字链接 → 实际付款方的客户档案 */}
       <Link
-        to={`/cases/${item.caseId}`}
-        state={{ from: 'finance' }}
-        className={`text-sm hover:underline ${
+        to={`/customers/${item.payerId}`}
+        className={`text-sm font-medium hover:underline ${
           color === 'default' ? 'text-slate-900' : CUSTOMER_PAYMENT_TEXT_CLASS[color]
         }`}
       >
         {item.customerName || '（未知客户）'}
-        <span className="text-slate-400"> · {item.visaSubclass}</span>
+      </Link>
+      {/* 案件信息（签证类型 · 编号）保持指向案件 */}
+      <Link to={`/cases/${item.caseId}`} state={{ from: 'finance' }} className="text-sm text-slate-400 hover:underline">
+        · {item.visaSubclass}
       </Link>
       {item.caseNumber && (
         <span className="rounded bg-slate-100 px-1.5 py-0.5 text-[11px] tabular-nums text-slate-600" title="案件编号">
