@@ -24,6 +24,10 @@ export type RecordRow = Tables<'records'>
 /** 概览独立待办清单项（不关联客户/案件）。 */
 export type ChecklistItem = Tables<'checklist_items'>
 
+/** 家庭成员关联（把已有独立客户关联为某主申的副申；与 primary_applicant_id 并存）。 */
+export type FamilyMemberLink = Tables<'family_member_links'>
+export type FamilyMemberLinkInsert = TablesInsert<'family_member_links'>
+
 // 写入类型（新建 / 更新）
 export type CustomerInsert = TablesInsert<'customers'>
 export type CustomerUpdate = TablesUpdate<'customers'>

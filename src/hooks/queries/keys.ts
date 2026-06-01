@@ -86,4 +86,7 @@ export const queryKeys = {
   checklist: {
     all: ['checklist'] as const,
   },
+  familyLinks: {
+    all: ['family_member_links'] as const,
+  },
 }

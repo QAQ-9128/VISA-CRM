@@ -19,7 +19,7 @@ describe('groupCustomersByFamily', () => {
     ]
     const groups = groupCustomersByFamily(customers)
     expect(groups.map((g) => g.primary?.id)).toEqual(['p1', 'p2'])
-    expect(groups[0].subs.map((s) => s.id)).toEqual(['s2', 's1']) // 按添加时间升序：丙(1/15)→乙(2/1)
+    expect(groups[0].subs.map((s) => s.customer.id)).toEqual(['s2', 's1']) // 按添加时间升序：丙(1/15)→乙(2/1)
     expect(groups[1].subs).toEqual([])
     expect(groups.every((g) => !g.orphan)).toBe(true)
   })
@@ -32,7 +32,7 @@ describe('groupCustomersByFamily', () => {
     ]
     const groups = groupCustomersByFamily(customers)
     expect(groups.map((g) => g.primary?.id)).toEqual(['p1']) // 成员不在顶层
-    expect(groups[0].subs.map((s) => s.id)).toEqual(['quick']) // 缩进挂在主申下
+    expect(groups[0].subs.map((s) => s.customer.id)).toEqual(['quick']) // 缩进挂在主申下
   })
 
   it('锚定排序：星标 → 姓名（不再依赖等级/来源）', () => {
@@ -57,7 +57,7 @@ describe('groupCustomersByFamily', () => {
     const last = groups[groups.length - 1]
     expect(last.orphan).toBe(true)
     expect(last.primary).toBeNull()
-    expect(last.subs.map((s) => s.id)).toEqual(['orphan'])
+    expect(last.subs.map((s) => s.customer.id)).toEqual(['orphan'])
     // 非孤儿组都在前面
     expect(groups.slice(0, -1).every((g) => !g.orphan)).toBe(true)
   })
@@ -66,5 +66,57 @@ describe('groupCustomersByFamily', () => {
     const groups = groupCustomersByFamily([mk({ id: 'p1' })])
     expect(groups).toHaveLength(1)
     expect(groups[0].orphan).toBe(false)
+  })
+
+  it('原生副申标记 linked=false、关系取自身 relationship_to_primary', () => {
+    const customers = [mk({ id: 'p1' }), mk({ id: 's1', primary_applicant_id: 'p1', relationship_to_primary: '子女' })]
+    const sub = groupCustomersByFamily(customers)[0].subs[0]
+    expect(sub).toMatchObject({ linked: false, relationship: '子女' })
+    expect(sub.customer.id).toBe('s1')
+  })
+})
+
+const mkLink = (o: { primary_customer_id: string; member_customer_id: string; relationship?: string | null }) => ({
+  id: `${o.primary_customer_id}-${o.member_customer_id}`,
+  primary_customer_id: o.primary_customer_id,
+  member_customer_id: o.member_customer_id,
+  relationship: o.relationship ?? null,
+  created_at: '',
+  updated_at: '',
+})
+
+describe('groupCustomersByFamily — 关联现有客户（family_member_links）', () => {
+  it('关联成员既在顶层(自己组)、又作为 sub 挂在主申下，且 linked=true（两处显示）', () => {
+    const customers = [
+      mk({ id: 'A', full_name: '主申A', is_starred: true }),
+      mk({ id: 'B', full_name: '独立客户B' }), // B 是独立主申，有自己的顶层组
+    ]
+    const links = [mkLink({ primary_customer_id: 'A', member_customer_id: 'B', relationship: '配偶' })]
+    const groups = groupCustomersByFamily(customers, links)
+    // B 仍是顶层锚定
+    expect(groups.map((g) => g.primary?.id)).toEqual(['A', 'B'])
+    // B 同时作为关联 sub 挂在 A 下
+    const aSub = groups.find((g) => g.primary?.id === 'A')!.subs[0]
+    expect(aSub).toMatchObject({ linked: true, relationship: '配偶' })
+    expect(aSub.customer.id).toBe('B')
+  })
+
+  it('关联到不存在/已归档(不在列表)的成员 → 不显示', () => {
+    const customers = [mk({ id: 'A' })]
+    const links = [mkLink({ primary_customer_id: 'A', member_customer_id: 'gone' })]
+    expect(groupCustomersByFamily(customers, links)[0].subs).toEqual([])
+  })
+
+  it('已是原生副申的客户不因关联重复出现（去重）', () => {
+    const customers = [mk({ id: 'A' }), mk({ id: 'S', primary_applicant_id: 'A' })]
+    const links = [mkLink({ primary_customer_id: 'A', member_customer_id: 'S' })]
+    const subs = groupCustomersByFamily(customers, links)[0].subs
+    expect(subs.map((s) => s.customer.id)).toEqual(['S'])
+    expect(subs[0].linked).toBe(false) // 原生优先
+  })
+
+  it('不传 links → 与现状完全一致（回归）', () => {
+    const customers = [mk({ id: 'A' }), mk({ id: 'S', primary_applicant_id: 'A' })]
+    expect(groupCustomersByFamily(customers)).toEqual(groupCustomersByFamily(customers, []))
   })
 })

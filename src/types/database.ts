@@ -517,6 +517,26 @@ export interface Database {
         Update: Partial<Database['public']['Tables']['checklist_items']['Insert']>
         Relationships: []
       }
+      family_member_links: {
+        Row: {
+          id: string
+          primary_customer_id: string
+          member_customer_id: string
+          relationship: string | null
+          created_at: Timestamp
+          updated_at: Timestamp
+        }
+        Insert: {
+          id?: string
+          primary_customer_id: string
+          member_customer_id: string
+          relationship?: string | null
+          created_at?: Timestamp
+          updated_at?: Timestamp
+        }
+        Update: Partial<Database['public']['Tables']['family_member_links']['Insert']>
+        Relationships: []
+      }
       tasks: {
         Row: {
           id: string

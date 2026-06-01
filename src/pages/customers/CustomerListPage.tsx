@@ -10,6 +10,7 @@ import { StageBadge } from '../../components/cases/StageBadge'
 import { ClientSourceDot } from '../../components/customers/ClientSourceDot'
 import { LoadingBlock, ErrorBlock, EmptyState } from '../../components/ui/states'
 import { useCustomerDebts } from '../../hooks/queries/useCustomerDebts'
+import { useFamilyLinks } from '../../hooks/queries/useFamilyLinks'
 import { groupCustomersByFamily } from '../../lib/customerGroups'
 import { selectCustomerCaseLines, selectDisplayCases } from '../../lib/customerList'
 import { CUSTOMER_PAYMENT_TEXT_CLASS } from '../../lib/finance'
@@ -23,12 +24,18 @@ function CustomerRow({
   cases = [],
   employerName = null,
   paymentColor = 'default',
+  linked = false,
+  relationship = null,
 }: {
   c: Customer
   sub?: boolean
   cases?: Case[]
   employerName?: string | null
   paymentColor?: CustomerPaymentColor
+  /** true = 通过关联表挂进来的「已有独立档案」客户 */
+  linked?: boolean
+  /** 副申关系标签：原生取 c.relationship_to_primary，关联取 link.relationship */
+  relationship?: string | null
 }) {
   const update = useUpdateCustomer()
   const lines = selectCustomerCaseLines(c, cases, employerName)
@@ -54,8 +61,13 @@ function CustomerRow({
           <div className="flex items-center gap-2">
             <span className={`truncate ${nameColor || 'text-slate-900'} ${sub ? 'text-sm' : 'font-medium'}`}>{c.full_name}</span>
             <ClientSourceDot source={c.client_source} />
-            {sub && c.relationship_to_primary && (
-              <span className="text-xs text-slate-400">{c.relationship_to_primary}</span>
+            {sub && relationship && (
+              <span className="text-xs text-slate-400">{relationship}</span>
+            )}
+            {linked && (
+              <span className="rounded-full bg-indigo-50 px-1.5 py-0.5 text-[10px] font-medium text-indigo-600" title="已有独立档案，点进去是她本人档案">
+                ↗ 独立档案
+              </span>
             )}
           </div>
           {cases.length === 0 ? (
@@ -91,7 +103,11 @@ export function CustomerListPage() {
   const applicants = useAllCaseApplicants()
   const employers = useEmployers()
   const { colorByCustomerId } = useCustomerDebts()
-  const groups = useMemo(() => groupCustomersByFamily(customers.data ?? []), [customers.data])
+  const familyLinks = useFamilyLinks()
+  const groups = useMemo(
+    () => groupCustomersByFamily(customers.data ?? [], familyLinks.data ?? []),
+    [customers.data, familyLinks.data],
+  )
   // 担保雇主 id → name（每行显示「担保雇主」用）
   const employerNameById = useMemo(() => {
     const m: Record<string, string> = {}
@@ -161,12 +177,14 @@ export function CustomerListPage() {
                   )}
                   {g.subs.map((s) => (
                     <CustomerRow
-                      key={s.id}
-                      c={s}
+                      key={`${g.primary?.id ?? 'orphan'}:${s.customer.id}`}
+                      c={s.customer}
                       sub
-                      cases={displayCasesOf(s)}
-                      employerName={employerNameOf(s)}
-                      paymentColor={colorByCustomerId[s.id] ?? 'default'}
+                      linked={s.linked}
+                      relationship={s.relationship}
+                      cases={displayCasesOf(s.customer)}
+                      employerName={employerNameOf(s.customer)}
+                      paymentColor={colorByCustomerId[s.customer.id] ?? 'default'}
                     />
                   ))}
                 </ul>

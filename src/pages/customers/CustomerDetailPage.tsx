@@ -17,6 +17,9 @@ import {
   useRemoveCaseApplicant,
 } from '../../hooks/queries/useCaseApplicants'
 import { selectCoApplicantCases, selectJoinableCases } from '../../lib/family'
+import { useFamilyLinks, useDeleteFamilyLink } from '../../hooks/queries/useFamilyLinks'
+import { selectLinkedMembers, selectLinkedInto } from '../../lib/familyLinks'
+import { LinkExistingCustomer } from '../../components/customers/LinkExistingCustomer'
 import { formatVisaType } from '../../lib/visa'
 import { useEmployer } from '../../hooks/queries/useEmployers'
 import { useReferrer } from '../../hooks/queries/useReferrers'
@@ -75,28 +78,86 @@ function FamilyGroup({ customer }: { customer: Customer }) {
     )
   }
 
+  return <FamilyGroupForPrimary customer={customer} subs={subs.data ?? []} pending={subs.isPending} />
+}
+
+/** 主申家庭区：原生副申 + 关联进来的现有客户（带「↗ 独立档案」徽章 + 移除关联）。 */
+function FamilyGroupForPrimary({ customer, subs, pending }: { customer: Customer; subs: Customer[]; pending: boolean }) {
+  const links = useFamilyLinks()
+  const allCustomers = useCustomers({})
+  const del = useDeleteFamilyLink()
+  const customerById = useMemo(() => {
+    const m: Record<string, Customer> = {}
+    for (const c of allCustomers.data ?? []) m[c.id] = c
+    return m
+  }, [allCustomers.data])
+  const linked = selectLinkedMembers(customer.id, links.data ?? [], customerById)
+  const isEmpty = subs.length === 0 && linked.length === 0
+
   return (
     <div className="space-y-2">
       <p className="text-sm text-slate-500">副申请人 / 家庭组成员</p>
-      {subs.isPending ? (
+      {pending ? (
         <p className="text-sm text-slate-400">加载中…</p>
-      ) : subs.data && subs.data.length > 0 ? (
+      ) : isEmpty ? (
+        <p className="text-sm text-slate-400">暂无副申请人</p>
+      ) : (
         <ul className="divide-y divide-slate-100 overflow-hidden rounded-lg border border-slate-200 bg-white">
-          {subs.data.map((s) => (
+          {subs.map((s) => (
             <li key={s.id}>
-              <Link
-                to={`/customers/${s.id}`}
-                className="flex items-center justify-between px-3 py-2.5 text-sm hover:bg-slate-50"
-              >
+              <Link to={`/customers/${s.id}`} className="flex items-center justify-between px-3 py-2.5 text-sm hover:bg-slate-50">
                 <span className="font-medium text-slate-900">{s.full_name}</span>
                 <span className="text-slate-500">{s.relationship_to_primary || ''} ›</span>
               </Link>
             </li>
           ))}
+          {linked.map((m) => (
+            <li key={m.linkId} className="flex items-center justify-between gap-2 px-3 py-2.5 text-sm">
+              <Link to={`/customers/${m.customer.id}`} className="flex min-w-0 items-center gap-1.5 hover:underline">
+                <span className="truncate font-medium text-slate-900">{m.customer.full_name}</span>
+                <span className="rounded-full bg-indigo-50 px-1.5 py-0.5 text-[10px] font-medium text-indigo-600">↗ 独立档案</span>
+                {m.relationship && <span className="text-slate-400">{m.relationship}</span>}
+              </Link>
+              <button
+                type="button"
+                onClick={() => del.mutate(m.linkId)}
+                disabled={del.isPending}
+                className="shrink-0 text-xs text-slate-400 hover:text-rose-600"
+              >
+                移除关联
+              </button>
+            </li>
+          ))}
         </ul>
-      ) : (
-        <p className="text-sm text-slate-400">暂无副申请人</p>
       )}
+    </div>
+  )
+}
+
+/** 反向：该客户被关联进了哪些家庭组（任何客户都可能被别人关联为副申）。 */
+function LinkedIntoSection({ customerId }: { customerId: string }) {
+  const links = useFamilyLinks()
+  const allCustomers = useCustomers({})
+  const customerById = useMemo(() => {
+    const m: Record<string, Customer> = {}
+    for (const c of allCustomers.data ?? []) m[c.id] = c
+    return m
+  }, [allCustomers.data])
+  const into = selectLinkedInto(customerId, links.data ?? [], customerById)
+  if (into.length === 0) return null
+  return (
+    <div className="space-y-2">
+      <p className="text-sm text-slate-500">被关联到的家庭组</p>
+      <ul className="divide-y divide-slate-100 overflow-hidden rounded-lg border border-slate-200 bg-white">
+        {into.map((x) => (
+          <li key={x.linkId}>
+            <Link to={`/customers/${x.primary.id}`} className="flex items-center justify-between px-3 py-2.5 text-sm hover:bg-slate-50">
+              <span className="font-medium text-slate-900">{x.primary.full_name}</span>
+              <span className="text-slate-500">{x.relationship || '副申请人'} ›</span>
+            </Link>
+          </li>
+        ))}
+      </ul>
     </div>
   )
 }
@@ -387,15 +448,18 @@ export function CustomerDetailPage() {
 
       <FamilyGroup customer={c} />
 
-      {/* 家庭组成员操作：完整流程（+ 添加副申请人）与轻量入口（+ 一键添加家庭成员）并排 */}
-      <div className="flex flex-wrap items-start gap-3">
-        {!c.primary_applicant_id && (
+      <LinkedIntoSection customerId={c.id} />
+
+      {/* 家庭组成员操作：新建副申（+添加/一键）与关联现有客户并排（仅主申可加） */}
+      {!c.primary_applicant_id && (
+        <div className="flex flex-wrap items-start gap-3">
           <Link to={`/customers/new?primary=${c.id}`}>
             <Button variant="secondary">+ 添加副申请人</Button>
           </Link>
-        )}
-        <QuickAddFamilyMember customer={c} />
-      </div>
+          <QuickAddFamilyMember customer={c} />
+          <LinkExistingCustomer primaryId={c.id} />
+        </div>
+      )}
 
       <div className="flex gap-3 pt-2">
         <Button variant="ghost" onClick={handleArchive} disabled={archive.isPending}>
