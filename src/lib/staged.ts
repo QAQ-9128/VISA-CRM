@@ -1,3 +1,7 @@
+import { getItemPaid, getItemUnpaid } from './planItems'
+import { formatMoney } from './money'
+import type { Payment, PaymentPlanItem } from '../types/models'
+
 const round2 = (n: number): number => Math.round(n * 100) / 100
 
 /**
@@ -37,4 +41,41 @@ export function validateStage(form: StageForm): string | null {
   if (!(form.periods >= 1)) return '期数至少为 1'
   if (form.unitAmount < 0) return '应收金额不能为负'
   return null
+}
+
+/** 「每期 [金额] · 共 [N] 期」小行文案，让每期金额与期数在列表里直接可见。 */
+export function stageUnitLine(unitAmount: number, periods: number, currency = 'AUD'): string {
+  return `每期 ${formatMoney(unitAmount, currency)} · 共 ${periods >= 1 ? periods : 1} 期`
+}
+
+export interface StageDisplay {
+  name: string
+  periods: number
+  unitAmount: number
+  receivable: number
+  paid: number
+  unpaid: number
+  unitLine: string
+  showPeriodsTag: boolean
+}
+
+/** 阶段紧凑行的展示数据：名/期数/每期金额/应收(总计)/已付/未付 + 每期行文案 + 是否显示「分N期」标签。 */
+export function stageDisplay(
+  item: Pick<PaymentPlanItem, 'id' | 'fee_category' | 'amount_due' | 'periods'>,
+  payments: Pick<Payment, 'plan_item_id' | 'direction' | 'amount'>[],
+  currency = 'AUD',
+): StageDisplay {
+  const periods = item.periods >= 1 ? item.periods : 1
+  const unitAmount = stageUnitAmount(item)
+  const paid = getItemPaid(item.id, payments)
+  return {
+    name: item.fee_category,
+    periods,
+    unitAmount,
+    receivable: round2(item.amount_due),
+    paid,
+    unpaid: round2(Math.max(0, getItemUnpaid(item, payments))),
+    unitLine: stageUnitLine(unitAmount, periods, currency),
+    showPeriodsTag: periods > 1,
+  }
 }

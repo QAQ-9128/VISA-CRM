@@ -139,6 +139,8 @@ describe('selectFinanceReceivables', () => {
       ['意向金', 5000, 5000, 0],
       ['递交签证', 80000, 0, 80000],
     ])
+    // 每期金额/期数随阶段汇总带出（供「每期 X · 共 N 期」小行）
+    expect(row.stages[0]).toMatchObject({ periods: 1, unitAmount: 5000 })
   })
 
   it('非分阶段/无 plan → stages 为空，行级数值与现状一致', () => {

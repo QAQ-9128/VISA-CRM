@@ -1,4 +1,5 @@
 import { getCaseTotals, getItemPaid } from './planItems'
+import { stageUnitAmount } from './staged'
 import { formatMoney } from './money'
 import type {
   Case,
@@ -51,10 +52,15 @@ export function selectRecentCases(cases: Case[], limit: number): Case[] {
 /** 账单单元角色：merged=同步合并（覆盖主+副）；primary=主申；secondary=副申。 */
 export type ReceivableRole = 'merged' | 'primary' | 'secondary'
 
-/** 单个阶段（payment_plan_item）的只读汇总，供财务页「分 N 期」折叠子行用。 */
+/** 单个阶段（payment_plan_item）的只读汇总，供「分 N 期」折叠子行用。 */
 export interface StageSummary {
   stageId: string
   name: string
+  /** 期数（纯乘数） */
+  periods: number
+  /** 每期金额 = 总计/期数（派生），用于「每期 X · 共 N 期」小行 */
+  unitAmount: number
+  /** 该阶段总计 = amount_due */
   receivable: number
   paid: number
   unpaid: number
@@ -98,7 +104,7 @@ export function selectFinanceReceivables(
   plans: PaymentPlan[],
   payments: Pick<Payment, 'case_id' | 'applicant_id' | 'direction' | 'amount' | 'plan_item_id'>[],
   customerById: CustomerMap,
-  planItems: Pick<PaymentPlanItem, 'id' | 'plan_id' | 'amount_due' | 'fee_category' | 'created_at'>[] = [],
+  planItems: Pick<PaymentPlanItem, 'id' | 'plan_id' | 'amount_due' | 'fee_category' | 'created_at' | 'periods'>[] = [],
 ): ReceivableRow[] {
   const subsByCase = new Map<string, string[]>()
   for (const a of caseApplicants) {
@@ -127,9 +133,12 @@ export function selectFinanceReceivables(
       .sort((a, b) => (a.created_at ?? '').localeCompare(b.created_at ?? '') || a.id.localeCompare(b.id))
       .map((it) => {
         const paid = getItemPaid(it.id, unitPayments)
+        const periods = it.periods >= 1 ? it.periods : 1
         return {
           stageId: it.id,
           name: it.fee_category,
+          periods,
+          unitAmount: stageUnitAmount({ amount_due: num(it.amount_due), periods }),
           receivable: num(it.amount_due),
           paid,
           unpaid: round2(Math.max(0, num(it.amount_due) - paid)),

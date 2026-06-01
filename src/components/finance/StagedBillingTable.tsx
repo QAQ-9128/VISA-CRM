@@ -3,6 +3,7 @@ import { Button } from '../ui/Button'
 import { TextField } from '../ui/TextField'
 import { PaymentEntryForm } from './PaymentEntryForm'
 import type { PaymentEntryValues } from './PaymentEntryForm'
+import { ProgressBar, StatusChip, PaidFraction } from './receivableCells'
 import {
   useAllPlanItems,
   useCreatePlanItem,
@@ -12,17 +13,24 @@ import {
   useCreatePaymentPlan,
   usePaymentsByCase,
 } from '../../hooks/queries/usePayments'
-import { getItemPaid, getItemUnpaid, getCaseTotals } from '../../lib/planItems'
-import { stageUnitAmount, buildStagePayload, validateStage } from '../../lib/staged'
-import { formatMoney } from '../../lib/money'
+import { getCaseTotals } from '../../lib/planItems'
+import { stageUnitAmount, buildStagePayload, validateStage, stageDisplay } from '../../lib/staged'
 
-const fmt = (n: number, cur: string) => formatMoney(n, cur)
-
-/** 新增阶段：阶段名(手写) + 应收金额(每期) + 期数；实时预览总计 = 应收×期数。 */
-function AddStageForm({ onAdd, onCancel, pending }: { onAdd: (name: string, unit: number, periods: number) => void; onCancel: () => void; pending: boolean }) {
-  const [name, setName] = useState('')
-  const [unit, setUnit] = useState('')
-  const [periods, setPeriods] = useState('1')
+/** 阶段编辑/新增表单：阶段名 / 应收金额(每期) / 期数 + 自动总计。新增与「改」共用。 */
+function StageFormPanel({
+  initial,
+  onSave,
+  onCancel,
+  pending,
+}: {
+  initial?: { name: string; unit: number; periods: number }
+  onSave: (name: string, unit: number, periods: number) => void
+  onCancel: () => void
+  pending: boolean
+}) {
+  const [name, setName] = useState(initial?.name ?? '')
+  const [unit, setUnit] = useState(initial ? String(initial.unit) : '')
+  const [periods, setPeriods] = useState(initial ? String(initial.periods) : '1')
   const u = Number(unit) || 0
   const p = Math.max(1, Number(periods) || 1)
   const err = validateStage({ stageName: name, unitAmount: u, periods: p })
@@ -35,8 +43,8 @@ function AddStageForm({ onAdd, onCancel, pending }: { onAdd: (name: string, unit
       </div>
       <p className="text-sm text-slate-500">总计 = 应收 × 期数 = <span className="font-medium text-slate-900">{u * p}</span></p>
       <div className="flex gap-2">
-        <Button type="button" disabled={pending || !!err} onClick={() => onAdd(name, u, p)}>
-          {pending ? '保存中…' : '添加阶段'}
+        <Button type="button" disabled={pending || !!err} onClick={() => onSave(name, u, p)}>
+          {pending ? '保存中…' : '保存'}
         </Button>
         <Button type="button" variant="ghost" onClick={onCancel}>取消</Button>
       </div>
@@ -45,9 +53,10 @@ function AddStageForm({ onAdd, onCancel, pending }: { onAdd: (name: string, unit
 }
 
 /**
- * 分阶段收费阶段表：一个案件(plan)下多条阶段，每条 应收金额×期数=总计，独立 已付/未付/记账。
- * 阶段名复用 fee_category；总计写 amount_due，故已付/未付/欠款聚合全部沿用现有逻辑。
- * 「记账(收款)」直接复用 PaymentEntryForm + useCreatePayment，不改记账。planId 为 null 时新增阶段会先建 plan。
+ * 分阶段收费阶段表（紧凑版，与「近期案件」行同套列）：
+ *   阶段名(+分N期+每期·期数小行) | 已付/应收(分数+进度条) | 未付/状态 | 操作(记账 + ⋯改/删)
+ * 单处「合计」= Σ各阶段。阶段名复用 fee_category；总计=应收×期数 写 amount_due，已付/未付/记账沿用现有逻辑。
+ * 「记账」直接复用 PaymentEntryForm + useCreatePayment（记账不改）。planId 为 null 时新增阶段先建 plan。
  */
 export function StagedBillingTable({
   caseId,
@@ -74,10 +83,8 @@ export function StagedBillingTable({
 
   const [adding, setAdding] = useState(false)
   const [editId, setEditId] = useState<string | null>(null)
-  const [eName, setEName] = useState('')
-  const [eUnit, setEUnit] = useState('')
-  const [ePeriods, setEPeriods] = useState('1')
   const [payId, setPayId] = useState<string | null>(null)
+  const [menuId, setMenuId] = useState<string | null>(null)
 
   async function handleAdd(name: string, unit: number, periods: number) {
     let pid = planId
@@ -89,12 +96,9 @@ export function StagedBillingTable({
     setAdding(false)
   }
 
-  function saveEdit(id: string) {
-    const u = Number(eUnit) || 0
-    const p = Math.max(1, Number(ePeriods) || 1)
-    if (validateStage({ stageName: eName, unitAmount: u, periods: p })) return
+  function handleEdit(id: string, name: string, unit: number, periods: number) {
     updateItem.mutate(
-      { id, patch: buildStagePayload({ stageName: eName, unitAmount: u, periods: p }) },
+      { id, patch: buildStagePayload({ stageName: name, unitAmount: unit, periods }) },
       { onSuccess: () => setEditId(null) },
     )
   }
@@ -121,58 +125,92 @@ export function StagedBillingTable({
   return (
     <div className="space-y-2">
       <div className="-mx-4 overflow-x-auto px-4 md:mx-0 md:px-0">
-        <table className="w-full min-w-[40rem] border-collapse text-sm">
+        <table className="w-full min-w-[32rem] border-collapse text-sm">
           <thead>
             <tr className="border-b border-slate-200 text-left text-xs text-slate-500">
               <th className="py-2 pr-3 font-medium">阶段名</th>
-              <th className="py-2 px-3 text-right font-medium">应收金额</th>
-              <th className="py-2 px-3 text-right font-medium">期数</th>
-              <th className="py-2 px-3 text-right font-medium">总计</th>
-              <th className="py-2 px-3 text-right font-medium">已付</th>
-              <th className="py-2 px-3 text-right font-medium">未付</th>
+              <th className="py-2 px-3 text-right font-medium">已付 / 应收</th>
+              <th className="py-2 px-3 text-right font-medium">未付 / 状态</th>
               <th className="py-2 pl-3 text-right font-medium">操作</th>
             </tr>
           </thead>
           <tbody>
             {items.length === 0 ? (
               <tr>
-                <td colSpan={7} className="py-3 text-sm text-slate-400">暂无阶段，点「+ 新增阶段」开始（如 意向金 / 递交签证）</td>
+                <td colSpan={4} className="py-3 text-sm text-slate-400">暂无阶段，点「+ 新增阶段」开始（如 意向金 / 递交签证）</td>
               </tr>
             ) : (
               items.map((it) => {
-                const paid = getItemPaid(it.id, payments)
-                const unpaid = getItemUnpaid(it, payments)
-                const editing = editId === it.id
+                if (editId === it.id) {
+                  return (
+                    <tr key={it.id} className="border-b border-slate-100">
+                      <td colSpan={4} className="py-2">
+                        <StageFormPanel
+                          initial={{ name: it.fee_category, unit: stageUnitAmount(it), periods: it.periods }}
+                          onSave={(n, u, p) => handleEdit(it.id, n, u, p)}
+                          onCancel={() => setEditId(null)}
+                          pending={updateItem.isPending}
+                        />
+                      </td>
+                    </tr>
+                  )
+                }
+                const d = stageDisplay(it, payments, currency)
                 return (
-                  <tr key={it.id} className="border-b border-slate-100 align-top">
-                    {editing ? (
-                      <>
-                        <td className="py-2 pr-3"><input className="w-32 rounded-lg border border-slate-300 px-2 py-1 text-sm" value={eName} onChange={(e) => setEName(e.target.value)} /></td>
-                        <td className="py-2 px-3 text-right"><input type="number" min={0} step="0.01" className="w-24 rounded-lg border border-slate-300 px-2 py-1 text-right text-sm tabular-nums" value={eUnit} onChange={(e) => setEUnit(e.target.value)} /></td>
-                        <td className="py-2 px-3 text-right"><input type="number" min={1} step="1" className="w-16 rounded-lg border border-slate-300 px-2 py-1 text-right text-sm tabular-nums" value={ePeriods} onChange={(e) => setEPeriods(e.target.value)} /></td>
-                        <td className="py-2 px-3 text-right tabular-nums text-slate-900">{fmt((Number(eUnit) || 0) * Math.max(1, Number(ePeriods) || 1), currency)}</td>
-                        <td className="py-2 px-3 text-right tabular-nums text-emerald-700">{fmt(paid, currency)}</td>
-                        <td className="py-2 px-3 text-right tabular-nums text-slate-400">—</td>
-                        <td className="py-2 pl-3 text-right whitespace-nowrap">
-                          <Button type="button" onClick={() => saveEdit(it.id)} disabled={updateItem.isPending}>保存</Button>
-                          <Button type="button" variant="ghost" onClick={() => setEditId(null)}>取消</Button>
-                        </td>
-                      </>
-                    ) : (
-                      <>
-                        <td className="py-2.5 pr-3 text-slate-900">{it.fee_category}</td>
-                        <td className="py-2.5 px-3 text-right tabular-nums text-slate-900">{fmt(stageUnitAmount(it), currency)}</td>
-                        <td className="py-2.5 px-3 text-right tabular-nums text-slate-700">{it.periods}</td>
-                        <td className="py-2.5 px-3 text-right tabular-nums font-medium text-slate-900">{fmt(Number(it.amount_due), currency)}</td>
-                        <td className="py-2.5 px-3 text-right tabular-nums text-emerald-700">{fmt(paid, currency)}</td>
-                        <td className={`py-2.5 px-3 text-right font-medium tabular-nums ${unpaid > 0 ? 'text-rose-600' : 'text-slate-400'}`}>{fmt(Math.max(0, unpaid), currency)}</td>
-                        <td className="py-2.5 pl-3 text-right whitespace-nowrap">
-                          <button type="button" className="text-xs font-medium text-indigo-600 hover:underline" onClick={() => { setEditId(it.id); setEName(it.fee_category); setEUnit(String(stageUnitAmount(it))); setEPeriods(String(it.periods)) }}>改</button>
-                          <button type="button" className="ml-3 text-xs font-medium text-emerald-700 hover:underline" onClick={() => setPayId(payId === it.id ? null : it.id)}>记账</button>
-                          <button type="button" className="ml-3 text-xs font-medium text-slate-400 hover:text-rose-600" onClick={() => delItem.mutate({ id: it.id, payments })} disabled={delItem.isPending}>删除</button>
-                        </td>
-                      </>
-                    )}
+                  <tr key={it.id} className="border-b border-slate-100">
+                    <td className="py-2.5 pr-3">
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-slate-900">{d.name}</span>
+                        {d.showPeriodsTag && (
+                          <span className="rounded-full bg-indigo-50 px-1.5 py-0.5 text-[10px] font-medium text-indigo-600">分 {d.periods} 期</span>
+                        )}
+                      </div>
+                      <p className="text-[11px] text-slate-400">{d.unitLine}</p>
+                    </td>
+                    <td className="py-2.5 px-3 text-right">
+                      <PaidFraction paid={d.paid} receivable={d.receivable} />
+                      <ProgressBar paid={d.paid} receivable={d.receivable} />
+                    </td>
+                    <td className="py-2.5 px-3 text-right">
+                      <StatusChip receivable={d.receivable} unpaid={d.unpaid} />
+                    </td>
+                    <td className="py-2.5 pl-3 text-right whitespace-nowrap">
+                      <button
+                        type="button"
+                        className="text-xs font-medium text-emerald-700 hover:underline"
+                        onClick={() => { setMenuId(null); setPayId(payId === it.id ? null : it.id) }}
+                      >
+                        记账
+                      </button>
+                      <div className="relative ml-2 inline-block">
+                        <button
+                          type="button"
+                          aria-label="更多操作"
+                          className="rounded px-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-700"
+                          onClick={() => setMenuId(menuId === it.id ? null : it.id)}
+                        >
+                          ⋯
+                        </button>
+                        {menuId === it.id && (
+                          <div className="absolute right-0 z-10 mt-1 w-20 rounded-lg border border-slate-200 bg-white py-1 text-left shadow-md">
+                            <button
+                              type="button"
+                              className="block w-full px-3 py-1 text-left text-xs text-slate-700 hover:bg-slate-50"
+                              onClick={() => { setMenuId(null); setPayId(null); setEditId(it.id) }}
+                            >
+                              改
+                            </button>
+                            <button
+                              type="button"
+                              className="block w-full px-3 py-1 text-left text-xs text-rose-600 hover:bg-rose-50"
+                              onClick={() => { setMenuId(null); delItem.mutate({ id: it.id, payments }) }}
+                            >
+                              删除
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    </td>
                   </tr>
                 )
               })
@@ -180,10 +218,13 @@ export function StagedBillingTable({
           </tbody>
           <tfoot>
             <tr className="border-t-2 border-slate-300 font-semibold text-slate-900">
-              <td className="py-2.5 pr-3" colSpan={3}>合计</td>
-              <td className="py-2.5 px-3 text-right tabular-nums">{fmt(totals.totalDue, currency)}</td>
-              <td className="py-2.5 px-3 text-right tabular-nums text-emerald-700">{fmt(totals.totalPaid, currency)}</td>
-              <td className="py-2.5 px-3 text-right tabular-nums text-rose-600">{fmt(Math.max(0, totals.totalUnpaid), currency)}</td>
+              <td className="py-2.5 pr-3">合计</td>
+              <td className="py-2.5 px-3 text-right">
+                <PaidFraction paid={totals.totalPaid} receivable={totals.totalDue} />
+              </td>
+              <td className="py-2.5 px-3 text-right">
+                <StatusChip receivable={totals.totalDue} unpaid={Math.max(0, totals.totalUnpaid)} />
+              </td>
               <td className="py-2.5 pl-3"></td>
             </tr>
           </tfoot>
@@ -208,7 +249,7 @@ export function StagedBillingTable({
       )}
 
       {adding ? (
-        <AddStageForm onAdd={handleAdd} onCancel={() => setAdding(false)} pending={createItem.isPending || createPlan.isPending} />
+        <StageFormPanel onSave={handleAdd} onCancel={() => setAdding(false)} pending={createItem.isPending || createPlan.isPending} />
       ) : (
         <Button type="button" variant="secondary" onClick={() => setAdding(true)}>+ 新增阶段</Button>
       )}

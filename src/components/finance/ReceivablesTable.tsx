@@ -1,45 +1,15 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { ReceivablesItemsArea } from './ReceivablesItemsArea'
-import { getCustomerPaymentColor, CUSTOMER_PAYMENT_TEXT_CLASS, receivableStatus } from '../../lib/finance'
+import { ProgressBar, StatusChip, PaidFraction } from './receivableCells'
+import { getCustomerPaymentColor, CUSTOMER_PAYMENT_TEXT_CLASS } from '../../lib/finance'
+import { stageUnitLine } from '../../lib/staged'
 import type { ReceivableRow, ReceivableTotals } from '../../lib/finance'
-
-const fmt = (n: number) => n.toLocaleString('en-AU', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 
 // 合并角色淡化为灰字；只有主申/副申用小标签
 const ROLE_TAG: Record<string, string> = {
   primary: 'bg-blue-100 text-blue-700',
   secondary: 'bg-violet-100 text-violet-700',
-}
-const STATUS_CLASS: Record<string, string> = {
-  unset: 'bg-slate-100 text-slate-500',
-  settled: 'bg-emerald-100 text-emerald-700',
-  owing: 'bg-rose-100 text-rose-700',
-}
-
-/** 4px 进度条：已付/应收。应收=0 不画。 */
-function ProgressBar({ paid, receivable }: { paid: number; receivable: number }) {
-  if (receivable <= 0) return null
-  const pct = Math.max(0, Math.min(100, (paid / receivable) * 100))
-  return (
-    <div className="mt-1 h-1 w-full overflow-hidden rounded bg-slate-100">
-      <div className="h-full rounded bg-emerald-500" style={{ width: `${pct}%` }} />
-    </div>
-  )
-}
-
-function StatusChip({ receivable, unpaid }: { receivable: number; unpaid: number }) {
-  const s = receivableStatus({ receivable, unpaid })
-  return <span className={`inline-block rounded-full px-2 py-0.5 text-xs font-medium ${STATUS_CLASS[s.kind]}`}>{s.label}</span>
-}
-
-/** 已付 / 应收 分数（已付绿） */
-function PaidFraction({ paid, receivable, muted = false }: { paid: number; receivable: number; muted?: boolean }) {
-  return (
-    <span className={`tabular-nums ${muted ? 'text-slate-600' : 'text-slate-900'}`}>
-      <span className="text-emerald-700">{fmt(paid)}</span> <span className="text-slate-300">/</span> {fmt(receivable)}
-    </span>
-  )
 }
 
 function ReceivableRowItem({ row }: { row: ReceivableRow }) {
@@ -112,11 +82,19 @@ function ReceivableRowItem({ row }: { row: ReceivableRow }) {
         </td>
       </tr>
 
-      {/* 分 N 期 展开：各阶段只读子行（阶段名 / 已付·应收 / 状态） */}
+      {/* 分 N 期 展开：各阶段只读子行（阶段名[+分N期] · 每期·期数 / 已付·应收 / 状态） */}
       {showStages && stagesOpen &&
         row.stages.map((s) => (
           <tr key={s.stageId} className="border-b border-slate-100 bg-slate-50/40">
-            <td className="py-1.5 pr-3 pl-8 text-xs text-slate-600">{s.name}</td>
+            <td className="py-1.5 pr-3 pl-8">
+              <div className="flex items-center gap-1.5">
+                <span className="text-xs text-slate-600">{s.name}</span>
+                {s.periods > 1 && (
+                  <span className="rounded-full bg-indigo-50 px-1.5 py-0.5 text-[10px] font-medium text-indigo-600">分 {s.periods} 期</span>
+                )}
+              </div>
+              <p className="text-[11px] text-slate-400">{stageUnitLine(s.unitAmount, s.periods)}</p>
+            </td>
             <td className="py-1.5 px-3 text-right text-xs">
               <PaidFraction paid={s.paid} receivable={s.receivable} muted />
             </td>
