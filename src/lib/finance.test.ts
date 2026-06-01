@@ -26,12 +26,12 @@ const mkCustomer = (o: Partial<Customer>): Customer => ({
   assigned_to: null, created_by: null, is_archived: false, created_at: '', updated_at: '', ...o,
 })
 const mkPlan = (o: Partial<PaymentPlan>): PaymentPlan => ({
-  id: 'p1', case_id: 'c1', applicant_id: null, billed_to_customer_id: null, client_total: 0, company_total: 0, currency: 'AUD', note: null,
+  id: 'p1', case_id: 'c1', applicant_id: null, billed_to_customer_id: null, client_total: 0, company_total: 0, staged_billing: false, currency: 'AUD', note: null,
   created_at: '', updated_at: '', ...o,
 })
 // 应收已改为款项明细派生：每个 plan 一条默认款项(amount_due = 该 plan 的应收)
 const mkItem = (o: Partial<PaymentPlanItem>): PaymentPlanItem => ({
-  id: 'i1', plan_id: 'p1', fee_category: '律师费', amount_due: 0, note: null, created_at: '', updated_at: '', ...o,
+  id: 'i1', plan_id: 'p1', fee_category: '律师费', amount_due: 0, periods: 1, note: null, created_at: '', updated_at: '', ...o,
 })
 const mkPayment = (o: Partial<Payment>): Payment => ({
   id: 'pay1', case_id: 'c1', applicant_id: null, direction: 'from_client', installment_id: null, plan_item_id: null, amount: 0,
@@ -195,8 +195,8 @@ describe('selectFinanceReceivables', () => {
 describe('sumFinanceReceivables', () => {
   it('各列合计', () => {
     const totals = sumFinanceReceivables([
-      { caseId: 'c1', applicantId: null, role: 'merged', coApplicantNames: [], planId: 'p1', customerId: 'a', customerName: 'A', visaSubclass: '482', receivable: 1000, paid: 300, unpaid: 700 },
-      { caseId: 'c2', applicantId: null, role: 'merged', coApplicantNames: [], planId: null, customerId: 'b', customerName: 'B', visaSubclass: '186', receivable: 500, paid: 500, unpaid: 0 },
+      { caseId: 'c1', applicantId: null, role: 'merged', coApplicantNames: [], planId: 'p1', customerId: 'a', customerName: 'A', visaSubclass: '482', receivable: 1000, paid: 300, unpaid: 700, staged: false },
+      { caseId: 'c2', applicantId: null, role: 'merged', coApplicantNames: [], planId: null, customerId: 'b', customerName: 'B', visaSubclass: '186', receivable: 500, paid: 500, unpaid: 0, staged: false },
     ])
     expect(totals).toEqual({ receivable: 1500, paid: 800, unpaid: 700 })
   })
@@ -325,7 +325,7 @@ describe('getCustomerPaymentColor', () => {
 describe('selectCasePaymentColors', () => {
   const mkRow = (o: Partial<ReceivableRow>): ReceivableRow => ({
     caseId: 'c1', applicantId: null, role: 'merged', coApplicantNames: [], planId: 'p1',
-    customerId: 'cu1', customerName: '张三', visaSubclass: '482', receivable: 0, paid: 0, unpaid: 0, ...o,
+    customerId: 'cu1', customerName: '张三', visaSubclass: '482', receivable: 0, paid: 0, unpaid: 0, staged: false, ...o,
   })
   it('按案件聚合应收行 → 客户付款颜色（同案多行合计）', () => {
     const rows = [

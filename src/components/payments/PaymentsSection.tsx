@@ -4,7 +4,7 @@ import { Button } from '../ui/Button'
 import { PaymentPlanForm } from './PaymentPlanForm'
 import { InstallmentsPanel } from './InstallmentsPanel'
 import { PaymentsPanel } from './PaymentsPanel'
-import { PlanItemsTable } from '../finance/PlanItemsTable'
+import { ReceivablesItemsArea } from '../finance/ReceivablesItemsArea'
 import { usePaymentPlan, usePaymentsByCase } from '../../hooks/queries/usePayments'
 import { computeAccounting } from '../../lib/accounting'
 import { formatMoney } from '../../lib/money'
@@ -97,7 +97,12 @@ export function PaymentsSection({
           {/* 客户应收：按费用类别拆分的款项明细（每条独立 应收/已付/未付）。无计划时新增款项会自动建计划 */}
           <div className="space-y-2 rounded-xl border border-slate-200 bg-white p-4">
             <p className="text-sm font-medium text-slate-600">客户应收 · 款项明细</p>
-            <PlanItemsTable caseId={caseId} planId={plan?.id ?? null} currency={cur} />
+            <ReceivablesItemsArea
+              caseId={caseId}
+              planId={plan?.id ?? null}
+              currency={cur}
+              staged={plan?.staged_billing ?? false}
+            />
           </div>
 
           {/* 主代理（双流另一侧），保持原结构；无计划时可创建以设置主代理应付 */}

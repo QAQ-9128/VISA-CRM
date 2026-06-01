@@ -116,8 +116,8 @@ describe('sortPriorityCustomers', () => {
 describe('computeDebtTotals', () => {
   it('合计客户欠款与欠主代理（按案件分组，负数不计）', () => {
     const plans: PaymentPlan[] = [
-      { id: 'p1', case_id: 'c1', applicant_id: null, billed_to_customer_id: null, client_total: 1000, company_total: 800, currency: 'AUD', note: null, created_at: '', updated_at: '' },
-      { id: 'p2', case_id: 'c2', applicant_id: null, billed_to_customer_id: null, client_total: 500, company_total: 0, currency: 'AUD', note: null, created_at: '', updated_at: '' },
+      { id: 'p1', case_id: 'c1', applicant_id: null, billed_to_customer_id: null, client_total: 1000, company_total: 800, staged_billing: false, currency: 'AUD', note: null, created_at: '', updated_at: '' },
+      { id: 'p2', case_id: 'c2', applicant_id: null, billed_to_customer_id: null, client_total: 500, company_total: 0, staged_billing: false, currency: 'AUD', note: null, created_at: '', updated_at: '' },
     ]
     const items = [
       { id: 'i1', plan_id: 'p1', amount_due: 1000 },
@@ -148,7 +148,7 @@ describe('selectCustomerDebts', () => {
       cuC: mkCustomer({ id: 'cuC', full_name: '丙' }),
     }
     const plan = (id: string, caseId: string, ct: number, mt: number): PaymentPlan => ({
-      id, case_id: caseId, applicant_id: null, billed_to_customer_id: null, client_total: ct, company_total: mt, currency: 'AUD', note: null, created_at: '', updated_at: '',
+      id, case_id: caseId, applicant_id: null, billed_to_customer_id: null, client_total: ct, company_total: mt, staged_billing: false, currency: 'AUD', note: null, created_at: '', updated_at: '',
     })
     const plans = [
       plan('p1', 'c1', 1000, 800),
@@ -178,7 +178,7 @@ describe('selectCustomerDebts', () => {
 
 describe('selectCustomerDebts — 按 billed_to 实际付款方聚合', () => {
   const mkPlan = (o: Partial<PaymentPlan>): PaymentPlan => ({
-    id: 'p1', case_id: 'c1', applicant_id: null, billed_to_customer_id: null, client_total: 0, company_total: 0,
+    id: 'p1', case_id: 'c1', applicant_id: null, billed_to_customer_id: null, client_total: 0, company_total: 0, staged_billing: false,
     currency: 'AUD', note: null, created_at: '', updated_at: '', ...o,
   })
   const cases = { c1: mkCase({ id: 'c1', customer_id: 'primary' }) }
@@ -240,7 +240,7 @@ describe('selectCustomerDebts — 按 billed_to 实际付款方聚合', () => {
 
 describe('selectCustomerDebtSummary — 客户详情归集欠款（含他不是主申请但被 billed_to 指向的案件）', () => {
   const mkPlan = (o: Partial<PaymentPlan>): PaymentPlan => ({
-    id: 'p1', case_id: 'c1', applicant_id: null, billed_to_customer_id: null, client_total: 0, company_total: 0,
+    id: 'p1', case_id: 'c1', applicant_id: null, billed_to_customer_id: null, client_total: 0, company_total: 0, staged_billing: false,
     currency: 'AUD', note: null, created_at: '', updated_at: '', ...o,
   })
   // c1 主申=me（自己的案件）；c2 主申=别人，但 billed_to=me

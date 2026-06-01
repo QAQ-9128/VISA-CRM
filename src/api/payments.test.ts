@@ -31,6 +31,16 @@ describe('payment_plans', () => {
     expect(b.payment_plans.update).toHaveBeenCalledWith({ company_total: 800 })
     expect(b.payment_plans.eq).toHaveBeenCalledWith('id', 'p1')
   })
+
+  it('createPaymentPlan / updatePaymentPlan 透传 staged_billing（分阶段收费开关）', async () => {
+    const b1 = wireFrom(fromMock, { payment_plans: { data: { id: 'p1' } } })
+    await paymentsApi.createPaymentPlan({ case_id: 'c1', staged_billing: true })
+    expect(b1.payment_plans.insert).toHaveBeenCalledWith(expect.objectContaining({ staged_billing: true }))
+
+    const b2 = wireFrom(fromMock, { payment_plans: { data: { id: 'p1' } } })
+    await paymentsApi.updatePaymentPlan('p1', { staged_billing: false })
+    expect(b2.payment_plans.update).toHaveBeenCalledWith({ staged_billing: false })
+  })
 })
 
 describe('installments', () => {
@@ -127,6 +137,15 @@ describe('payment_plan_items', () => {
     const b = wireFrom(fromMock, { payment_plan_items: { data: { id: 'i1' } } })
     await paymentsApi.createPlanItem({ plan_id: 'p1', fee_category: '文案费', amount_due: 2000 })
     expect(b.payment_plan_items.insert).toHaveBeenCalledWith({ plan_id: 'p1', fee_category: '文案费', amount_due: 2000 })
+  })
+  it('createPlanItem / updatePlanItem 透传 periods（分阶段收费期数）', async () => {
+    const b1 = wireFrom(fromMock, { payment_plan_items: { data: { id: 'i1' } } })
+    await paymentsApi.createPlanItem({ plan_id: 'p1', fee_category: '意向金', amount_due: 5000, periods: 1 })
+    expect(b1.payment_plan_items.insert).toHaveBeenCalledWith(expect.objectContaining({ periods: 1 }))
+
+    const b2 = wireFrom(fromMock, { payment_plan_items: { data: { id: 'i1' } } })
+    await paymentsApi.updatePlanItem('i1', { amount_due: 12000, periods: 4 })
+    expect(b2.payment_plan_items.update).toHaveBeenCalledWith({ amount_due: 12000, periods: 4 })
   })
   it('updatePlanItem 按 id 改应收', async () => {
     const b = wireFrom(fromMock, { payment_plan_items: { data: { id: 'i1' } } })

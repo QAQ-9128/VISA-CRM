@@ -66,6 +66,8 @@ export interface ReceivableRow {
   receivable: number
   paid: number
   unpaid: number
+  /** 该计划是否分阶段收费（驱动展开处显示阶段表/款项明细） */
+  staged: boolean
 }
 
 export function selectFinanceReceivables(
@@ -109,6 +111,7 @@ export function selectFinanceReceivables(
       receivable: totals.totalDue,
       paid: totals.totalPaid,
       unpaid: round2(Math.max(0, totals.totalUnpaid)),
+      staged: plan?.staged_billing ?? false,
     }
   }
 

@@ -325,6 +325,7 @@ export interface Database {
           billed_to_customer_id: string | null
           client_total: number | null
           company_total: number | null
+          staged_billing: boolean
           currency: string
           note: string | null
           created_at: Timestamp
@@ -337,6 +338,7 @@ export interface Database {
           billed_to_customer_id?: string | null
           client_total?: number | null
           company_total?: number | null
+          staged_billing?: boolean
           currency?: string
           note?: string | null
           created_at?: Timestamp
@@ -351,6 +353,7 @@ export interface Database {
           plan_id: string
           fee_category: string
           amount_due: number
+          periods: number
           note: string | null
           created_at: Timestamp
           updated_at: Timestamp
@@ -360,6 +363,7 @@ export interface Database {
           plan_id: string
           fee_category: string
           amount_due?: number
+          periods?: number
           note?: string | null
           created_at?: Timestamp
           updated_at?: Timestamp

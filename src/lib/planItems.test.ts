@@ -3,7 +3,7 @@ import { getItemPaid, getItemUnpaid, getCaseTotals, itemHasPayments } from './pl
 import type { Payment, PaymentPlanItem } from '../types/models'
 
 const mkItem = (o: Partial<PaymentPlanItem>): PaymentPlanItem => ({
-  id: 'it1', plan_id: 'p1', fee_category: '律师费', amount_due: 1000, note: null,
+  id: 'it1', plan_id: 'p1', fee_category: '律师费', amount_due: 1000, periods: 1, note: null,
   created_at: '', updated_at: '', ...o,
 })
 const mkPay = (o: Partial<Payment>): Payment => ({

@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
-import { PlanItemsTable } from './PlanItemsTable'
+import { ReceivablesItemsArea } from './ReceivablesItemsArea'
 import { getCustomerPaymentColor, CUSTOMER_PAYMENT_TEXT_CLASS } from '../../lib/finance'
 import type { ReceivableRow, ReceivableTotals } from '../../lib/finance'
 
@@ -64,8 +64,13 @@ function ReceivableRowItem({ row }: { row: ReceivableRow }) {
       {open && (
         <tr className="border-b border-slate-100 bg-slate-50/40">
           <td colSpan={5} className="px-2 py-3">
-            {/* 款项明细表：按费用类别拆分的多条应收，每条独立 改应收 / 收款 / 删除 */}
-            <PlanItemsTable caseId={row.caseId} planId={row.planId} applicantId={row.applicantId} />
+            {/* 应收区：分阶段收费开关 + 阶段表/款项明细 */}
+            <ReceivablesItemsArea
+              caseId={row.caseId}
+              planId={row.planId}
+              applicantId={row.applicantId}
+              staged={row.staged}
+            />
           </td>
         </tr>
       )}
