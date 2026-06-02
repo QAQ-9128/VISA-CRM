@@ -6,7 +6,7 @@ import {
   getAllPaymentPlans,
   getAllPayments,
 } from '../../api/dashboard'
-import { getAllPlanItems } from '../../api/payments'
+import { getAllPlanItems, getAllInstallments } from '../../api/payments'
 import { listReferrers } from '../../api/referrers'
 import { listAllCaseApplicants } from '../../api/caseApplicants'
 import {
@@ -17,6 +17,7 @@ import {
   selectRecentCases,
   sumFinanceReceivables,
 } from '../../lib/finance'
+import { installmentSummaryByPlan } from '../../lib/financeRows'
 import { visibleCaseIds } from '../../lib/visibility'
 import { formatVisaType } from '../../lib/visa'
 import { queryKeys } from './keys'
@@ -40,6 +41,7 @@ export function useFinance(month: string | null) {
   const plans = useQuery({ queryKey: queryKeys.dashboard.plans, queryFn: getAllPaymentPlans })
   const payments = useQuery({ queryKey: queryKeys.dashboard.payments, queryFn: getAllPayments })
   const planItems = useQuery({ queryKey: queryKeys.dashboard.planItems, queryFn: getAllPlanItems })
+  const installments = useQuery({ queryKey: queryKeys.finance.installments, queryFn: getAllInstallments })
   // 含归档：付给已归档介绍人的款仍需显示其名字
   const referrers = useQuery({
     queryKey: queryKeys.finance.referrers,
@@ -50,11 +52,13 @@ export function useFinance(month: string | null) {
     queryFn: listAllCaseApplicants,
   })
 
-  const all = [cases, customers, plans, payments, planItems, referrers, caseApplicants]
+  const all = [cases, customers, plans, payments, planItems, referrers, caseApplicants, installments]
   const isPending = all.some((q) => q.isPending)
   const isError = all.some((q) => q.isError)
 
+  const today = useMemo(() => new Date(), [])
   const caseById = useMemo(() => keyById(cases.data ?? []), [cases.data])
+  const planById = useMemo(() => keyById(plans.data ?? []), [plans.data])
   const customerById = useMemo(() => keyById(customers.data ?? []), [customers.data])
   const referrerById = useMemo(() => keyById(referrers.data ?? []), [referrers.data])
 
@@ -114,6 +118,21 @@ export function useFinance(month: string | null) {
   // 近期案件（区域 1）：按 updated_at 倒序的前 5 个案件 id（顺序保留）
   const recentCaseIds = useMemo(() => selectRecentCases(visibleCases, 5).map((c) => c.id), [visibleCases])
 
+  // 分期进度 / 下一期：只取在册案件的计划的分期，按计划归集
+  const instByPlan = useMemo(() => {
+    const visibleInst = (installments.data ?? []).filter((i) => {
+      const plan = planById[i.payment_plan_id]
+      return plan ? visibleIds.has(plan.case_id) : false
+    })
+    return installmentSummaryByPlan(visibleInst, today)
+  }, [installments.data, planById, visibleIds, today])
+  // 富表搜索/导出用：案件 id → 案件号
+  const caseNumberByCaseId = useMemo(() => {
+    const m: Record<string, string> = {}
+    for (const c of visibleCases) m[c.id] = c.case_number
+    return m
+  }, [visibleCases])
+
   return {
     isPending,
     isError,
@@ -124,5 +143,7 @@ export function useFinance(month: string | null) {
     payouts,
     caseOptions,
     referrerById,
+    instByPlan,
+    caseNumberByCaseId,
   }
 }

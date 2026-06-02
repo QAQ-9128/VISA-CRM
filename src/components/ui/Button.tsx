@@ -1,11 +1,13 @@
 import type { ButtonHTMLAttributes, ReactNode } from 'react'
 
-type Variant = 'primary' | 'secondary' | 'ghost'
+type Variant = 'primary' | 'secondary' | 'ghost' | 'danger'
 
 const VARIANTS: Record<Variant, string> = {
-  primary: 'bg-indigo-600 text-white hover:bg-indigo-700 disabled:bg-indigo-300',
-  secondary: 'bg-white text-slate-700 border border-slate-300 hover:bg-slate-50',
-  ghost: 'bg-transparent text-slate-600 hover:bg-slate-100',
+  primary: 'bg-brand text-white shadow-brand hover:bg-brand-600 disabled:bg-brand-100 disabled:shadow-none',
+  secondary:
+    'bg-white text-ink border border-line-2 shadow-[0_1px_2px_rgb(23_32_51/0.05)] hover:bg-surface-2',
+  ghost: 'bg-transparent text-muted hover:bg-surface-2 hover:text-ink',
+  danger: 'bg-rose-50 text-rose-600 hover:bg-rose-100',
 }
 
 interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
@@ -15,7 +17,7 @@ interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
   children: ReactNode
 }
 
-/** 基础按钮：最小 44px 点按高度（移动端友好）。 */
+/** 基础按钮：圆角胶囊，最小 44px 点按高度（移动端友好）。 */
 export function Button({
   variant = 'primary',
   block = false,
@@ -25,7 +27,7 @@ export function Button({
 }: ButtonProps) {
   return (
     <button
-      className={`inline-flex min-h-11 items-center justify-center gap-2 rounded-lg px-4 text-sm font-medium transition-colors disabled:cursor-not-allowed ${
+      className={`inline-flex min-h-11 items-center justify-center gap-2 rounded-full px-5 text-sm font-semibold transition-colors disabled:cursor-not-allowed ${
         VARIANTS[variant]
       } ${block ? 'w-full' : ''} ${className}`}
       {...props}

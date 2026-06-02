@@ -5,7 +5,7 @@ import { VISA_CATALOG, OTHER_TYPE, OTHER_STREAM } from '../../types/visaCatalog'
 import { findVisaType } from '../../lib/visa'
 
 const inputCls =
-  'block min-h-11 w-full rounded-lg border border-slate-300 bg-white px-3 text-base text-slate-900 outline-none transition-colors focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200'
+  'block min-h-11 w-full rounded-lg border border-slate-300 bg-white px-3 text-base text-slate-900 outline-none transition-colors focus:border-brand focus:ring-2 focus:ring-brand-100'
 
 /**
  * 签证类别 + 子类别(stream) 选择：

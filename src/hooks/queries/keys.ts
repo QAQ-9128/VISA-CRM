@@ -69,6 +69,7 @@ export const queryKeys = {
     plans: ['dashboard', 'plans'] as const,
     payments: ['dashboard', 'payments'] as const,
     planItems: ['dashboard', 'planItems'] as const,
+    expiringDocs: ['dashboard', 'expiringDocs'] as const,
   },
   employers: {
     all: ['employers'] as const,
@@ -82,6 +83,7 @@ export const queryKeys = {
   },
   finance: {
     referrers: ['finance', 'referrers'] as const,
+    installments: ['finance', 'installments'] as const,
   },
   checklist: {
     all: ['checklist'] as const,

@@ -4,6 +4,7 @@ import { Navigate, useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '../hooks/useAuth'
 import { Button } from '../components/ui/Button'
 import { TextField } from '../components/ui/TextField'
+import { ShieldIcon } from '../components/ui/icons'
 
 interface LocationState {
   from?: { pathname: string }
@@ -39,9 +40,17 @@ export function LoginPage() {
   }
 
   return (
-    <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm sm:p-8">
-      <h1 className="text-xl font-semibold text-slate-900">签证 CRM</h1>
-      <p className="mt-1 text-sm text-slate-500">请使用管理员分配的账号登录</p>
+    <div className="rounded-card bg-white p-6 shadow-soft sm:p-8">
+      <div className="mb-5 flex items-center gap-3">
+        <span className="grid size-11 place-items-center rounded-[14px] bg-[linear-gradient(135deg,#3b6bff,#6a5cff)] text-white shadow-brand">
+          <ShieldIcon className="size-6" />
+        </span>
+        <div>
+          <h1 className="text-xl font-bold tracking-[-0.01em] text-ink">签证 CRM</h1>
+          <p className="text-[13px] text-faint">移民事务工作台</p>
+        </div>
+      </div>
+      <p className="text-sm text-muted">请使用管理员分配的账号登录</p>
 
       <form onSubmit={handleSubmit} className="mt-6 space-y-4">
         <TextField
@@ -63,12 +72,12 @@ export function LoginPage() {
           placeholder="••••••••"
         />
 
-        <label className="flex items-center gap-2 text-sm text-slate-600">
+        <label className="flex items-center gap-2 text-sm text-muted">
           <input
             type="checkbox"
             checked={remember}
             onChange={(e) => setRemember(e.target.checked)}
-            className="size-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+            className="size-4 rounded border-line-2 text-brand focus:ring-brand"
           />
           记住我（保持登录约 30 天）
         </label>

@@ -13,10 +13,13 @@ export function DocumentForm({
   customerId,
   caseId,
   onDone,
+  initialFile = null,
 }: {
   customerId: string
   caseId?: string | null
   onDone: () => void
+  /** 预填文件（如从拖拽区拖入）；可选。 */
+  initialFile?: File | null
 }) {
   const add = useAddDocument()
   const [docType, setDocType] = useState<DocType>('passport')
@@ -24,7 +27,7 @@ export function DocumentForm({
   const [issueDate, setIssueDate] = useState('')
   const [expiryDate, setExpiryDate] = useState('')
   const [note, setNote] = useState('')
-  const [file, setFile] = useState<File | null>(null)
+  const [file, setFile] = useState<File | null>(initialFile)
 
   function handleSubmit(e: FormEvent) {
     e.preventDefault()
@@ -46,7 +49,7 @@ export function DocumentForm({
   const typeOptions = DOC_TYPES.map((t) => ({ value: t, label: DOC_TYPE_LABELS[t] }))
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-3 rounded-lg border border-indigo-200 bg-indigo-50/40 p-3">
+    <form onSubmit={handleSubmit} className="space-y-3 rounded-lg border border-brand-100 bg-brand-50/40 p-3">
       <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
         <Select
           label="文件类型"
@@ -60,11 +63,11 @@ export function DocumentForm({
       </div>
 
       <div className="space-y-1.5">
-        <span className="block text-sm font-medium text-slate-700">文件（可选，不传则仅登记到期日）</span>
+        <span className="block text-sm font-semibold text-body">文件（可选，不传则仅登记到期日）</span>
         <input
           type="file"
           onChange={(e) => setFile(e.target.files?.[0] ?? null)}
-          className="block w-full text-sm text-slate-600 file:mr-3 file:rounded-lg file:border-0 file:bg-indigo-600 file:px-3 file:py-2 file:text-sm file:font-medium file:text-white hover:file:bg-indigo-700"
+          className="block w-full text-sm text-slate-600 file:mr-3 file:rounded-lg file:border-0 file:bg-brand file:px-3 file:py-2 file:text-sm file:font-medium file:text-white hover:file:bg-brand-600"
         />
       </div>
 

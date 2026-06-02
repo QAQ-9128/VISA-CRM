@@ -7,6 +7,7 @@ import {
   useUpdateCustomer,
 } from '../../hooks/queries/useCustomers'
 import { BackLink } from '../../components/ui/BackLink'
+import { Card } from '../../components/ui/Card'
 import { LoadingBlock, ErrorBlock } from '../../components/ui/states'
 
 export function CustomerFormPage() {
@@ -49,10 +50,10 @@ export function CustomerFormPage() {
           label={editing ? '返回客户档案' : '客户列表'}
         />
       </div>
-      <h1 className="text-xl font-semibold text-slate-900 md:text-2xl">
+      <h1 className="text-2xl font-bold tracking-[-0.02em] text-ink">
         {editing ? '编辑客户' : '新建客户'}
       </h1>
-      <div className="mt-6">
+      <Card className="mt-5">
         <CustomerForm
           initial={editing ? existing.data ?? undefined : undefined}
           initialPrimaryId={initialPrimaryId}
@@ -61,7 +62,7 @@ export function CustomerFormPage() {
           onSubmit={handleSubmit}
           onCancel={() => navigate(editing && id ? `/customers/${id}` : '/customers')}
         />
-      </div>
+      </Card>
     </section>
   )
 }

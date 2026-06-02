@@ -10,6 +10,14 @@ export function findVisaType(subclass: string): VisaTypeOption | undefined {
   return undefined
 }
 
+/** subclass → 所属大类的中文标签（如 482 → "工作 / 雇主担保"）；目录外(手填)返回 ''。 */
+export function visaCategoryLabel(subclass: string): string {
+  for (const cat of VISA_CATALOG) {
+    if (cat.types.some((x) => x.subclass === subclass)) return cat.label
+  }
+  return ''
+}
+
 /** 该签证类别是否有子类别可选（含「其他(手填)」）。 */
 export function hasStreamOptions(subclass: string): boolean {
   const t = findVisaType(subclass)

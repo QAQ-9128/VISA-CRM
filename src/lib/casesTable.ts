@@ -127,8 +127,12 @@ export interface CaseRow {
   role: CaseRowRole
   /** 主申请列 */
   primaryName: string
+  /** 主申请客户 id（头像 / 名字 → 客户详情用） */
+  primaryCustomerId: string
   /** 副申请列：同案副申名字合并（、连接） */
   secondaryName: string
+  /** 同案副申客户 id（顺序与 secondaryName 对应）；恰好一位时其头像/名字可链到客户详情 */
+  secondaryCustomerIds: string[]
   /** 签证类型列（如 "482" / "482/Core Skills"） */
   visaLabel: string
   visaSubclass: string
@@ -224,7 +228,11 @@ export function selectCaseRows(
     const visaElapsed = visaDaysSince != null ? splitWaitDays(visaDaysSince) : null
     const primaryName = customerById[c.customer_id]?.full_name ?? ''
     const subIds = subsByCase.get(c.id) ?? []
-    const subNames = subIds.map((id) => customerById[id]?.full_name ?? '').filter(Boolean)
+    // 只保留能解析出名字的副申（与 subNames 顺序对应）
+    const namedSubs = subIds
+      .map((id) => ({ id, name: customerById[id]?.full_name ?? '' }))
+      .filter((s) => s.name !== '')
+    const subNames = namedSubs.map((s) => s.name)
     const visaText = formatVisaType(c.visa_subclass, c.visa_stream) // 含子类别，如 482/Core Skills
 
     const base = {
@@ -253,7 +261,9 @@ export function selectCaseRows(
       rowKey: c.id,
       role: 'merged',
       primaryName,
+      primaryCustomerId: c.customer_id,
       secondaryName: subNames.join('、'),
+      secondaryCustomerIds: namedSubs.map((s) => s.id),
       visaLabel: visaText,
     })
   }

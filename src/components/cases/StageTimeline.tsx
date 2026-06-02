@@ -23,7 +23,7 @@ function HistoryRow({
 
   return (
     <li className="group flex gap-3">
-      <div className="mt-1.5 size-2 shrink-0 rounded-full bg-indigo-400" />
+      <div className="mt-1.5 size-2 shrink-0 rounded-full bg-brand" />
       <div className="min-w-0 flex-1">
         <div className="flex items-start justify-between gap-2">
           <div className="flex flex-wrap items-center gap-1.5 text-sm">
@@ -51,14 +51,14 @@ function HistoryRow({
               if (e.target.value) onSaveDate(e.target.value)
             }}
             onBlur={() => setEditing(false)}
-            className="mt-0.5 w-[9rem] rounded border border-indigo-300 px-1.5 py-0.5 text-xs outline-none"
+            className="mt-0.5 w-[9rem] rounded border border-brand/50 px-1.5 py-0.5 text-xs outline-none"
           />
         ) : (
           <button
             type="button"
             onClick={() => setEditing(true)}
             title="点击修改实际发生日期"
-            className="mt-0.5 text-xs text-slate-400 hover:text-indigo-600"
+            className="mt-0.5 text-xs text-slate-400 hover:text-brand"
           >
             📅 {new Date(h.effective_at).toLocaleString('zh-CN')}
           </button>

@@ -1,5 +1,38 @@
 @import 'tailwindcss';
 
+/*
+ * 设计令牌（Layout A「明亮工作台」视觉语言 → Tailwind v4 @theme）。
+ * 仅生成新工具类（bg-brand / rounded-card / shadow-soft 等），不改既有 slate 工具类，
+ * 因此对未改造的页面零影响。来源：CRM Design / design_handoff_dashboard_A。
+ */
+@theme {
+  /* 主色：明亮蓝（设计稿有意偏离品牌 indigo，已与需求确认采用） */
+  --color-brand: #3b6bff;
+  --color-brand-600: #2f5cf0;
+  --color-brand-700: #264fd6;
+  --color-brand-50: #eef3ff;
+  --color-brand-100: #dbe6ff;
+
+  /* 画布 / 表面 / 描边 / 墨色 */
+  --color-canvas: #eef1f8;
+  --color-surface-2: #f7f9fd;
+  --color-line: #eef1f6;
+  --color-line-2: #e6eaf2;
+  --color-ink: #172033;
+  --color-body: #3a4458;
+  --color-muted: #6b7589;
+  --color-faint: #9aa4b8;
+
+  /* 圆角 */
+  --radius-card: 24px;
+  --radius-ctl: 14px;
+
+  /* 分层柔和阴影（精致感关键） */
+  --shadow-xs: 0 1px 2px rgb(23 32 51 / 0.05);
+  --shadow-soft: 0 10px 28px -14px rgb(28 40 75 / 0.28), 0 3px 8px -4px rgb(28 40 75 / 0.1);
+  --shadow-brand: 0 14px 26px -10px rgb(59 107 255 / 0.5);
+}
+
 /* 移动端优先的基础设定。组件样式一律用 Tailwind 工具类，断点用 md:/lg: 向上扩展。 */
 html {
   -webkit-text-size-adjust: 100%;
@@ -8,7 +41,7 @@ html {
 body {
   margin: 0;
   font-family: system-ui, 'Segoe UI', Roboto, 'PingFang SC', 'Microsoft YaHei', sans-serif;
-  @apply bg-slate-50 text-slate-800 antialiased;
+  @apply bg-canvas text-body antialiased;
 }
 
 #root {

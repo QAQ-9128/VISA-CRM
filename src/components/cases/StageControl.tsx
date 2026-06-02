@@ -32,8 +32,8 @@ export function StageControl({
   const mutation = useUpdateCaseStage()
 
   const changed = stage !== currentStage
-  // 下拉只列新流程的 9 个阶段；若当前案件停在旧「补件」(additional_docs) 等已废弃值，
-  // 把它补到最前面以便正常显示/可切走（新案件不会看到它）。
+  // 下拉列出全部正式阶段（CASE_STAGES，共 11 个）；若当前案件停在旧「补件」(additional_docs)
+  // 等已废弃值，把它补到最前面以便正常显示/可切走（新案件不会看到它）。
   const isListed = (CASE_STAGES as readonly string[]).includes(currentStage)
   const options = [
     ...(isListed ? [] : [{ value: currentStage, label: CASE_STAGE_LABELS[currentStage] }]),
@@ -51,14 +51,14 @@ export function StageControl({
   }
 
   return (
-    <div className="space-y-3 rounded-xl border border-slate-200 bg-white p-4">
+    <div className="space-y-3 rounded-card bg-white p-[22px] shadow-soft">
       <div className="flex items-center gap-2">
-        <span className="text-sm text-slate-500">当前阶段</span>
+        <span className="text-sm text-muted">当前阶段</span>
         <StageBadge stage={currentStage} />
       </div>
 
       {disabled && (
-        <p className="rounded-lg bg-slate-100 px-3 py-2 text-xs text-slate-500">
+        <p className="rounded-[12px] bg-surface-2 px-3 py-2 text-xs text-muted">
           {disabledHint ?? '本案件进度同步自主案件，stage 自动跟随，无法在此独立编辑。'}
         </p>
       )}

@@ -1,27 +1,61 @@
+import type { ReactNode } from 'react'
+import { useMemo, useState } from 'react'
 import { Link, useLocation, useNavigate, useParams } from 'react-router-dom'
 import { useArchiveCase, useCase, useCaseStageHistory, useDeleteCase } from '../../hooks/queries/useCases'
 import { useCasesByCustomer } from '../../hooks/queries/useCases'
-import { useCustomer } from '../../hooks/queries/useCustomers'
+import { useCustomer, useCustomers } from '../../hooks/queries/useCustomers'
+import { useCaseApplicants } from '../../hooks/queries/useCaseApplicants'
+import { usePaymentPlan, usePaymentsByCase, useAllPlanItems, useInstallments } from '../../hooks/queries/usePayments'
+import { useRecordsByCase } from '../../hooks/queries/useRecords'
+import { useDocumentsByCase } from '../../hooks/queries/useDocuments'
 import { shouldShowTrtReminder, monthsSinceGrant } from '../../lib/trt'
-import { resolveCaseBackLink } from '../../lib/caseBackLink'
+import { resolveBackLink } from '../../lib/backLink'
+import { useBackSource } from '../../hooks/useBackSource'
 import { Button } from '../../components/ui/Button'
 import { Badge } from '../../components/ui/Badge'
 import { BackLink } from '../../components/ui/BackLink'
 import { LoadingBlock, ErrorBlock } from '../../components/ui/states'
+import { ClipboardIcon, DocIcon, ShieldIcon } from '../../components/ui/icons'
 import { formatVisaType } from '../../lib/visa'
 import { relationshipOf } from '../../lib/caseRelationship'
+import { getLodgementLodgedDate } from '../../lib/lodgementStatus'
+import { getCaseTotals } from '../../lib/planItems'
+import { sortRecords } from '../../lib/records'
+import { CASE_STAGE_LABELS } from '../../types/domain'
 import { StageBadge } from '../../components/cases/StageBadge'
 import { StageControl } from '../../components/cases/StageControl'
+import { StageStepper } from '../../components/cases/StageStepper'
 import { StageTimeline } from '../../components/cases/StageTimeline'
-import { LodgementSection } from '../../components/cases/LodgementSection'
-import { PaymentsSection } from '../../components/payments/PaymentsSection'
+import { CaseOverviewSummary } from '../../components/cases/CaseOverviewSummary'
+import { LodgementTab } from '../../components/cases/LodgementTab'
+import { PaymentTab } from '../../components/payments/PaymentTab'
 import { DocumentsSection } from '../../components/documents/DocumentsSection'
 import { RecordsSection } from '../../components/records/RecordsSection'
+
+type CaseTab = '概览' | '递交' | '付款' | '文件' | '记录'
+const CASE_TABS: CaseTab[] = ['概览', '递交', '付款', '文件', '记录']
+
+/** 概览汇总小卡：彩色圆标 + 标签 + 值。 */
+function SumCard({ icon, bg, label, value }: { icon: ReactNode; bg: string; label: string; value: string }) {
+  return (
+    <div className="flex items-center gap-3.5 rounded-card bg-white p-[18px] shadow-soft">
+      <span className="grid size-12 shrink-0 place-items-center rounded-full text-white" style={{ background: bg }}>
+        {icon}
+      </span>
+      <div className="min-w-0">
+        <div className="text-[13px] text-muted">{label}</div>
+        <div className="mt-0.5 truncate text-[17px] font-bold text-ink">{value}</div>
+      </div>
+    </div>
+  )
+}
+
 
 export function CaseDetailPage() {
   const { id } = useParams()
   const navigate = useNavigate()
   const location = useLocation()
+  const source = useBackSource()
   const caseQuery = useCase(id)
   const c = caseQuery.data
   const customer = useCustomer(c?.customer_id)
@@ -32,15 +66,55 @@ export function CaseDetailPage() {
   const stageHistory = useCaseStageHistory(c?.id)
   const archive = useArchiveCase()
   const del = useDeleteCase()
+  // 概览摘要数据（递交日期由 stage_history 派生；付款用款项明细口径，同财务页）
+  const plan = usePaymentPlan(c?.id)
+  const casePayments = usePaymentsByCase(c?.id)
+  const allItems = useAllPlanItems()
+  const installments = useInstallments(plan.data?.id)
+  const caseRecords = useRecordsByCase(c?.id)
+  const caseDocs = useDocumentsByCase(c?.id)
+  // 副申请人（case_applicants）→ 解析为客户，只读展示（主申 = c.customer_id 已在「客户」行）
+  const caseApplicants = useCaseApplicants(c?.id)
+  const allCustomers = useCustomers({})
+  const [tab, setTab] = useState<CaseTab>('概览')
+
+  const coApplicants = useMemo(() => {
+    const byId = new Map((allCustomers.data ?? []).map((cu) => [cu.id, cu]))
+    return (caseApplicants.data ?? [])
+      .map((a) => byId.get(a.customer_id))
+      .filter((cu): cu is NonNullable<typeof cu> => !!cu)
+  }, [caseApplicants.data, allCustomers.data])
+
+  const history = useMemo(() => stageHistory.data ?? [], [stageHistory.data])
+  const nomDate = useMemo(() => getLodgementLodgedDate(history, 'nomination'), [history])
+  const visaDate = useMemo(() => getLodgementLodgedDate(history, 'visa'), [history])
+  const payTotals = useMemo(() => {
+    const items = plan.data ? (allItems.data ?? []).filter((i) => i.plan_id === plan.data!.id) : []
+    return getCaseTotals(items, casePayments.data ?? [])
+  }, [plan.data, allItems.data, casePayments.data])
+  // 分期进度（计划级 installments）
+  const instTotal = installments.data?.length ?? 0
+  const instPaid = installments.data?.filter((i) => i.is_paid).length ?? 0
+  const instPct = instTotal > 0 ? Math.round((instPaid / instTotal) * 100) : 0
+  // 最近记录 / 未完成待办
+  const sortedRecords = useMemo(() => sortRecords(caseRecords.data ?? []), [caseRecords.data])
+  const recentRecords = sortedRecords.slice(0, 3)
+  const openTasks = useMemo(() => sortedRecords.filter((r) => r.type === 'task' && !r.is_done).slice(0, 3), [sortedRecords])
+  // 文件（未归档）
+  const docs = useMemo(
+    () => (caseDocs.data ?? []).filter((d) => !d.is_archived).slice().sort((a, b) => b.created_at.localeCompare(a.created_at)),
+    [caseDocs.data],
+  )
+  const recentDocs = docs.slice(0, 3)
 
   if (caseQuery.isPending) return <LoadingBlock />
   if (caseQuery.isError) return <ErrorBlock error={caseQuery.error} />
   if (!c) {
     return (
-      <div className="mx-auto max-w-2xl text-center text-slate-500">
+      <div className="mx-auto max-w-2xl text-center text-muted">
         案件不存在或已被删除。
         <div className="mt-4">
-          <Link to="/customers" className="text-indigo-600 hover:underline">
+          <Link to="/customers" className="font-semibold text-brand hover:underline">
             返回客户列表
           </Link>
         </div>
@@ -68,14 +142,14 @@ export function CaseDetailPage() {
   const trtMonths = monthsSinceGrant(trtHistory)
 
   return (
-    <section className="mx-auto max-w-3xl space-y-6">
+    <section className="mx-auto max-w-[1040px] space-y-5">
       {(() => {
-        const back = resolveCaseBackLink(location.state, c.customer_id)
+        const back = resolveBackLink(location.state, { to: `/customers/${c.customer_id}`, label: '返回客户档案' })
         return <BackLink to={back.to} label={back.label} />
       })()}
 
       {showTrt && (
-        <div className="flex items-start gap-2 rounded-xl border border-amber-300 bg-amber-50 px-4 py-3 text-sm font-medium text-amber-900">
+        <div className="flex items-start gap-2.5 rounded-[16px] bg-amber-50 px-4 py-3 text-sm font-medium text-amber-900 ring-1 ring-amber-200">
           <span aria-hidden>⚠️</span>
           <span>签证已下签 {trtMonths} 个月，可以开始办 186 TRT 永居</span>
         </div>
@@ -84,29 +158,47 @@ export function CaseDetailPage() {
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-2">
-            <h1 className="text-xl font-semibold text-slate-900 md:text-2xl">
+            <h1 className="text-2xl font-bold tracking-[-0.02em] text-ink">
               {formatVisaType(c.visa_subclass, c.visa_stream)} 签证
             </h1>
-            {c.is_archived && <Badge className="bg-gray-200 text-gray-600">已归档</Badge>}
+            {c.is_archived && <Badge className="bg-slate-200 text-slate-600">已归档</Badge>}
           </div>
-          <p className="mt-1 text-sm text-slate-500">
-            客户：
-            <Link to={`/customers/${c.customer_id}`} className="text-indigo-600 hover:underline">
-              {customer.data?.full_name ?? '…'}
-            </Link>
-            {c.destination_country ? ` · ${c.destination_country}` : ''}
-          </p>
+          <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1.5 text-sm text-muted">
+            <span>
+              客户：
+              <Link to={`/customers/${c.customer_id}`} state={source} className="font-semibold text-brand hover:underline">
+                {customer.data?.full_name ?? '…'}
+              </Link>
+              {c.destination_country ? ` · ${c.destination_country}` : ''}
+            </span>
+            <span className="inline-flex items-center gap-1.5">
+              当前阶段 <StageBadge stage={c.current_stage} />
+            </span>
+            {coApplicants.length > 0 && (
+              <span className="inline-flex flex-wrap items-center gap-1.5">
+                副申：
+                {coApplicants.map((cu, i) => (
+                  <span key={cu.id}>
+                    <Link to={`/customers/${cu.id}`} state={source} className="font-semibold text-brand hover:underline">
+                      {cu.full_name}
+                    </Link>
+                    {i < coApplicants.length - 1 ? '、' : ''}
+                  </span>
+                ))}
+              </span>
+            )}
+          </div>
           {c.parent_case_id && parentCase.data && (() => {
             const synced = relationshipOf(c) === 'synced'
             const parentLabel = `${parentCustomer.data?.full_name ?? '…'} · ${formatVisaType(parentCase.data.visa_subclass, parentCase.data.visa_stream)}`
             return (
               <Link
                 to={`/cases/${parentCase.data.id}`}
-                state={{ from: 'cases' }}
-                className={`mt-2 inline-flex flex-wrap items-center gap-1.5 rounded-lg border px-2.5 py-1 text-sm transition-colors ${
+                state={source}
+                className={`mt-2 inline-flex flex-wrap items-center gap-1.5 rounded-[12px] border px-2.5 py-1 text-sm transition-colors ${
                   synced
-                    ? 'border-indigo-200 bg-indigo-50 text-indigo-700 hover:border-indigo-300'
-                    : 'border-slate-200 bg-slate-50 text-slate-600 hover:border-indigo-300 hover:text-indigo-700'
+                    ? 'border-brand-100 bg-brand-50 text-brand hover:border-brand'
+                    : 'border-line-2 bg-surface-2 text-muted hover:border-brand hover:text-brand'
                 }`}
               >
                 <span aria-hidden>{synced ? '🔗' : '📎'}</span>
@@ -127,26 +219,83 @@ export function CaseDetailPage() {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-        <StageControl
-          caseId={c.id}
-          currentStage={c.current_stage}
-          disabled={relationshipOf(c) === 'synced'}
-          disabledHint="本案件进度同步自主案件，stage 自动跟随。如需独立编辑请改回「进度独立」。"
-        />
-        <div className="rounded-xl border border-slate-200 bg-white p-4">
-          <h2 className="mb-3 text-base font-semibold text-slate-900">阶段时间线</h2>
-          <StageTimeline caseId={c.id} />
-        </div>
+      {/* 标签页：概览 / 递交 / 付款 / 文件 / 记录 */}
+      <div className="flex gap-1 overflow-x-auto border-b border-line-2">
+        {CASE_TABS.map((t) => (
+          <button
+            key={t}
+            type="button"
+            onClick={() => setTab(t)}
+            className={`-mb-px shrink-0 border-b-2 px-4 py-2.5 text-sm font-semibold transition-colors ${
+              tab === t ? 'border-brand text-brand' : 'border-transparent text-muted hover:text-body'
+            }`}
+          >
+            {t}
+          </button>
+        ))}
       </div>
 
-      <LodgementSection caseId={c.id} currentStage={c.current_stage} />
+      {tab === '概览' && (
+        <div className="space-y-5">
+          {/* 顶部 3 信息卡（递交日期已在此，正文不再重复） */}
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+            <SumCard icon={<ClipboardIcon className="size-6" />} bg="#3b6bff" label="当前阶段" value={CASE_STAGE_LABELS[c.current_stage]} />
+            <SumCard icon={<ShieldIcon className="size-6" />} bg="#8b5cf6" label="提名递交" value={nomDate ?? '暂无'} />
+            <SumCard icon={<DocIcon className="size-6" />} bg="#10b981" label="签证递交" value={visaDate ?? '暂无'} />
+          </div>
 
-      <PaymentsSection caseId={c.id} currency={c.currency} syncTracking={c.sync_tracking} customerId={c.customer_id} />
+          {/* 阶段管理（全部 11 个阶段）+ 阶段时间线 */}
+          <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
+            <StageControl
+              caseId={c.id}
+              currentStage={c.current_stage}
+              disabled={relationshipOf(c) === 'synced'}
+              disabledHint="本案件进度同步自主案件，stage 自动跟随。如需独立编辑请改回「进度独立」。"
+            />
+            <div className="space-y-4 rounded-card bg-white p-[22px] shadow-soft">
+              <h2 className="text-base font-bold text-ink">阶段时间线</h2>
+              {/* 全部真实阶段步进（已过实心 / 当前高亮 / 未到空心；拒签·撤签标红） */}
+              <StageStepper current={c.current_stage} />
+              <div className="border-t border-line pt-4">
+                <StageTimeline caseId={c.id} />
+              </div>
+            </div>
+          </div>
 
-      <DocumentsSection customerId={c.customer_id} caseId={c.id} />
+          {/* 摘要 dashboard：付款 / 下一步 / 最近记录 / 文件（参考客户详情概览的分栏卡片） */}
+          <CaseOverviewSummary
+            syncTracking={c.sync_tracking}
+            payTotals={payTotals}
+            instTotal={instTotal}
+            instPaid={instPaid}
+            instPct={instPct}
+            records={recentRecords}
+            openTasks={openTasks}
+            docs={recentDocs}
+            docCount={docs.length}
+            currentStage={c.current_stage}
+            showTrt={showTrt}
+            trtMonths={trtMonths ?? 0}
+            onTab={(t) => setTab(t)}
+          />
+        </div>
+      )}
 
-      <RecordsSection customerId={c.customer_id} caseId={c.id} />
+      {tab === '递交' && <LodgementTab caseId={c.id} currentStage={c.current_stage} />}
+
+      {tab === '付款' && (
+        <PaymentTab
+          caseId={c.id}
+          currency={c.currency}
+          syncTracking={c.sync_tracking}
+          customerId={c.customer_id}
+          primaryCustomerId={c.customer_id}
+        />
+      )}
+
+      {tab === '文件' && <DocumentsSection customerId={c.customer_id} caseId={c.id} />}
+
+      {tab === '记录' && <RecordsSection customerId={c.customer_id} caseId={c.id} />}
 
       <div className="flex gap-3 pt-2">
         <Button variant="ghost" onClick={handleArchive} disabled={archive.isPending}>

@@ -1,6 +1,9 @@
 import { describe, expect, it } from 'vitest'
 import { selectFamilyGroupMembers, selectCoApplicantCases, selectJoinableCases } from './family'
-import type { Case, CaseApplicant, Customer } from '../types/models'
+import type { Case, CaseApplicant, Customer, FamilyMemberLink } from '../types/models'
+
+const link = (primary: string, member: string): FamilyMemberLink =>
+  ({ id: `${primary}-${member}`, primary_customer_id: primary, member_customer_id: member, relationship: null, created_at: '', updated_at: '' }) as FamilyMemberLink
 
 const mkCustomer = (o: Partial<Customer>): Customer => ({
   id: 'cu1', full_name: '主申', is_starred: false, client_source: null, primary_applicant_id: null,
@@ -35,6 +38,15 @@ describe('selectFamilyGroupMembers', () => {
   it('无关客户不在组内', () => {
     expect(selectFamilyGroupMembers('other', ALL).map((c) => c.id)).toEqual([])
   })
+  it('不传 links → 旧行为不变（向后兼容）', () => {
+    expect(selectFamilyGroupMembers('head', ALL).map((c) => c.id)).toEqual(['sub1', 'sub2'])
+  })
+  it('关联现有客户：传 links 后，关联成员(other)进候选；双向', () => {
+    const links = [link('head', 'other')] // other 被关联为 head 的副申（不改 primary_applicant_id）
+    expect(selectFamilyGroupMembers('head', ALL, links).map((c) => c.id).sort()).toEqual(['other', 'sub1', 'sub2'])
+    // 反向：从 other 看，head 也是其「案件家庭组」成员
+    expect(selectFamilyGroupMembers('other', ALL, links).map((c) => c.id)).toEqual(['head'])
+  })
 })
 
 describe('selectCoApplicantCases', () => {
@@ -59,5 +71,19 @@ describe('selectJoinableCases', () => {
     ]
     const applicants = [ca('cJoined', 'sub1')]
     expect(selectJoinableCases(cases, applicants, 'sub1', ALL).map((c) => c.id)).toEqual(['cHead'])
+  })
+
+  it('关联现有客户（有独立案件）：双向可加入', () => {
+    // other 有自己的案件 cOther；other 关联为 head 的副申
+    const cases = [
+      mkCase({ id: 'c482', customer_id: 'head' }), // head 的 482
+      mkCase({ id: 'cOther', customer_id: 'other' }), // other 自己的案件
+    ]
+    const links = [link('head', 'other')]
+    // head 可加入 other 的案件（cOther 进可加入）；不传 links 则看不到
+    expect(selectJoinableCases(cases, [], 'head', ALL).map((c) => c.id)).toEqual([])
+    expect(selectJoinableCases(cases, [], 'head', ALL, links).map((c) => c.id)).toEqual(['cOther'])
+    // 反向：other 可加入 head 的 482
+    expect(selectJoinableCases(cases, [], 'other', ALL, links).map((c) => c.id)).toEqual(['c482'])
   })
 })

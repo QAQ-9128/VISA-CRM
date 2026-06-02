@@ -36,7 +36,7 @@ export function ReferrerSelect({
 
   if (creating) {
     return (
-      <div className="space-y-3 rounded-lg border border-indigo-200 bg-indigo-50/40 p-3">
+      <div className="space-y-3 rounded-lg border border-brand-100 bg-brand-50/40 p-3">
         <TextField label="新介绍人姓名 *" value={name} onChange={(e) => setName(e.target.value)} placeholder="如 王经理" />
         <TextField label="联系电话（可选）" value={phone} onChange={(e) => setPhone(e.target.value)} />
         <div className="flex gap-2">

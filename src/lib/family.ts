@@ -1,4 +1,4 @@
-import type { Case, CaseApplicant, Customer } from '../types/models'
+import type { Case, CaseApplicant, Customer, FamilyMemberLink } from '../types/models'
 
 /**
  * 家庭组逻辑：组由 primary_applicant_id 定义。客户所在组的根(主申)id =
@@ -9,12 +9,42 @@ export function familyRootId(c: Pick<Customer, 'id' | 'primary_applicant_id'>): 
   return c.primary_applicant_id ?? c.id
 }
 
-/** 与指定客户同家庭组的其他在册成员（双向：主申↔副申、同主申的副申之间）；排除自身/归档；主申优先、再按名字。 */
-export function selectFamilyGroupMembers(customerId: string, customers: Customer[]): Customer[] {
+/**
+ * 「案件家庭组」成员 id 集（不含自身）= ① 同 primary_applicant_id 家族（双向）
+ * ∪ ② family_member_links 邻居（双向：本人关联进来的成员 + 本人被关联进的主申）。
+ * 让「关联现有客户」也能进入案件副申候选 / 可加入案件，复用现有 case_applicants（不自动加）。
+ */
+export function relatedCustomerIds(
+  customerId: string,
+  customers: Customer[],
+  links: FamilyMemberLink[] = [],
+): Set<string> {
+  const ids = new Set<string>()
   const self = customers.find((c) => c.id === customerId)
   const root = self ? familyRootId(self) : customerId
+  for (const c of customers) {
+    if (c.id !== customerId && familyRootId(c) === root) ids.add(c.id)
+  }
+  for (const lk of links) {
+    if (lk.primary_customer_id === customerId) ids.add(lk.member_customer_id)
+    if (lk.member_customer_id === customerId) ids.add(lk.primary_customer_id)
+  }
+  ids.delete(customerId)
+  return ids
+}
+
+/**
+ * 与指定客户同「案件家庭组」的其他在册成员（含 primary_applicant_id 家族 + 关联现有客户）；
+ * 排除自身/归档；主申优先、再按名字。links 默认空 = 旧行为（仅 primary_applicant_id 家族）。
+ */
+export function selectFamilyGroupMembers(
+  customerId: string,
+  customers: Customer[],
+  links: FamilyMemberLink[] = [],
+): Customer[] {
+  const memberIds = relatedCustomerIds(customerId, customers, links)
   return customers
-    .filter((c) => c.id !== customerId && !c.is_archived && familyRootId(c) === root)
+    .filter((c) => memberIds.has(c.id) && !c.is_archived)
     .sort(
       (a, b) =>
         (a.primary_applicant_id ? 1 : 0) - (b.primary_applicant_id ? 1 : 0) ||
@@ -36,16 +66,18 @@ export function selectCoApplicantCases(
   )
 }
 
-/** 可加入的案件：同家庭组成员（含主申）名下、未归档、非本人主申、且尚未加入的案件。 */
+/**
+ * 可加入的案件：同「案件家庭组」成员（含 primary_applicant_id 家族 + 关联现有客户）名下、
+ * 未归档、非本人主申、且尚未加入的案件。links 默认空 = 旧行为。
+ */
 export function selectJoinableCases(
   cases: Case[],
   applicants: CaseApplicant[],
   customerId: string,
   customers: Customer[],
+  links: FamilyMemberLink[] = [],
 ): Case[] {
-  const self = customers.find((c) => c.id === customerId)
-  const root = self ? familyRootId(self) : customerId
-  const groupMemberIds = new Set(customers.filter((c) => familyRootId(c) === root).map((c) => c.id))
+  const groupMemberIds = relatedCustomerIds(customerId, customers, links)
   const joinedCaseIds = new Set(
     applicants.filter((a) => a.customer_id === customerId).map((a) => a.case_id),
   )

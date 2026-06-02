@@ -18,13 +18,20 @@ export interface Accounting {
   companyPaid: number
   /** 还差主代理 = company_total − 已付主代理 */
   companyOwes: number
+  /** 已付介绍人（Σ to_referrer） */
+  referrerPaid: number
+  /** 还差介绍人 = referrer_total − 已付介绍人 */
+  referrerOwes: number
 }
 
 /**
- * 双流账目计算（前端，不入库；金额兼容 numeric 返回的字符串）。
+ * 双流（+介绍人）账目计算（前端，不入库；金额兼容 numeric 返回的字符串）。
  */
 export function computeAccounting(
-  plan: { client_total: AmountLike; company_total: AmountLike } | null | undefined,
+  plan:
+    | { client_total: AmountLike; company_total: AmountLike; referrer_total?: AmountLike }
+    | null
+    | undefined,
   payments: { direction: PaymentDirection; amount: AmountLike }[],
 ): Accounting {
   const sumOf = (dir: PaymentDirection) =>
@@ -32,13 +39,23 @@ export function computeAccounting(
 
   const clientPaid = sumOf('from_client')
   const companyPaid = sumOf('to_company')
+  const referrerPaid = sumOf('to_referrer')
 
   return {
     clientPaid,
     clientOwes: round2(num(plan?.client_total) - clientPaid),
     companyPaid,
     companyOwes: round2(num(plan?.company_total) - companyPaid),
+    referrerPaid,
+    referrerOwes: round2(num(plan?.referrer_total) - referrerPaid),
   }
+}
+
+/** 应付行状态（主代理 / 介绍人）：未设(无应付总额且未付) / 已结清(付清) / 欠(还差>0)。按真实数据派生。 */
+export type PayableStatusKind = 'unset' | 'settled' | 'owing'
+export function payableStatus(total: number | null, paid: number, owes: number): PayableStatusKind {
+  if ((total == null || total === 0) && paid === 0) return 'unset'
+  return owes <= 0 ? 'settled' : 'owing'
 }
 
 /** 分期是否逾期未付（沿用 UTC 天数算法，DST 安全）。 */

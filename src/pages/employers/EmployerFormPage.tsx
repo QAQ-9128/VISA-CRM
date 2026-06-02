@@ -7,6 +7,7 @@ import {
   useUpdateEmployer,
 } from '../../hooks/queries/useEmployers'
 import { BackLink } from '../../components/ui/BackLink'
+import { Card } from '../../components/ui/Card'
 import { LoadingBlock, ErrorBlock } from '../../components/ui/states'
 
 export function EmployerFormPage() {
@@ -37,10 +38,10 @@ export function EmployerFormPage() {
       <div className="mb-3">
         <BackLink to="/employers" label="雇主列表" />
       </div>
-      <h1 className="text-xl font-semibold text-slate-900 md:text-2xl">
+      <h1 className="text-2xl font-bold tracking-[-0.02em] text-ink">
         {editing ? '编辑雇主' : '新建雇主'}
       </h1>
-      <div className="mt-6">
+      <Card className="mt-5">
         <EmployerForm
           initial={editing ? existing.data ?? undefined : undefined}
           submitting={submitting}
@@ -48,7 +49,7 @@ export function EmployerFormPage() {
           onSubmit={handleSubmit}
           onCancel={() => navigate('/employers')}
         />
-      </div>
+      </Card>
     </section>
   )
 }

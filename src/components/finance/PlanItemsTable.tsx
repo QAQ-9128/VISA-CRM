@@ -27,7 +27,7 @@ function AddItemForm({ onAdd, onCancel, pending }: { onAdd: (cat: string, amount
   const [amount, setAmount] = useState('')
   const resolved = cat === FEE_CATEGORY_OTHER ? other.trim() : cat
   return (
-    <div className="grid grid-cols-1 gap-3 rounded-lg border border-indigo-200 bg-indigo-50/40 p-3 md:grid-cols-3">
+    <div className="grid grid-cols-1 gap-3 rounded-lg border border-brand-100 bg-brand-50/40 p-3 md:grid-cols-3">
       <Select
         label="费用类别"
         options={[...FEE_CATEGORIES.map((c) => ({ value: c, label: c })), { value: FEE_CATEGORY_OTHER, label: '其他（手填）' }]}
@@ -152,7 +152,7 @@ export function PlanItemsTable({
                           step="0.01"
                           value={editAmount}
                           onChange={(e) => setEditAmount(e.target.value)}
-                          className="w-28 rounded-lg border border-slate-300 px-2 py-1 text-right text-sm tabular-nums outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200"
+                          className="w-28 rounded-lg border border-slate-300 px-2 py-1 text-right text-sm tabular-nums outline-none focus:border-brand focus:ring-2 focus:ring-brand-100"
                         />
                       ) : (
                         fmt(Number(it.amount_due), currency)
@@ -172,7 +172,7 @@ export function PlanItemsTable({
                         <>
                           <button
                             type="button"
-                            className="text-xs font-medium text-indigo-600 hover:underline"
+                            className="text-xs font-medium text-brand hover:underline"
                             onClick={() => {
                               setEditId(it.id)
                               setEditAmount(String(it.amount_due))

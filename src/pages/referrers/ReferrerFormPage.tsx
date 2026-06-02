@@ -7,6 +7,7 @@ import {
   useUpdateReferrer,
 } from '../../hooks/queries/useReferrers'
 import { BackLink } from '../../components/ui/BackLink'
+import { Card } from '../../components/ui/Card'
 import { LoadingBlock, ErrorBlock } from '../../components/ui/states'
 
 export function ReferrerFormPage() {
@@ -37,10 +38,10 @@ export function ReferrerFormPage() {
       <div className="mb-3">
         <BackLink to="/referrers" label="介绍人列表" />
       </div>
-      <h1 className="text-xl font-semibold text-slate-900 md:text-2xl">
+      <h1 className="text-2xl font-bold tracking-[-0.02em] text-ink">
         {editing ? '编辑介绍人' : '新建介绍人'}
       </h1>
-      <div className="mt-6">
+      <Card className="mt-5">
         <ReferrerForm
           initial={editing ? existing.data ?? undefined : undefined}
           submitting={submitting}
@@ -48,7 +49,7 @@ export function ReferrerFormPage() {
           onSubmit={handleSubmit}
           onCancel={() => navigate('/referrers')}
         />
-      </div>
+      </Card>
     </section>
   )
 }

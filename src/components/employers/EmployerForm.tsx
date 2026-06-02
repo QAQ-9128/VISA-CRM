@@ -50,7 +50,7 @@ export function EmployerForm({ initial, submitting, error, onSubmit, onCancel }:
 
       {error && <p className="rounded-lg bg-rose-50 px-3 py-2 text-sm text-rose-700">{error}</p>}
 
-      <div className="flex gap-3 pt-2">
+      <div className="flex justify-end gap-3 pt-2">
         <Button type="submit" disabled={submitting || name.trim() === ''}>
           {submitting ? '保存中…' : '保存'}
         </Button>

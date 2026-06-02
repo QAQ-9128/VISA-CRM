@@ -31,7 +31,7 @@ function InstallmentRow({ planId, inst, currency }: { planId: string; inst: Inst
             patch: { is_paid: e.target.checked, paid_at: e.target.checked ? todayStr() : null },
           })
         }
-        className="size-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+        className="size-4 rounded border-slate-300 text-brand focus:ring-brand"
       />
       <span className="min-w-0 flex-1 truncate text-sm text-slate-900">{inst.label || '分期'}</span>
       <span className={`text-xs ${overdue ? 'font-medium text-rose-600' : 'text-slate-500'}`}>

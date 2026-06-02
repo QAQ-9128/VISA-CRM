@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { PILL_TONE, PILL_TONES } from './pill'
+import { PILL_TONE, PILL_TONES } from './pillTones'
 
 describe('PILL_TONE（状态标签语义色 → 现有 Tailwind 类名，供统一 Pill 用）', () => {
   it('每个 tone 输出预期的 bg/text 类名', () => {

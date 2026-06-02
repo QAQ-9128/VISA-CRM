@@ -7,6 +7,7 @@ import { useCaseApplicants, useSetCaseApplicants } from '../../hooks/queries/use
 import { relationshipOf, syncStageAction } from '../../lib/caseRelationship'
 import type { Case } from '../../types/models'
 import { BackLink } from '../../components/ui/BackLink'
+import { Card } from '../../components/ui/Card'
 import { LoadingBlock, ErrorBlock } from '../../components/ui/states'
 
 export function CaseFormPage() {
@@ -37,7 +38,7 @@ export function CaseFormPage() {
       <div className="mx-auto max-w-2xl text-center text-slate-500">
         请从客户档案进入新建案件。
         <div className="mt-4">
-          <Link to="/customers" className="text-indigo-600 hover:underline">
+          <Link to="/customers" className="text-brand hover:underline">
             前往客户列表
           </Link>
         </div>
@@ -85,10 +86,10 @@ export function CaseFormPage() {
           label={editing ? '返回案件' : '返回客户档案'}
         />
       </div>
-      <h1 className="text-xl font-semibold text-slate-900 md:text-2xl">
+      <h1 className="text-2xl font-bold tracking-[-0.02em] text-ink">
         {editing ? '编辑案件' : '新建案件'}
       </h1>
-      <div className="mt-6">
+      <Card className="mt-5">
         <CaseForm
           customerId={customerId as string}
           customerLabel={customer.data?.full_name ?? '…'}
@@ -101,7 +102,7 @@ export function CaseFormPage() {
             navigate(editing && id ? `/cases/${id}` : `/customers/${customerId}`)
           }
         />
-      </div>
+      </Card>
     </section>
   )
 }

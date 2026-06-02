@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react'
+import type { FormEvent, ReactNode } from 'react'
 import {
   useCreateRecord,
   useDeleteRecord,
@@ -7,11 +8,20 @@ import {
   useUpdateRecord,
 } from '../../hooks/queries/useRecords'
 import { useProfiles } from '../../hooks/queries/useProfiles'
-import { useAuth } from '../../hooks/useAuth'
-import { recordDate, sortRecords } from '../../lib/records'
+import {
+  recordDate,
+  sortRecords,
+  sortRecordsAsc,
+  filterRecordsByType,
+  recordStats,
+  selectPendingTasks,
+} from '../../lib/records'
+import type { RecordTypeFilter } from '../../lib/records'
 import { formatDueCountdown, isTaskOverdue } from '../../lib/tasks'
 import { FOLLOW_UP_EMOJIS, DEFAULT_FOLLOW_UP_EMOJI } from '../../types/domain'
-import { TrashIcon } from '../ui/icons'
+import { Card, CardHead } from '../ui/Card'
+import { Button } from '../ui/Button'
+import { DocIcon, TrendUpIcon, ClockIcon, TrashIcon } from '../ui/icons'
 import type { RecordRow } from '../../types/models'
 
 interface Scope {
@@ -23,14 +33,14 @@ interface WhoOption {
   name: string
 }
 
-const TD = 'px-2 py-2 align-middle'
+// 待办在标记下拉里的取值（emoji 之外的特殊项）。emoji 集合一律沿用 FOLLOW_UP_EMOJIS，不改动。
 const TASK_VALUE = '__task__'
 
 function alertErr(e: unknown) {
   window.alert('操作失败：' + (e instanceof Error ? e.message : String(e)))
 }
 
-/** 标记下拉：待办 + 全部 emoji，任意行都能在两者间切换（切换 = UPDATE 同一行的 type）。 */
+/** 标记下拉：待办 + 全部 emoji（与原实现完全一致，emoji 不变）。切换 = UPDATE 同一行 type。 */
 function MarkerSelect({ value, disabled, onPick }: { value: string; disabled?: boolean; onPick: (v: string) => void }) {
   return (
     <select
@@ -38,7 +48,7 @@ function MarkerSelect({ value, disabled, onPick }: { value: string; disabled?: b
       value={value}
       disabled={disabled}
       onChange={(e) => onPick(e.target.value)}
-      className="rounded-md border border-slate-200 bg-white px-1 py-1 text-base leading-none outline-none focus:border-indigo-400 disabled:opacity-50"
+      className="rounded-md border border-line-2 bg-white px-1.5 py-1 text-base leading-none outline-none focus:border-brand disabled:opacity-50"
     >
       <option value={TASK_VALUE}>待办</option>
       {FOLLOW_UP_EMOJIS.map((e) => (
@@ -53,7 +63,7 @@ function MarkerSelect({ value, disabled, onPick }: { value: string; disabled?: b
 function InlineText({
   value,
   placeholder,
-  displayClassName = 'text-slate-900',
+  displayClassName = 'text-ink',
   onSave,
 }: {
   value: string
@@ -85,7 +95,7 @@ function InlineText({
             setEditing(false)
           }
         }}
-        className="w-full resize-none rounded border border-indigo-300 px-2 py-1 text-base outline-none focus:ring-2 focus:ring-indigo-200"
+        className="w-full resize-none rounded border border-brand/50 px-2 py-1 text-sm outline-none focus:ring-2 focus:ring-brand-100"
       />
     )
   }
@@ -97,9 +107,9 @@ function InlineText({
         setVal(value)
         setEditing(true)
       }}
-      className={`min-h-[1.75rem] cursor-text whitespace-pre-wrap break-words text-base ${displayClassName}`}
+      className={`cursor-text whitespace-pre-wrap break-words text-sm ${displayClassName}`}
     >
-      {value ? value : <span className="text-slate-300">{placeholder}</span>}
+      {value ? value : <span className="text-faint">{placeholder}</span>}
     </div>
   )
 }
@@ -129,7 +139,7 @@ function InlineDate({
           if (e.target.value !== value) onSave(e.target.value)
         }}
         onBlur={() => setEditing(false)}
-        className="w-[9rem] rounded border border-indigo-300 px-1.5 py-1 text-sm outline-none"
+        className="w-[9rem] rounded border border-brand/50 px-1.5 py-1 text-sm outline-none"
       />
     )
   }
@@ -137,9 +147,9 @@ function InlineDate({
     <button
       type="button"
       onClick={() => setEditing(true)}
-      className={`whitespace-nowrap text-sm tabular-nums ${danger ? 'font-medium text-rose-600' : 'text-slate-600'}`}
+      className={`whitespace-nowrap text-xs tabular-nums ${danger ? 'font-medium text-rose-600' : 'text-faint'}`}
     >
-      {display ? display : <span className="text-slate-300">{placeholder}</span>}
+      {display ? display : <span className="text-faint">{placeholder}</span>}
       {danger ? ' 逾期' : ''}
     </button>
   )
@@ -151,7 +161,7 @@ function WhoSelect({ value, options, onChange }: { value: string | null; options
       aria-label="By who"
       value={value ?? ''}
       onChange={(e) => e.target.value && onChange(e.target.value)}
-      className="max-w-[7.5rem] rounded-md border border-transparent bg-transparent px-1 py-1 text-sm text-slate-600 outline-none hover:border-slate-200 focus:border-indigo-400"
+      className="max-w-[7.5rem] rounded-md border border-transparent bg-transparent px-1 py-0.5 text-xs text-muted outline-none hover:border-line-2 focus:border-brand"
     >
       {!value && <option value="">—</option>}
       {options.map((o) => (
@@ -163,43 +173,46 @@ function WhoSelect({ value, options, onChange }: { value: string | null; options
   )
 }
 
-function RowActions({ onDelete }: { onDelete: () => void }) {
-  return (
-    <button
-      type="button"
-      aria-label="删除"
-      title="删除"
-      onClick={onDelete}
-      className="text-slate-300 opacity-100 transition hover:text-rose-600 sm:opacity-0 sm:group-hover:opacity-100"
-    >
-      <TrashIcon className="size-4" />
-    </button>
-  )
-}
-
-// ── 单条记录行（待办/跟进同表；类型切换 = UPDATE 同一行 type，不再跨表）──────────
-function RecordRowView({ rec, who, today }: { rec: RecordRow; who: WhoOption[]; today: Date }) {
+// ── 时间线单条（待办/跟进同表；保留全部 inline 编辑 + emoji 标记逻辑）──────────
+function TimelineEntry({
+  rec,
+  who,
+  today,
+  isLast,
+}: {
+  rec: RecordRow
+  who: WhoOption[]
+  today: Date
+  isLast: boolean
+}) {
   const update = useUpdateRecord()
   const del = useDeleteRecord()
   const isTask = rec.type === 'task'
   const overdue = isTask && isTaskOverdue(rec.due_date, rec.is_done)
-  const dateStr = recordDate(rec).slice(0, 10)
   const busy = update.isPending
 
   const patch = (p: Parameters<typeof update.mutate>[0]['patch']) =>
     update.mutate({ id: rec.id, patch: p }, { onError: alertErr })
 
   return (
-    <tr className="group border-b border-slate-100 last:border-0 hover:bg-slate-50/60">
-      <td className={`${TD} w-32`}>
-        <div className="flex items-center gap-1.5">
+    <li className="relative flex gap-3.5 pb-5 last:pb-0">
+      {!isLast && <span className="absolute left-[7px] top-5 bottom-0 w-px bg-line-2" aria-hidden />}
+      <span
+        className={`relative z-10 mt-1 size-3.5 shrink-0 rounded-full border-2 border-white ${
+          overdue ? 'bg-rose-500' : isTask && rec.is_done ? 'bg-emerald-500' : 'bg-brand'
+        }`}
+        style={{ boxShadow: '0 0 0 2px var(--color-brand-100)' }}
+        aria-hidden
+      />
+      <div className="min-w-0 flex-1">
+        <div className="flex flex-wrap items-center gap-2">
           {isTask && (
             <input
               type="checkbox"
               checked={rec.is_done}
               disabled={busy}
               onChange={(e) => patch({ is_done: e.target.checked, done_at: e.target.checked ? new Date().toISOString() : null })}
-              className="size-5 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+              className="size-4 rounded border-line-2 text-brand focus:ring-brand"
             />
           )}
           <MarkerSelect
@@ -216,19 +229,34 @@ function RecordRowView({ rec, who, today }: { rec: RecordRow; who: WhoOption[]; 
               }
             }}
           />
+          <span className="rounded-full bg-surface-2 px-2 py-0.5 text-[11px] font-medium text-muted">
+            {isTask ? '待办' : '跟进'}
+          </span>
+          <div className="ml-auto flex items-center gap-1">
+            <WhoSelect value={rec.created_by} options={who} onChange={(id) => patch({ created_by: id })} />
+            <button
+              type="button"
+              aria-label="删除"
+              title="删除"
+              onClick={() => del.mutate(rec.id, { onError: alertErr })}
+              className="text-faint opacity-100 transition hover:text-rose-600 sm:opacity-0 sm:group-hover:opacity-100"
+            >
+              <TrashIcon className="size-4" />
+            </button>
+          </div>
         </div>
-      </td>
-      <td className={TD}>
-        <InlineText
-          value={rec.content}
-          placeholder="点击输入内容…"
-          displayClassName={isTask && rec.is_done ? 'text-slate-400 line-through' : 'text-slate-800'}
-          onSave={(v) => patch({ content: v })}
-        />
-      </td>
-      <td className={`${TD} w-28`}>
-        {isTask ? (
-          <div className="space-y-0.5">
+
+        <div className="mt-1">
+          <InlineText
+            value={rec.content}
+            placeholder="点击输入内容…"
+            displayClassName={isTask && rec.is_done ? 'text-faint line-through' : 'text-body'}
+            onSave={(v) => patch({ content: v })}
+          />
+        </div>
+
+        <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-0.5">
+          {isTask ? (
             <span className="inline-flex items-center gap-1" title="截止日期">
               <span aria-hidden>📅</span>
               <InlineDate
@@ -238,103 +266,128 @@ function RecordRowView({ rec, who, today }: { rec: RecordRow; who: WhoOption[]; 
                 placeholder="设截止日"
                 onSave={(v) => patch({ due_date: v || null })}
               />
+              {!rec.is_done && rec.due_date && (
+                <span className={`text-xs ${overdue ? 'font-medium text-rose-600' : 'text-emerald-600'}`}>
+                  {formatDueCountdown(rec.due_date, today)}
+                </span>
+              )}
             </span>
-            {!rec.is_done && rec.due_date && (
-              <div className={`text-xs ${overdue ? 'font-medium text-rose-600' : 'text-emerald-600'}`}>
-                {formatDueCountdown(rec.due_date, today)}
-              </div>
-            )}
-          </div>
-        ) : (
-          <InlineDate value={rec.created_at.slice(0, 10)} display={dateStr} onSave={(v) => v && patch({ created_at: v })} />
-        )}
-      </td>
-      <td className={`${TD} w-28`}>
-        <WhoSelect value={rec.created_by} options={who} onChange={(id) => patch({ created_by: id })} />
-      </td>
-      <td className={`${TD} w-8 text-right`}>
-        <RowActions onDelete={() => del.mutate(rec.id, { onError: alertErr })} />
-      </td>
-    </tr>
+          ) : (
+            <InlineDate
+              value={rec.created_at.slice(0, 10)}
+              display={recordDate(rec).slice(0, 10)}
+              onSave={(v) => v && patch({ created_at: v })}
+            />
+          )}
+        </div>
+      </div>
+    </li>
   )
 }
 
-// ── 底部常驻空行：选标记 → 输内容 → 失焦/Enter 创建，再生成新空行 ────────────────
-function DraftRow({ scope, currentWho }: { scope: Scope; currentWho: string }) {
+// ── 左上：快速添加记录（标记下拉沿用待办 + emoji，emoji 不变）──────────────────
+function QuickAddCard({ scope }: { scope: Scope }) {
   const create = useCreateRecord()
-  const [type, setType] = useState<'task' | 'follow' | null>(null)
-  const [emoji, setEmoji] = useState<string>(DEFAULT_FOLLOW_UP_EMOJI)
-  const [due, setDue] = useState('')
+  const [marker, setMarker] = useState<string>(DEFAULT_FOLLOW_UP_EMOJI)
+  const [content, setContent] = useState('')
+  const [date, setDate] = useState('')
+  const isTask = marker === TASK_VALUE
 
   function reset() {
-    setType(null)
-    setEmoji(DEFAULT_FOLLOW_UP_EMOJI)
-    setDue('')
+    setContent('')
+    setDate('')
   }
-  function commit(content: string) {
+  function submit(e: FormEvent) {
+    e.preventDefault()
     const c = content.trim()
     if (!c || create.isPending) return
     const opts = { onSuccess: reset, onError: alertErr }
-    if (type === 'follow') {
-      create.mutate({ customer_id: scope.customerId, case_id: scope.caseId ?? null, type: 'follow_up', content: c, emoji_marker: emoji }, opts)
+    if (isTask) {
+      create.mutate(
+        { customer_id: scope.customerId, case_id: scope.caseId ?? null, type: 'task', content: c, due_date: date || null },
+        opts,
+      )
     } else {
-      create.mutate({ customer_id: scope.customerId, case_id: scope.caseId ?? null, type: 'task', content: c, due_date: due || null }, opts)
+      create.mutate(
+        {
+          customer_id: scope.customerId,
+          case_id: scope.caseId ?? null,
+          type: 'follow_up',
+          content: c,
+          emoji_marker: marker,
+          ...(date ? { created_at: `${date}T00:00:00Z` } : {}),
+        },
+        opts,
+      )
     }
   }
 
-  const markerValue = type === 'follow' ? emoji : type === 'task' ? TASK_VALUE : ''
-
   return (
-    <tr className="border-b border-dashed border-slate-200 bg-slate-50/40">
-      <td className={`${TD} w-32`}>
-        <select
-          aria-label="选择标记"
-          value={markerValue}
-          onChange={(e) => {
-            const v = e.target.value
-            if (v === '') setType(null)
-            else if (v === TASK_VALUE) setType('task')
-            else {
-              setType('follow')
-              setEmoji(v)
-            }
-          }}
-          className="rounded-md border border-slate-200 bg-white px-1 py-1 text-base outline-none focus:border-indigo-400"
-        >
-          <option value="">＋标记</option>
-          <option value={TASK_VALUE}>☐ 待办</option>
-          {FOLLOW_UP_EMOJIS.map((e) => (
-            <option key={e} value={e}>
-              {e}
-            </option>
-          ))}
-        </select>
-      </td>
-      <td className={TD}>
-        <InlineText value="" placeholder="点击添加内容…" onSave={commit} />
-      </td>
-      <td className={`${TD} w-28`}>
-        {type === 'follow' ? (
-          <span className="text-sm text-slate-300">创建日（自动）</span>
-        ) : (
-          <span className="inline-flex items-center gap-1" title="截止日期">
-            <span aria-hidden>📅</span>
-            <InlineDate value={due} display={due} placeholder="设截止日" onSave={setDue} />
-          </span>
-        )}
-      </td>
-      <td className={`${TD} w-28 truncate text-sm text-slate-400`} title={currentWho}>
-        {currentWho}
-      </td>
-      <td className={`${TD} w-8`} />
-    </tr>
+    <Card>
+      <CardHead title="快速添加记录" />
+      <form onSubmit={submit} className="grid grid-cols-1 gap-3 sm:grid-cols-[11rem_1fr]">
+        <label className="space-y-1.5">
+          <span className="block text-[13px] font-semibold text-body">标记</span>
+          <select
+            value={marker}
+            onChange={(e) => setMarker(e.target.value)}
+            className="h-11 w-full rounded-[12px] border border-line-2 bg-white px-3 text-[15px] outline-none focus:border-brand"
+          >
+            <option value={TASK_VALUE}>待办</option>
+            {FOLLOW_UP_EMOJIS.map((e) => (
+              <option key={e} value={e}>
+                {e} 跟进
+              </option>
+            ))}
+          </select>
+        </label>
+        <label className="space-y-1.5">
+          <span className="block text-[13px] font-semibold text-body">内容</span>
+          <textarea
+            value={content}
+            onChange={(e) => setContent(e.target.value)}
+            rows={2}
+            placeholder="请输入记录内容…"
+            className="w-full resize-none rounded-[12px] border border-line-2 bg-white px-3 py-2 text-sm outline-none focus:border-brand"
+          />
+        </label>
+        <label className="space-y-1.5">
+          <span className="block text-[13px] font-semibold text-body">{isTask ? '截止日期' : '记录日期'}</span>
+          <input
+            type="date"
+            value={date}
+            onChange={(e) => setDate(e.target.value)}
+            className="h-11 w-full rounded-[12px] border border-line-2 bg-white px-3 text-[15px] text-ink outline-none focus:border-brand"
+          />
+        </label>
+        <div className="flex items-end justify-end">
+          <Button type="submit" disabled={create.isPending || content.trim() === ''}>
+            {create.isPending ? '保存中…' : '保存记录'}
+          </Button>
+        </div>
+      </form>
+    </Card>
   )
 }
 
-/** 待办 + 跟进合并的「记录」表（单表 records，Excel 式 inline 编辑）。 */
-export function RecordsSection({ customerId, caseId }: Scope) {
+// ── 右上：记录统计 ───────────────────────────────────────────
+function StatRow({ icon, tone, label, value }: { icon: ReactNode; tone: string; label: string; value: number }) {
+  return (
+    <li className="flex items-center gap-3">
+      <span className={`grid size-9 shrink-0 place-items-center rounded-[11px] ${tone}`}>{icon}</span>
+      <span className="text-sm text-body">{label}</span>
+      <span className="ml-auto text-[20px] font-bold tabular-nums text-ink">{value}</span>
+    </li>
+  )
+}
+
+/**
+ * 记录区：客户详情（按客户）或案件详情（按案件）复用。
+ * variant='full'（默认）：两栏 = 左 快速添加+时间线 / 右 统计卡+待跟进。
+ * variant='compact'：单列（窄栏用），统计收成一行小字，无大统计卡——功能不变。
+ */
+export function RecordsSection({ customerId, caseId, variant = 'full' }: Scope & { variant?: 'full' | 'compact' }) {
   const scope: Scope = { customerId, caseId }
-  const { user } = useAuth()
   const byCase = useRecordsByCase(caseId)
   const byCustomer = useRecordsByCustomer(caseId ? undefined : customerId)
   const query = caseId ? byCase : byCustomer
@@ -344,47 +397,162 @@ export function RecordsSection({ customerId, caseId }: Scope) {
     () => (profiles.data ?? []).map((p) => ({ id: p.id, name: p.full_name ?? '—' })),
     [profiles.data],
   )
-  const currentWho = useMemo(() => {
-    const me = (profiles.data ?? []).find((p) => p.id === user?.id)
-    return me?.full_name ?? '我'
-  }, [profiles.data, user?.id])
 
-  const records = useMemo(() => sortRecords(query.data ?? []), [query.data])
+  const all = useMemo(() => query.data ?? [], [query.data])
   const today = useMemo(() => new Date(), [])
-  const todayStr = useMemo(() => {
-    const d = today
-    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
-  }, [today])
+  const stats = useMemo(() => recordStats(all, today), [all, today])
+  const pending = useMemo(() => selectPendingTasks(all), [all])
+
+  const [filter, setFilter] = useState<RecordTypeFilter>('all')
+  const [newestFirst, setNewestFirst] = useState(true)
+  const [visible, setVisible] = useState(8)
+
+  const filtered = useMemo(() => {
+    const byType = filterRecordsByType(all, filter)
+    return newestFirst ? sortRecords(byType) : sortRecordsAsc(byType)
+  }, [all, filter, newestFirst])
+  const shown = filtered.slice(0, visible)
+
+  const FILTERS: { value: RecordTypeFilter; label: string }[] = [
+    { value: 'all', label: '全部' },
+    { value: 'follow_up', label: '跟进' },
+    { value: 'task', label: '待办' },
+  ]
+
+  const timeline = (
+    <Card pad={false}>
+      <div className="flex flex-wrap items-center justify-between gap-3 px-[22px] pt-[22px]">
+        <h3 className="text-base font-bold tracking-[-0.01em] text-ink">记录时间线</h3>
+        <select
+          value={newestFirst ? 'desc' : 'asc'}
+          onChange={(e) => setNewestFirst(e.target.value === 'desc')}
+          className="h-9 rounded-full border border-line-2 bg-white px-3 text-sm text-ink outline-none focus:border-brand"
+        >
+          <option value="desc">最新在前</option>
+          <option value="asc">最早在前</option>
+        </select>
+      </div>
+
+      <div className="mt-3 flex flex-wrap gap-2 px-[22px]">
+        {FILTERS.map((f) => (
+          <button
+            key={f.value}
+            type="button"
+            onClick={() => {
+              setFilter(f.value)
+              setVisible(8)
+            }}
+            className={`rounded-full px-3 py-1 text-[13px] font-medium transition-colors ${
+              filter === f.value ? 'bg-brand text-white' : 'bg-surface-2 text-muted hover:bg-line-2'
+            }`}
+          >
+            {f.label}
+          </button>
+        ))}
+      </div>
+
+      <div className="px-[22px] py-4">
+        {query.isPending ? (
+          <p className="text-sm text-faint">加载记录…</p>
+        ) : shown.length === 0 ? (
+          <p className="py-6 text-center text-sm text-faint">暂无记录，可在上方「快速添加记录」。</p>
+        ) : (
+          <ol className="group">
+            {shown.map((r, i) => (
+              <TimelineEntry key={r.id} rec={r} who={whoOptions} today={today} isLast={i === shown.length - 1} />
+            ))}
+          </ol>
+        )}
+        {filtered.length > visible && (
+          <div className="pt-1 text-center">
+            <button
+              type="button"
+              onClick={() => setVisible((v) => v + 8)}
+              className="text-sm font-semibold text-brand hover:text-brand-600"
+            >
+              加载更多 ⌄
+            </button>
+          </div>
+        )}
+      </div>
+    </Card>
+  )
+
+  const pendingCard = (
+    <Card>
+      <CardHead title="待跟进事项" />
+      {pending.length === 0 ? (
+        <p className="text-sm text-faint">暂无未完成待办。</p>
+      ) : (
+        <ul className="space-y-2.5">
+          {pending.slice(0, 4).map((t) => {
+            const overdue = isTaskOverdue(t.due_date, t.is_done)
+            return (
+              <li key={t.id} className="rounded-[14px] bg-surface-2 px-3.5 py-2.5">
+                <p className="text-sm font-semibold text-ink">{t.content}</p>
+                {t.due_date && (
+                  <p className={`mt-1 flex items-center gap-1 text-xs tabular-nums ${overdue ? 'font-medium text-rose-600' : 'text-faint'}`}>
+                    <span aria-hidden>📅</span>
+                    {t.due_date}
+                    {overdue ? ' · 逾期' : ''}
+                  </p>
+                )}
+              </li>
+            )
+          })}
+        </ul>
+      )}
+      {pending.length > 0 && (
+        <button
+          type="button"
+          onClick={() => {
+            setFilter('task')
+            setVisible(Math.max(visible, pending.length))
+          }}
+          className="mt-3 text-[13px] font-semibold text-brand hover:text-brand-600"
+        >
+          查看全部待跟进 ({pending.length}) ›
+        </button>
+      )}
+    </Card>
+  )
+
+  // compact：单列，统计收成一行小字（KPI 横条才是统计唯一来源）
+  if (variant === 'compact') {
+    return (
+      <div className="space-y-5">
+        <QuickAddCard scope={scope} />
+        <div className="flex flex-wrap gap-x-5 gap-y-1 px-1 text-[13px] text-muted">
+          <span>总记录 <b className="tabular-nums text-ink">{stats.total}</b></span>
+          <span>本周 <b className="tabular-nums text-ink">{stats.thisWeek}</b></span>
+          <span>待跟进 <b className="tabular-nums text-ink">{stats.pending}</b></span>
+        </div>
+        {timeline}
+        {pendingCard}
+      </div>
+    )
+  }
 
   return (
-    <section className="space-y-2">
-      <h2 className="text-base font-semibold text-slate-900">
-        记录 <span className="text-xs font-normal text-slate-400">· 今天 {todayStr}</span>
-      </h2>
+    <div className="grid grid-cols-1 gap-5 lg:grid-cols-3">
+      {/* 左主区 */}
+      <div className="space-y-5 lg:col-span-2">
+        <QuickAddCard scope={scope} />
+        {timeline}
+      </div>
 
-      {query.isPending ? (
-        <p className="text-sm text-slate-400">加载记录…</p>
-      ) : (
-        <div className="-mx-4 overflow-x-auto px-4 md:mx-0 md:px-0">
-          <table className="w-full min-w-[36rem] border-collapse">
-            <thead>
-              <tr className="border-b border-slate-200 text-left text-sm font-medium text-slate-500">
-                <th className="px-2 py-2">标记</th>
-                <th className="px-2 py-2">内容</th>
-                <th className="px-2 py-2">更新日期</th>
-                <th className="px-2 py-2">By who</th>
-                <th className="w-8 px-2 py-2"></th>
-              </tr>
-            </thead>
-            <tbody>
-              {records.map((r) => (
-                <RecordRowView key={r.id} rec={r} who={whoOptions} today={today} />
-              ))}
-              <DraftRow scope={scope} currentWho={currentWho} />
-            </tbody>
-          </table>
-        </div>
-      )}
-    </section>
+      {/* 右侧栏 */}
+      <div className="space-y-5">
+        <Card>
+          <CardHead title="记录统计" />
+          <ul className="space-y-4">
+            <StatRow icon={<DocIcon className="size-[18px]" />} tone="bg-brand-50 text-brand" label="总记录" value={stats.total} />
+            <StatRow icon={<TrendUpIcon className="size-[18px]" />} tone="bg-emerald-50 text-emerald-600" label="本周新增" value={stats.thisWeek} />
+            <StatRow icon={<ClockIcon className="size-[18px]" />} tone="bg-amber-50 text-amber-600" label="待跟进" value={stats.pending} />
+          </ul>
+        </Card>
+        {pendingCard}
+      </div>
+    </div>
   )
 }

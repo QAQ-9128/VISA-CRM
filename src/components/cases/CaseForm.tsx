@@ -6,6 +6,7 @@ import { VisaSubclassField } from './VisaSubclassField'
 import { ParentCaseField } from './ParentCaseField'
 import { useCustomers } from '../../hooks/queries/useCustomers'
 import { useCases } from '../../hooks/queries/useCases'
+import { useFamilyLinks } from '../../hooks/queries/useFamilyLinks'
 import { selectFamilyGroupMembers } from '../../lib/family'
 import { parentCaseDropdown } from '../../lib/parentCase'
 import { relationshipOf, relationshipPatch } from '../../lib/caseRelationship'
@@ -67,9 +68,10 @@ export function CaseForm({
 
   const is482 = visaSubclass.trim().startsWith('482')
 
-  // 候选副申请人 = 与主申同家庭组的其他成员（双向：主申↔副申、同主申的副申之间）
+  // 候选副申请人 = 与主申同「案件家庭组」的其他成员（primary_applicant_id 家族 + 关联现有客户）
   const allCustomers = useCustomers({})
   const allCases = useCases()
+  const familyLinks = useFamilyLinks()
 
   function toggleApplicant(id: string) {
     setApplicantIds((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]))
@@ -94,7 +96,7 @@ export function CaseForm({
     )
   }
 
-  const candidates = selectFamilyGroupMembers(customerId, allCustomers.data ?? [])
+  const candidates = selectFamilyGroupMembers(customerId, allCustomers.data ?? [], familyLinks.data ?? [])
   const customersData = allCustomers.data ?? []
   const casesData = allCases.data ?? []
   // 主案件下拉：严格只列家庭主申名下案件（排除归档/本案、created_at 倒序）+ 空态判定
@@ -120,7 +122,7 @@ export function CaseForm({
   return (
     <form onSubmit={handleSubmit} className="space-y-5">
       <div className="space-y-1.5">
-        <span className="block text-sm font-medium text-slate-700">主申请客户</span>
+        <span className="block text-sm font-semibold text-body">主申请客户</span>
         <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm text-slate-700">
           {customerLabel}
         </div>
@@ -141,7 +143,7 @@ export function CaseForm({
             type="checkbox"
             checked={trtReminder}
             onChange={(e) => setTrtReminder(e.target.checked)}
-            className="mt-0.5 size-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+            className="mt-0.5 size-4 rounded border-slate-300 text-brand focus:ring-brand"
           />
           <span>
             2 年转 186 TRT 提醒
@@ -152,8 +154,8 @@ export function CaseForm({
         </label>
       )}
 
-      <fieldset className="rounded-xl border border-slate-200 p-4">
-        <legend className="px-1 text-sm font-medium text-slate-600">副申请人 / 财务核算</legend>
+      <fieldset className="rounded-[14px] border border-line-2 p-4">
+        <legend className="px-1 text-sm font-semibold text-body">副申请人 / 财务核算</legend>
         <div className="space-y-3">
           {candidates.length === 0 ? (
             <p className="text-sm text-slate-400">同家庭组暂无其他成员可作副申请人。可先到客户档案添加家庭成员。</p>
@@ -166,7 +168,7 @@ export function CaseForm({
                     type="checkbox"
                     checked={applicantIds.includes(c.id)}
                     onChange={() => toggleApplicant(c.id)}
-                    className="size-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+                    className="size-4 rounded border-slate-300 text-brand focus:ring-brand"
                   />
                   {c.full_name}
                   {c.relationship_to_primary ? <span className="text-slate-400">（{c.relationship_to_primary}）</span> : null}
@@ -181,7 +183,7 @@ export function CaseForm({
                 type="checkbox"
                 checked={financeCombined}
                 onChange={(e) => setFinanceCombined(e.target.checked)}
-                className="mt-0.5 size-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+                className="mt-0.5 size-4 rounded border-slate-300 text-brand focus:ring-brand"
               />
               <span>
                 财务合并核算（勾选 = 主申 + 副申账单合并、一起算；不勾 = 按申请人 / 组别分开算）
@@ -194,8 +196,8 @@ export function CaseForm({
         </div>
       </fieldset>
 
-      <fieldset className="rounded-xl border border-slate-200 p-4">
-        <legend className="px-1 text-sm font-medium text-slate-600">与其他案件的关系</legend>
+      <fieldset className="rounded-[14px] border border-line-2 p-4">
+        <legend className="px-1 text-sm font-semibold text-body">与其他案件的关系</legend>
         <div className="space-y-3">
           <div className="space-y-2">
             {RELATIONSHIP_OPTIONS.map((opt) => {
@@ -212,7 +214,7 @@ export function CaseForm({
                     disabled={disabled}
                     checked={relationship === opt.value}
                     onChange={() => setRelationship(opt.value)}
-                    className="size-4 border-slate-300 text-indigo-600 focus:ring-indigo-500"
+                    className="size-4 border-slate-300 text-brand focus:ring-brand"
                   />
                   {opt.label}
                 </label>
@@ -233,7 +235,7 @@ export function CaseForm({
                 customerNameById={customerNameById}
               />
               {relationship === 'synced' && (
-                <p className="rounded-lg bg-indigo-50 px-3 py-2 text-xs text-indigo-700">
+                <p className="rounded-lg bg-brand-50 px-3 py-2 text-xs text-brand">
                   🔗 主案件 stage 变化将自动同步到本案件。
                 </p>
               )}
@@ -249,7 +251,7 @@ export function CaseForm({
 
       {error && <p className="rounded-lg bg-rose-50 px-3 py-2 text-sm text-rose-700">{error}</p>}
 
-      <div className="flex gap-3 pt-2">
+      <div className="flex justify-end gap-3 pt-2">
         <Button type="submit" disabled={submitting || visaSubclass.trim() === '' || relationshipIncomplete}>
           {submitting ? '保存中…' : '保存'}
         </Button>

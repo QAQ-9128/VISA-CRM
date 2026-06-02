@@ -61,6 +61,22 @@ export const CASE_STAGE_STYLES: Record<CaseStage, string> = {
   additional_docs: 'bg-orange-100 text-orange-800', // 旧数据兼容
 }
 
+/** 阶段实心十六进制色（图表条/圆点用；与 CASE_STAGE_STYLES 同语义，供非 Tailwind 场景） */
+export const CASE_STAGE_COLOR: Record<CaseStage, string> = {
+  todo: '#94a3b8',
+  drafted: '#f59e0b',
+  nomination_lodged: '#4361ee',
+  nomination_approved: '#06b6d4',
+  visa_lodged: '#7c5cfc',
+  docs_requested: '#f97316',
+  docs_completed: '#14b8a6',
+  granted: '#16a34a',
+  refused: '#ef4444',
+  appeal: '#a855f7',
+  withdrawn: '#71717a',
+  additional_docs: '#f97316', // 旧数据兼容
+}
+
 // ── 递交类型 ─────────────────────────────────────────
 export const LODGEMENT_TYPES = ['nomination', 'visa'] as const
 export type LodgementType = (typeof LODGEMENT_TYPES)[number]

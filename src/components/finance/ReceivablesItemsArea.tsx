@@ -36,7 +36,7 @@ export function ReceivablesItemsArea({
           type="checkbox"
           checked={stagedOn}
           onChange={(e) => toggle(e.target.checked)}
-          className="mt-0.5 size-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+          className="mt-0.5 size-4 rounded border-slate-300 text-brand focus:ring-brand"
         />
         <span>
           分阶段收费

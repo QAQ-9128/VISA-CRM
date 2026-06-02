@@ -11,11 +11,14 @@ export function PagePlaceholder({
   children?: ReactNode
 }) {
   return (
-    <section className="mx-auto max-w-5xl">
-      <h1 className="text-xl font-semibold text-slate-900 md:text-2xl">{title}</h1>
-      {description && <p className="mt-1 text-sm text-slate-500">{description}</p>}
-      <div className="mt-6 rounded-xl border border-dashed border-slate-300 bg-white p-8 text-center text-sm text-slate-400">
-        {children ?? '此页面将在后续阶段实现'}
+    <section className="mx-auto max-w-5xl space-y-5">
+      <div>
+        <h1 className="text-2xl font-bold tracking-[-0.02em] text-ink">{title}</h1>
+        {description && <p className="mt-1 text-sm text-muted">{description}</p>}
+      </div>
+      <div className="flex flex-col items-center gap-2 rounded-card bg-white px-4 py-14 text-center shadow-soft">
+        <div className="grid size-14 place-items-center rounded-[18px] bg-surface-2 text-3xl">🚧</div>
+        <p className="text-sm text-faint">{children ?? '此页面将在后续阶段实现'}</p>
       </div>
     </section>
   )

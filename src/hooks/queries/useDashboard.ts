@@ -5,15 +5,24 @@ import {
   getActiveCustomers,
   getAllPaymentPlans,
   getAllPayments,
+  getExpiringDocuments,
   getUnpaidInstallments,
 } from '../../api/dashboard'
 import { getAllPlanItems } from '../../api/payments'
+import { listAllLodgements } from '../../api/lodgements'
 import {
+  caseStageDistribution,
   computeDebtTotals,
+  countActiveCases,
+  monthlyClientReceipts,
+  monthOverMonth,
   selectCustomerDebts,
+  selectExpiringDocs,
+  selectLodgementProgressRows,
   selectOverdueInstallments,
   selectTodoCases,
   sortPriorityCustomers,
+  sumClientReceiptsInMonth,
 } from '../../lib/dashboard'
 import { getOpenTaskRecords } from '../../api/records'
 import { listAllStageHistory } from '../../api/cases'
@@ -49,8 +58,10 @@ export function useDashboard() {
   const planItems = useQuery({ queryKey: queryKeys.dashboard.planItems, queryFn: getAllPlanItems })
   const openTasks = useQuery({ queryKey: queryKeys.records.openTasks, queryFn: getOpenTaskRecords })
   const stageHistory = useQuery({ queryKey: queryKeys.cases.stageHistoryAll, queryFn: listAllStageHistory })
+  const lodgements = useQuery({ queryKey: queryKeys.lodgements.lodged, queryFn: listAllLodgements })
+  const expiringDocs = useQuery({ queryKey: queryKeys.dashboard.expiringDocs, queryFn: getExpiringDocuments })
 
-  const all = [unpaidInstallments, activeCases, activeCustomers, plans, payments, planItems, openTasks, stageHistory]
+  const all = [unpaidInstallments, activeCases, activeCustomers, plans, payments, planItems, openTasks, stageHistory, lodgements, expiringDocs]
   const isPending = all.some((q) => q.isPending)
   const isError = all.some((q) => q.isError)
 
@@ -107,6 +118,41 @@ export function useDashboard() {
     [activeCases.data, stageHistory.data, customerById],
   )
 
+  // ── 概览统计卡（全真实数据）─────────────────────────────
+  const activeCaseCount = useMemo(() => countActiveCases(activeCases.data ?? []), [activeCases.data])
+  const activeCustomerCount = (activeCustomers.data ?? []).length
+  const stageDistribution = useMemo(
+    () => caseStageDistribution(activeCases.data ?? []),
+    [activeCases.data],
+  )
+  // 本月收款 + 月环比 + 近 6 月序列（按 paid_at 落月，from_client 方向）
+  const { thisMonthReceipts, receiptsMoM, revenueSeries } = useMemo(() => {
+    const now = new Date()
+    const y = now.getFullYear()
+    const m = now.getMonth()
+    const prevY = m === 0 ? y - 1 : y
+    const prevM = m === 0 ? 11 : m - 1
+    const list = payments.data ?? []
+    const cur = sumClientReceiptsInMonth(list, y, m)
+    const prev = sumClientReceiptsInMonth(list, prevY, prevM)
+    return {
+      thisMonthReceipts: cur,
+      receiptsMoM: monthOverMonth(cur, prev),
+      revenueSeries: monthlyClientReceipts(list, y, m, 6),
+    }
+  }, [payments.data])
+
+  // 即将到期（文档 ≤30 天/已过期）
+  const expiringDocItems = useMemo(
+    () => selectExpiringDocs(expiringDocs.data ?? [], customerById),
+    [expiringDocs.data, customerById],
+  )
+  // 递交进度行（递交日期/状态从 stage_history 派生）
+  const lodgementRows = useMemo(
+    () => selectLodgementProgressRows(lodgements.data ?? [], stageHistory.data ?? [], caseById, customerById),
+    [lodgements.data, stageHistory.data, caseById, customerById],
+  )
+
   return {
     isPending,
     isError,
@@ -117,6 +163,16 @@ export function useDashboard() {
     myOpenTasks,
     todoCases,
     trtReminders,
+    // 统计卡 / 阶段分布（全真实数据派生）
+    activeCaseCount,
+    activeCustomerCount,
+    stageDistribution,
+    thisMonthReceipts,
+    receiptsMoM,
+    revenueSeries,
+    // Layout A 新模块
+    expiringDocItems,
+    lodgementRows,
     // 供「我的待办」按 customer_id 显示并链接客户名
     customerById,
   }

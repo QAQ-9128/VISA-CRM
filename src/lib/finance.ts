@@ -296,8 +296,9 @@ export function selectFinanceReceipts(
     if (p.direction !== 'from_client') continue
     const c = caseById[p.case_id]
     const caseCustomerId = c?.customer_id ?? ''
-    // 实际付款方：from_client_customer_id 优先，为空回落案件主申
-    const payerId = p.from_client_customer_id ?? caseCustomerId
+    // 显示归属：实际付款方(from_client) > 账单归属申请人(applicant_id) > 案件主申。
+    // 副申自己的账（applicant_id=副申）即使没单独填付款方，也显示副申，不再误挂主申。
+    const payerId = p.from_client_customer_id ?? p.applicant_id ?? caseCustomerId
     const payerName = customerById[payerId]?.full_name ?? customerById[caseCustomerId]?.full_name ?? ''
     total += Math.max(0, num(p.amount))
     items.push({
@@ -354,7 +355,9 @@ export function selectFinancePayouts(
   for (const p of payments) {
     if (p.direction !== 'to_company' && p.direction !== 'to_referrer') continue
     const c = caseById[p.case_id]
-    const customer = c ? customerById[c.customer_id] : undefined
+    // 账单归属申请人优先（副申自己的账显示副申），回落案件主申
+    const ownerId = p.applicant_id ?? c?.customer_id
+    const customer = ownerId ? customerById[ownerId] : undefined
     const referrer =
       p.direction === 'to_referrer' && customer?.referrer_id
         ? referrerById[customer.referrer_id]
@@ -412,4 +415,40 @@ export function selectCustomerFinance(
     receipts: selectFinanceReceipts(myPayments, caseById, customerById),
     payouts: selectFinancePayouts(myPayments, caseById, customerById, referrerById),
   }
+}
+
+// ── 月度账目「合并流水」：收入(收款) + 支出(付主代理/付介绍人) 合并成一张按日期排序的表 ──
+// 纯展示派生：不改双流记账，只把现有 receipts/payouts 合并、排序、按视图筛选。
+export type LedgerView = 'all' | 'income' | 'expense'
+
+export type LedgerRow =
+  | { kind: 'receipt'; id: string; date: string | null; item: ReceiptItem }
+  | { kind: 'payout'; id: string; date: string | null; item: PayoutItem }
+
+/** 合并收/支为一张流水：按日期倒序（最新在前），无日期排最后，同日按 id 稳定。 */
+export function selectLedgerRows(receipts: FinanceReceipts, payouts: FinancePayouts): LedgerRow[] {
+  const rows: LedgerRow[] = [
+    ...receipts.items.map((item): LedgerRow => ({ kind: 'receipt', id: item.paymentId, date: item.paidAt, item })),
+    ...payouts.items.map((item): LedgerRow => ({ kind: 'payout', id: item.paymentId, date: item.paidAt, item })),
+  ]
+  return rows.sort((a, b) => {
+    if (a.date && b.date) return b.date.localeCompare(a.date) || a.id.localeCompare(b.id)
+    if (a.date) return -1
+    if (b.date) return 1
+    return a.id.localeCompare(b.id)
+  })
+}
+
+/** 全部 / 收入(收款) / 支出(付主代理+付介绍人) 过滤。 */
+export function filterLedgerRows(rows: LedgerRow[], view: LedgerView): LedgerRow[] {
+  if (view === 'income') return rows.filter((r) => r.kind === 'receipt')
+  if (view === 'expense') return rows.filter((r) => r.kind === 'payout')
+  return rows
+}
+
+/** 合并表笔数统计：总 / 收入 / 支出（供表头「共 N 笔(收入 X · 支出 Y)」用）。 */
+export function ledgerCounts(rows: LedgerRow[]): { total: number; income: number; expense: number } {
+  let income = 0
+  for (const r of rows) if (r.kind === 'receipt') income++
+  return { total: rows.length, income, expense: rows.length - income }
 }

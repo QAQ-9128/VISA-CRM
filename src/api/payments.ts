@@ -92,6 +92,16 @@ export async function listInstallments(planId: string): Promise<Installment[]> {
   return data ?? []
 }
 
+/** 全部分期节点（财务页「分期进度 / 下一期」用，按计划在前端归集）。 */
+export async function getAllInstallments(): Promise<Installment[]> {
+  const { data, error } = await supabase
+    .from('installments')
+    .select('*')
+    .order('due_date', { ascending: true, nullsFirst: false })
+  if (error) throw error
+  return data ?? []
+}
+
 export async function createInstallment(input: InstallmentInsert): Promise<Installment> {
   const { data, error } = await supabase.from('installments').insert(input).select().single()
   if (error) throw error

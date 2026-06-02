@@ -6,7 +6,7 @@ import { useFamilyLinks, useCreateFamilyLink } from '../../hooks/queries/useFami
 import { selectLinkCandidates } from '../../lib/familyLinks'
 
 const inputCls =
-  'block min-h-11 w-full rounded-lg border border-slate-300 bg-white px-3 text-base text-slate-900 outline-none transition-colors focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200'
+  'block min-h-11 w-full rounded-lg border border-slate-300 bg-white px-3 text-base text-slate-900 outline-none transition-colors focus:border-brand focus:ring-2 focus:ring-brand-100'
 
 /**
  * 「关联现有客户」为某主申的副申：搜索全部客户(排除本人/原生副申/已关联) → 选一个 + 关系 → 建 family_member_links。
@@ -54,7 +54,7 @@ export function LinkExistingCustomer({ primaryId }: { primaryId: string }) {
   const saveErr = create.error instanceof Error ? create.error.message : create.error ? '保存失败' : null
 
   return (
-    <div className="w-full space-y-3 rounded-xl border border-indigo-200 bg-indigo-50/40 p-4">
+    <div className="w-full space-y-3 rounded-xl border border-brand-100 bg-brand-50/40 p-4">
       <p className="text-sm font-medium text-slate-700">
         关联现有客户为副申
         <span className="mt-0.5 block text-xs text-slate-400">

@@ -21,24 +21,31 @@ export function MonthSelector({
         aria-label="上个月"
         disabled={isAll}
         onClick={() => onChange(shiftMonth(ym, -1))}
-        className="flex size-9 items-center justify-center rounded-lg border border-slate-300 text-slate-600 hover:bg-slate-50 disabled:opacity-40"
+        className="flex size-9 items-center justify-center rounded-xl border border-line-2 bg-white text-muted hover:bg-surface-2 disabled:opacity-40"
       >
         ‹
       </button>
 
-      <input
-        type="month"
-        value={ym}
-        onChange={(e) => onChange(e.target.value || null)}
-        className="min-h-9 rounded-lg border border-slate-300 bg-white px-2 text-sm text-slate-900 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200"
-      />
+      <label
+        className={`inline-flex h-9 items-center gap-1.5 rounded-xl border border-line-2 bg-white px-3 text-sm font-semibold focus-within:border-brand focus-within:ring-2 focus-within:ring-brand-100 ${
+          isAll ? 'text-faint' : 'text-ink'
+        }`}
+      >
+        <span aria-hidden>📅</span>
+        <input
+          type="month"
+          value={ym}
+          onChange={(e) => onChange(e.target.value || null)}
+          className="bg-transparent text-sm outline-none [color-scheme:light]"
+        />
+      </label>
 
       <button
         type="button"
         aria-label="下个月"
         disabled={isAll}
         onClick={() => onChange(shiftMonth(ym, 1))}
-        className="flex size-9 items-center justify-center rounded-lg border border-slate-300 text-slate-600 hover:bg-slate-50 disabled:opacity-40"
+        className="flex size-9 items-center justify-center rounded-xl border border-line-2 bg-white text-muted hover:bg-surface-2 disabled:opacity-40"
       >
         ›
       </button>
@@ -46,16 +53,16 @@ export function MonthSelector({
       <button
         type="button"
         onClick={() => onChange(isAll ? currentMonth() : null)}
-        className={`min-h-9 rounded-lg border px-3 text-sm ${
+        className={`h-9 rounded-xl border px-4 text-sm font-semibold transition-colors ${
           isAll
-            ? 'border-indigo-500 bg-indigo-50 font-medium text-indigo-700'
-            : 'border-slate-300 text-slate-600 hover:bg-slate-50'
+            ? 'border-brand bg-brand text-white shadow-xs'
+            : 'border-line-2 bg-white text-body hover:bg-surface-2'
         }`}
       >
         全部
       </button>
 
-      <span className="text-sm text-slate-400">{isAll ? '所有时间' : monthLabel(ym)}</span>
+      <span className="text-sm text-faint">{isAll ? '所有时间' : monthLabel(ym)}</span>
     </div>
   )
 }

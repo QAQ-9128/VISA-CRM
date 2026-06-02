@@ -118,11 +118,21 @@ export function useInstallments(planId: string | undefined) {
   })
 }
 
+/**
+ * 分期变更后，同时失效「按计划」（付款区用）+ 财务页全量分期（finance.installments，应收管理分期进度用）
+ * + 概览逾期分期（dashboard.unpaidInstallments）。保证分期与财务/概览同源、改一处处处刷新。
+ */
+function invalidateInstallments(qc: QueryClient, planId: string) {
+  qc.invalidateQueries({ queryKey: queryKeys.payments.installments(planId) })
+  qc.invalidateQueries({ queryKey: queryKeys.finance.installments })
+  qc.invalidateQueries({ queryKey: queryKeys.dashboard.unpaidInstallments })
+}
+
 export function useCreateInstallment(planId: string) {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: (input: InstallmentInsert) => createInstallment(input),
-    onSuccess: () => qc.invalidateQueries({ queryKey: queryKeys.payments.installments(planId) }),
+    onSuccess: () => invalidateInstallments(qc, planId),
   })
 }
 
@@ -131,7 +141,7 @@ export function useUpdateInstallment(planId: string) {
   return useMutation({
     mutationFn: ({ id, patch }: { id: string; patch: InstallmentUpdate }) =>
       updateInstallment(id, patch),
-    onSuccess: () => qc.invalidateQueries({ queryKey: queryKeys.payments.installments(planId) }),
+    onSuccess: () => invalidateInstallments(qc, planId),
   })
 }
 
@@ -139,7 +149,7 @@ export function useDeleteInstallment(planId: string) {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: (id: string) => deleteInstallment(id),
-    onSuccess: () => qc.invalidateQueries({ queryKey: queryKeys.payments.installments(planId) }),
+    onSuccess: () => invalidateInstallments(qc, planId),
   })
 }
 

@@ -15,3 +15,17 @@ export function formatAmount(amount: AmountLike): string {
 export function formatMoney(amount: AmountLike, currency = 'AUD'): string {
   return `${currency} ${formatAmount(amount)}`
 }
+
+/**
+ * 缩写金额（仅用于统计卡等紧凑展示）：≥1000 用 `k`、≥100万用 `m`，保留 1 位小数（去尾零）；
+ * 小于 1000 回落到完整 `formatMoney`。例：48600→`AUD 48.6k`、21400→`AUD 21.4k`、500→`AUD 500.00`。
+ */
+export function formatMoneyShort(amount: AmountLike, currency = 'AUD'): string {
+  const n = toSafe(amount)
+  const abs = Math.abs(n)
+  if (abs < 1000) return formatMoney(n, currency)
+  const div = abs >= 1_000_000 ? 1_000_000 : 1000
+  const unit = abs >= 1_000_000 ? 'm' : 'k'
+  const v = Math.round((abs / div) * 10) / 10
+  return `${currency} ${n < 0 ? '-' : ''}${v}${unit}`
+}

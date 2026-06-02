@@ -1,5 +1,5 @@
 import { supabase } from '../lib/supabase'
-import type { Case, Customer, Installment, Payment, PaymentPlan } from '../types/models'
+import type { Case, CaseDocument, Customer, Installment, Payment, PaymentPlan } from '../types/models'
 
 /** 未付分期（逾期的候选，前端再按 due_date 过滤）。 */
 export async function getUnpaidInstallments(): Promise<Installment[]> {
@@ -30,6 +30,17 @@ export async function getAllPaymentPlans(): Promise<PaymentPlan[]> {
 
 export async function getAllPayments(): Promise<Payment[]> {
   const { data, error } = await supabase.from('payments').select('*')
+  if (error) throw error
+  return data ?? []
+}
+
+/** 设了到期日、未归档的文件（概览「即将到期」用；前端再按 ≤30 天/已过期过滤）。 */
+export async function getExpiringDocuments(): Promise<CaseDocument[]> {
+  const { data, error } = await supabase
+    .from('documents')
+    .select('*')
+    .eq('is_archived', false)
+    .not('expiry_date', 'is', null)
   if (error) throw error
   return data ?? []
 }

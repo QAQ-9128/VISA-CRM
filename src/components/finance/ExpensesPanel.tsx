@@ -6,6 +6,7 @@ import { Select } from '../ui/Select'
 import { PaymentEntryForm } from './PaymentEntryForm'
 import type { PaymentEntryValues } from './PaymentEntryForm'
 import { useCreatePayment, useDeletePayment, useUpdatePayment } from '../../hooks/queries/usePayments'
+import { useBackSource } from '../../hooks/useBackSource'
 import { formatMoney } from '../../lib/money'
 import { PAYMENT_DIRECTION_LABELS, PAYMENT_METHOD_LABELS } from '../../types/domain'
 import type { FinancePayouts, PayoutItem } from '../../lib/finance'
@@ -27,7 +28,8 @@ const CATEGORY_OPTIONS = [
   { value: 'to_referrer', label: PAYMENT_DIRECTION_LABELS.to_referrer },
 ]
 
-function ExpenseAddForm({
+/** 加支出表单（付主代理 / 付介绍人）；复用于支出栏与月度合并流水表。复用现有 useCreatePayment。 */
+export function ExpenseAddForm({
   caseOptions,
   referrerById,
   onDone,
@@ -52,7 +54,7 @@ function ExpenseAddForm({
   }
 
   return (
-    <div className="space-y-3 rounded-lg border border-indigo-200 bg-indigo-50/40 p-3">
+    <div className="space-y-3 rounded-lg border border-brand-100 bg-brand-50/40 p-3">
       <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
         <Select
           label="类别"
@@ -87,9 +89,10 @@ function ExpenseAddForm({
   )
 }
 
-function PayoutItemRow({ item }: { item: PayoutItem }) {
+function PayoutItemRow({ item, signed = false }: { item: PayoutItem; signed?: boolean }) {
   const update = useUpdatePayment(item.caseId)
   const del = useDeletePayment(item.caseId)
+  const source = useBackSource()
   const [editing, setEditing] = useState(false)
 
   function save(v: PaymentEntryValues) {
@@ -116,7 +119,7 @@ function PayoutItemRow({ item }: { item: PayoutItem }) {
   return (
     <li className="flex flex-wrap items-center gap-x-3 gap-y-1 border-b border-slate-100 py-2.5 last:border-0">
       <Badge className={DIR_STYLE[item.direction]}>{PAYMENT_DIRECTION_LABELS[item.direction]}</Badge>
-      <Link to={`/cases/${item.caseId}`} state={{ from: 'finance' }} className="text-sm text-slate-900 hover:underline">
+      <Link to={`/cases/${item.caseId}`} state={source} className="text-sm text-slate-900 hover:underline">
         {item.customerName || '（未知客户）'}
         {item.direction === 'to_referrer' && (
           <span className="text-slate-500"> → {item.referrerName || '未指定介绍人'}</span>
@@ -126,7 +129,9 @@ function PayoutItemRow({ item }: { item: PayoutItem }) {
         {PAYMENT_METHOD_LABELS[item.method]} · {item.paidAt || '无日期'}
         {item.note ? ` · ${item.note}` : ''}
       </span>
-      <span className="text-sm font-medium tabular-nums text-slate-900">{formatMoney(item.amount)}</span>
+      <span className={`text-sm font-semibold tabular-nums ${signed ? 'text-rose-600' : 'text-slate-900'}`}>
+        {`${signed ? '−' : ''}${formatMoney(item.amount)}`}
+      </span>
       <Button variant="ghost" onClick={() => setEditing(true)}>
         编辑
       </Button>
@@ -147,12 +152,19 @@ export function ExpensesPanel({
   payouts,
   caseOptions,
   referrerById,
+  limit,
+  signed = false,
 }: {
   payouts: FinancePayouts
   caseOptions: FinanceCaseOption[]
   referrerById: Record<string, Referrer>
+  /** 只显示前 N 笔（外层「查看全部」用）；缺省全显示 */
+  limit?: number
+  /** 金额加「−」并显红色（月度账目支出栏） */
+  signed?: boolean
 }) {
   const [adding, setAdding] = useState(false)
+  const shown = limit != null ? payouts.items.slice(0, limit) : payouts.items
 
   return (
     <div className="space-y-3">
@@ -180,8 +192,8 @@ export function ExpensesPanel({
         <p className="py-2 text-sm text-slate-400">暂无支出记录</p>
       ) : (
         <ul className="rounded-lg border border-slate-200 bg-white px-3">
-          {payouts.items.map((i) => (
-            <PayoutItemRow key={i.paymentId} item={i} />
+          {shown.map((i) => (
+            <PayoutItemRow key={i.paymentId} item={i} signed={signed} />
           ))}
         </ul>
       )}

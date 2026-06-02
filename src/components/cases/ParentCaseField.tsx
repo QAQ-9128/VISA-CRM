@@ -2,7 +2,7 @@ import type { Case } from '../../types/models'
 import { parentCaseOptionLabel } from '../../lib/parentCase'
 
 const inputCls =
-  'block min-h-11 w-full rounded-lg border border-slate-300 bg-white px-3 text-base text-slate-900 outline-none transition-colors focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200'
+  'block min-h-11 w-full rounded-lg border border-slate-300 bg-white px-3 text-base text-slate-900 outline-none transition-colors focus:border-brand focus:ring-2 focus:ring-brand-100'
 
 /**
  * 「主案件」严格下拉：**只列出该客户家庭主申请名下的案件**（candidates 由 parentCaseDropdown 推导，

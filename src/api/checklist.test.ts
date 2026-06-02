@@ -24,6 +24,12 @@ describe('createChecklistItem', () => {
     await api.createChecklistItem('打电话给移民局')
     expect(b.checklist_items.insert).toHaveBeenCalledWith({ content: '打电话给移民局' })
   })
+
+  it('可选关联客户 / 案件一起插入', async () => {
+    const b = wireFrom(fromMock, { checklist_items: { data: { id: 'x1' } } })
+    await api.createChecklistItem('补料', { customer_id: 'cu1', case_id: 'ca1' })
+    expect(b.checklist_items.insert).toHaveBeenCalledWith({ content: '补料', customer_id: 'cu1', case_id: 'ca1' })
+  })
 })
 
 describe('setChecklistDone', () => {

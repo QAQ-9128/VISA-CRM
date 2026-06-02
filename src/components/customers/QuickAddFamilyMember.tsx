@@ -82,7 +82,7 @@ export function QuickAddFamilyMember({ customer }: { customer: Customer }) {
   const saveErr = add.error instanceof Error ? add.error.message : add.error ? '保存失败' : null
 
   return (
-    <div className="w-full space-y-3 rounded-xl border border-indigo-200 bg-indigo-50/40 p-4">
+    <div className="w-full space-y-3 rounded-xl border border-brand-100 bg-brand-50/40 p-4">
       <p className="text-sm font-medium text-slate-700">快速添加家庭成员（挂到「{customer.full_name}」名下）</p>
 
       <TextField

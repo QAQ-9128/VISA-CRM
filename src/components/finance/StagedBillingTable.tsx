@@ -3,7 +3,7 @@ import { Button } from '../ui/Button'
 import { TextField } from '../ui/TextField'
 import { PaymentEntryForm } from './PaymentEntryForm'
 import type { PaymentEntryValues } from './PaymentEntryForm'
-import { ProgressBar, StatusChip, PaidFraction } from './receivableCells'
+import { PayCell, StatusPill } from './receivableCells'
 import {
   useAllPlanItems,
   useCreatePlanItem,
@@ -36,7 +36,7 @@ function StageFormPanel({
   const p = Math.max(1, Number(periods) || 1)
   const err = validateStage({ stageName: name, unitAmount: u, periods: p })
   return (
-    <div className="space-y-3 rounded-lg border border-indigo-200 bg-indigo-50/40 p-3">
+    <div className="space-y-3 rounded-lg border border-brand-100 bg-brand-50/40 p-3">
       <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
         <TextField label="阶段名" value={name} onChange={(e) => setName(e.target.value)} placeholder="如 意向金 / 递交签证" />
         <TextField label="应收金额（每期）" type="number" min={0} step="0.01" value={unit} onChange={(e) => setUnit(e.target.value)} />
@@ -165,17 +165,16 @@ export function StagedBillingTable({
                       <div className="flex items-center gap-1.5">
                         <span className="text-slate-900">{d.name}</span>
                         {d.showPeriodsTag && (
-                          <span className="rounded-full bg-indigo-50 px-1.5 py-0.5 text-[10px] font-medium text-indigo-600">分 {d.periods} 期</span>
+                          <span className="rounded-full bg-brand-50 px-1.5 py-0.5 text-[10px] font-medium text-brand">分 {d.periods} 期</span>
                         )}
                       </div>
                       <p className="text-[11px] text-slate-400">{d.unitLine}</p>
                     </td>
                     <td className="py-2.5 px-3 text-right">
-                      <PaidFraction paid={d.paid} receivable={d.receivable} />
-                      <ProgressBar paid={d.paid} receivable={d.receivable} />
+                      <PayCell paid={d.paid} receivable={d.receivable} />
                     </td>
                     <td className="py-2.5 px-3 text-right">
-                      <StatusChip receivable={d.receivable} unpaid={d.unpaid} />
+                      <StatusPill receivable={d.receivable} unpaid={d.unpaid} />
                     </td>
                     <td className="py-2.5 pl-3 text-right whitespace-nowrap">
                       <button
@@ -223,10 +222,10 @@ export function StagedBillingTable({
             <tr className="border-t-2 border-slate-300 font-semibold text-slate-900">
               <td className="py-2.5 pr-3">合计</td>
               <td className="py-2.5 px-3 text-right">
-                <PaidFraction paid={totals.totalPaid} receivable={totals.totalDue} />
+                <PayCell paid={totals.totalPaid} receivable={totals.totalDue} />
               </td>
               <td className="py-2.5 px-3 text-right">
-                <StatusChip receivable={totals.totalDue} unpaid={Math.max(0, totals.totalUnpaid)} />
+                <StatusPill receivable={totals.totalDue} unpaid={Math.max(0, totals.totalUnpaid)} />
               </td>
               <td className="py-2.5 pl-3"></td>
             </tr>

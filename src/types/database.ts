@@ -325,6 +325,7 @@ export interface Database {
           billed_to_customer_id: string | null
           client_total: number | null
           company_total: number | null
+          referrer_total: number | null
           staged_billing: boolean
           currency: string
           note: string | null
@@ -338,6 +339,7 @@ export interface Database {
           billed_to_customer_id?: string | null
           client_total?: number | null
           company_total?: number | null
+          referrer_total?: number | null
           staged_billing?: boolean
           currency?: string
           note?: string | null
@@ -504,6 +506,10 @@ export interface Database {
           id: string
           content: string
           is_done: boolean
+          /** 可选关联客户（归档时前端过滤隐藏） */
+          customer_id: string | null
+          /** 可选关联案件（归档时前端过滤隐藏） */
+          case_id: string | null
           created_at: Timestamp
           updated_at: Timestamp
         }
@@ -511,6 +517,8 @@ export interface Database {
           id?: string
           content: string
           is_done?: boolean
+          customer_id?: string | null
+          case_id?: string | null
           created_at?: Timestamp
           updated_at?: Timestamp
         }

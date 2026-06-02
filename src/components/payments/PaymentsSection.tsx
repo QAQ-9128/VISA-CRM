@@ -8,6 +8,7 @@ import { ReceivablesItemsArea } from '../finance/ReceivablesItemsArea'
 import { usePaymentPlan, usePaymentsByCase } from '../../hooks/queries/usePayments'
 import { computeAccounting } from '../../lib/accounting'
 import { formatMoney } from '../../lib/money'
+import { useBackSource } from '../../hooks/useBackSource'
 
 function FlowCard({
   title,
@@ -28,7 +29,7 @@ function FlowCard({
 }) {
   const settled = owes <= 0
   return (
-    <div className="rounded-xl border border-slate-200 bg-white p-4">
+    <div className="rounded-card bg-white shadow-soft p-4">
       <p className="text-sm text-slate-500">{title}</p>
       <p className={`mt-1 text-2xl font-semibold ${settled ? 'text-emerald-600' : 'text-rose-600'}`}>
         {settled ? '已结清' : formatMoney(owes, currency)}
@@ -55,6 +56,7 @@ export function PaymentsSection({
 }) {
   const planQuery = usePaymentPlan(caseId)
   const payments = usePaymentsByCase(caseId)
+  const source = useBackSource()
   const [editingPlan, setEditingPlan] = useState(false)
   const [creatingPlan, setCreatingPlan] = useState(false)
 
@@ -66,18 +68,18 @@ export function PaymentsSection({
   if (!syncTracking) {
     return (
       <section className="space-y-3">
-        <h2 className="text-base font-semibold text-slate-900">付款</h2>
+        <h2 className="text-base font-bold text-ink">付款</h2>
         <div className="rounded-xl border border-dashed border-slate-300 bg-white px-4 py-4 text-sm text-slate-600">
           本案件「按申请人分开记账」。请到
           {customerId ? (
-            <Link to={`/customers/${customerId}`} className="mx-1 text-indigo-600 hover:underline">
+            <Link to={`/customers/${customerId}`} state={source} className="mx-1 text-brand hover:underline">
               客户档案
             </Link>
           ) : (
             <span className="mx-1">客户档案</span>
           )}
           或
-          <Link to="/finance" className="mx-1 text-indigo-600 hover:underline">
+          <Link to="/finance" className="mx-1 text-brand hover:underline">
             财务页
           </Link>
           按申请人管理应收 / 收款。
@@ -88,14 +90,14 @@ export function PaymentsSection({
 
   return (
     <section className="space-y-5">
-      <h2 className="text-base font-semibold text-slate-900">付款（双流账目）</h2>
+      <h2 className="text-base font-bold text-ink">付款（双流账目）</h2>
 
       {planQuery.isPending ? (
         <p className="text-sm text-slate-400">加载付款计划…</p>
       ) : (
         <>
           {/* 客户应收：按费用类别拆分的款项明细（每条独立 应收/已付/未付）。无计划时新增款项会自动建计划 */}
-          <div className="space-y-2 rounded-xl border border-slate-200 bg-white p-4">
+          <div className="space-y-2 rounded-card bg-white shadow-soft p-4">
             <p className="text-sm font-medium text-slate-600">客户应收 · 款项明细</p>
             <ReceivablesItemsArea
               caseId={caseId}

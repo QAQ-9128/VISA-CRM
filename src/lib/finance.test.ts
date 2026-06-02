@@ -10,8 +10,11 @@ import {
   getCustomerPaymentColor,
   selectCasePaymentColors,
   receivableStatus,
+  selectLedgerRows,
+  filterLedgerRows,
+  ledgerCounts,
 } from './finance'
-import type { ReceivableRow } from './finance'
+import type { ReceivableRow, FinanceReceipts, FinancePayouts, ReceiptItem, PayoutItem } from './finance'
 import type { Case, Customer, Payment, PaymentPlan, PaymentPlanItem, Referrer } from '../types/models'
 
 // 最小工厂
@@ -27,7 +30,7 @@ const mkCustomer = (o: Partial<Customer>): Customer => ({
   assigned_to: null, created_by: null, is_archived: false, created_at: '', updated_at: '', ...o,
 })
 const mkPlan = (o: Partial<PaymentPlan>): PaymentPlan => ({
-  id: 'p1', case_id: 'c1', applicant_id: null, billed_to_customer_id: null, client_total: 0, company_total: 0, staged_billing: false, currency: 'AUD', note: null,
+  id: 'p1', case_id: 'c1', applicant_id: null, billed_to_customer_id: null, client_total: 0, company_total: 0, referrer_total: null, staged_billing: false, currency: 'AUD', note: null,
   created_at: '', updated_at: '', ...o,
 })
 // 应收已改为款项明细派生：每个 plan 一条默认款项(amount_due = 该 plan 的应收)
@@ -279,6 +282,15 @@ describe('selectFinanceReceipts — 实际付款方(from_client_customer_id)', (
     expect(r.items[0]).toMatchObject({ customerName: '孙佳琪', payerId: 'cuPrimary', fromClientCustomerId: null })
   })
 
+  it('付款方为空但账是副申的(applicant_id=副申) → 显示副申，不挂主申', () => {
+    const r = selectFinanceReceipts(
+      [mkPayment({ id: 'p1', case_id: 'c1', applicant_id: 'cuSub', direction: 'from_client', amount: 5000, from_client_customer_id: null })],
+      caseById, customerById,
+    )
+    expect(r.items[0]).toMatchObject({ customerName: '邓韬', payerId: 'cuSub' })
+    expect(r.items[0].customerId).toBe('cuPrimary') // 发票仍绑案件主申
+  })
+
   it('同一案件、不同付款方的两条收款 → 两个不同名字（孙佳琪场景）；合计不变', () => {
     const r = selectFinanceReceipts(
       [
@@ -321,6 +333,22 @@ describe('selectFinancePayouts', () => {
     ]
     const r = selectFinancePayouts(payments, caseById, customerById, {})
     expect(r.toCompanyTotal).toBe(200)
+  })
+
+  it('副申的支出(applicant_id=副申) → 显示副申名 + 副申介绍人', () => {
+    const caseById = { c1: mkCase({ id: 'c1', customer_id: 'cuPrimary' }) }
+    const customerById = {
+      cuPrimary: mkCustomer({ id: 'cuPrimary', full_name: '孙佳琪', referrer_id: 'r1' }),
+      cuSub: mkCustomer({ id: 'cuSub', full_name: '邓韬', primary_applicant_id: 'cuPrimary', referrer_id: 'r2' }),
+    }
+    const referrerById = { r1: mkReferrer({ id: 'r1', name: '王介绍' }), r2: mkReferrer({ id: 'r2', name: '李介绍' }) }
+    const payments = [
+      mkPayment({ id: 'p2', case_id: 'c1', applicant_id: 'cuSub', direction: 'to_company', amount: 600 }),
+      mkPayment({ id: 'p3', case_id: 'c1', applicant_id: 'cuSub', direction: 'to_referrer', amount: 150 }),
+    ]
+    const r = selectFinancePayouts(payments, caseById, customerById, referrerById)
+    expect(r.items.find((i) => i.paymentId === 'p2')).toMatchObject({ customerName: '邓韬' })
+    expect(r.items.find((i) => i.paymentId === 'p3')).toMatchObject({ customerName: '邓韬', referrerName: '李介绍' })
   })
 })
 
@@ -437,5 +465,46 @@ describe('receivableStatus（未付/状态 chip）', () => {
   it('未付>0 → 欠 金额（红）', () => {
     expect(receivableStatus({ receivable: 1000, unpaid: 700 })).toMatchObject({ kind: 'owing' })
     expect(receivableStatus({ receivable: 1000, unpaid: 700 }).label).toContain('700')
+  })
+})
+
+describe('月度账目合并流水（selectLedgerRows / filter / counts）', () => {
+  const rcpt = (id: string, paidAt: string | null): ReceiptItem => ({
+    paymentId: id, amount: 100, method: 'transfer', customerName: '客户', customerId: 'cu', payerId: 'cu',
+    fromClientCustomerId: null, visaSubclass: '482', caseNumber: '0', paidAt, note: null, feeCategory: null,
+    caseId: 'c1', invoicePath: null, invoiceName: null,
+  })
+  const pyt = (id: string, paidAt: string | null): PayoutItem => ({
+    paymentId: id, direction: 'to_company', amount: 50, method: 'transfer', customerName: '张三',
+    referrerName: null, paidAt, note: null, caseId: 'c1',
+  })
+  const receipts = (items: ReceiptItem[]): FinanceReceipts => ({ items, total: 0 })
+  const payouts = (items: PayoutItem[]): FinancePayouts => ({ items, toCompanyTotal: 0, toReferrerTotal: 0 })
+
+  it('合并收/支并按日期倒序（最新在前），无日期排最后', () => {
+    const rows = selectLedgerRows(
+      receipts([rcpt('r1', '2026-06-01'), rcpt('r2', null)]),
+      payouts([pyt('p1', '2026-06-03'), pyt('p2', '2026-06-02')]),
+    )
+    expect(rows.map((r) => r.id)).toEqual(['p1', 'p2', 'r1', 'r2']) // 6-03, 6-02, 6-01, null
+    expect(rows.map((r) => r.kind)).toEqual(['payout', 'payout', 'receipt', 'receipt'])
+  })
+
+  it('筛选：全部 / 收入(收款) / 支出(付主代理+付介绍人)', () => {
+    const rows = selectLedgerRows(receipts([rcpt('r1', '2026-06-01')]), payouts([pyt('p1', '2026-06-02')]))
+    expect(filterLedgerRows(rows, 'all').map((r) => r.id)).toEqual(['p1', 'r1'])
+    expect(filterLedgerRows(rows, 'income').map((r) => r.id)).toEqual(['r1'])
+    expect(filterLedgerRows(rows, 'expense').map((r) => r.id)).toEqual(['p1'])
+  })
+
+  it('笔数统计：总 / 收入 / 支出', () => {
+    const rows = selectLedgerRows(receipts([rcpt('r1', '1'), rcpt('r2', '2')]), payouts([pyt('p1', '3')]))
+    expect(ledgerCounts(rows)).toEqual({ total: 3, income: 2, expense: 1 })
+  })
+
+  it('空 → 空数组 / 全 0', () => {
+    const rows = selectLedgerRows(receipts([]), payouts([]))
+    expect(rows).toEqual([])
+    expect(ledgerCounts(rows)).toEqual({ total: 0, income: 0, expense: 0 })
   })
 })
