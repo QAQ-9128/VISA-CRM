@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import type { FormEvent, KeyboardEvent, ReactNode } from 'react'
 import { Button } from '../ui/Button'
 import { TextField } from '../ui/TextField'
@@ -7,22 +7,25 @@ import { Select } from '../ui/Select'
 import { Checkbox } from '../ui/Checkbox'
 import { EmployerSelect } from '../employers/EmployerSelect'
 import { ReferrerSelect } from '../referrers/ReferrerSelect'
-import { usePrimaryApplicants } from '../../hooks/queries/useCustomers'
+import { useCustomers } from '../../hooks/queries/useCustomers'
+import { useCases } from '../../hooks/queries/useCases'
+import { useAllCaseApplicants } from '../../hooks/queries/useCaseApplicants'
+import { caseGroupCode, caseParticipantIds } from '../../lib/caseGroups'
+import { formatVisaType } from '../../lib/visa'
 import { CLIENT_SOURCES, CLIENT_SOURCE_OPTION_LABELS, GENDERS, GENDER_LABELS } from '../../types/domain'
 import { initialFormState, toPayload } from '../../lib/customerForm'
 import type { CustomerFormState, CustomerFormValues } from '../../lib/customerForm'
-import type { Customer } from '../../types/models'
+import type { Case, CaseApplicant, Customer } from '../../types/models'
 
 export type { CustomerFormValues }
 
 interface CustomerFormProps {
   /** 编辑时传入现有客户 */
   initial?: Customer
-  /** 新建时预选「挂靠到的主申请人」id（从主申档案「+ 添加副申请人」带 ?primary= 进来）。 */
-  initialPrimaryId?: string
   submitting?: boolean
   error?: string | null
-  onSubmit: (values: CustomerFormValues) => void
+  /** joinCaseId：选了「加入已有案件」时为该案件 id（保存后写 case_applicants），否则 null */
+  onSubmit: (values: CustomerFormValues, joinCaseId: string | null) => void
   onCancel: () => void
 }
 
@@ -36,36 +39,44 @@ function Section({ title, first, children }: { title: string; first?: boolean; c
   )
 }
 
-export function CustomerForm({ initial, initialPrimaryId, submitting, error, onSubmit, onCancel }: CustomerFormProps) {
-  const [state, setState] = useState<CustomerFormState>(() => initialFormState(initial, initialPrimaryId))
-  // 家庭组模式：副申（挂靠主申）/ 主申（独立）。初值跟随是否已选主申。
-  const [subMode, setSubMode] = useState(() => initialFormState(initial, initialPrimaryId).primary_applicant_id !== '')
-  const primaries = usePrimaryApplicants()
+export function CustomerForm({ initial, submitting, error, onSubmit, onCancel }: CustomerFormProps) {
+  const [state, setState] = useState<CustomerFormState>(() => initialFormState(initial))
+  // 一案一组：加入已有案件（成为本案参与人）/ 新建独立客户（自成一组）
+  const [joinMode, setJoinMode] = useState(false)
+  const [joinCaseId, setJoinCaseId] = useState<string | null>(null)
+  const allCustomers = useCustomers({})
+  const allCases = useCases()
+  const allApplicants = useAllCaseApplicants()
 
   const set =
     <K extends keyof CustomerFormState>(key: K) =>
     (value: CustomerFormState[K]) =>
       setState((prev) => ({ ...prev, [key]: value }))
 
-  // 主申请人下拉：排除自己（编辑时），未归档的主申请人
-  const primaryOptions = (primaries.data ?? [])
-    .filter((c) => c.id !== initial?.id)
-    .map((c) => ({ value: c.id, label: c.full_name }))
+  const customerById = useMemo(
+    () => Object.fromEntries((allCustomers.data ?? []).map((c) => [c.id, c])) as Record<string, Customer | undefined>,
+    [allCustomers.data],
+  )
+  const joinableCases = useMemo(
+    () => (allCases.data ?? []).filter((c) => !c.is_archived),
+    [allCases.data],
+  )
+  const selectedCase = joinCaseId ? joinableCases.find((c) => c.id === joinCaseId) ?? null : null
 
   const sourceOptions = CLIENT_SOURCES.map((s) => ({ value: s, label: CLIENT_SOURCE_OPTION_LABELS[s] }))
   const nameFilled = state.full_name.trim() !== ''
 
-  function pickPrimary() {
-    setSubMode(true)
+  function pickJoin() {
+    setJoinMode(true)
   }
-  function pickSelf() {
-    setSubMode(false)
-    setState((prev) => ({ ...prev, primary_applicant_id: '', relationship_to_primary: '' }))
+  function pickNewGroup() {
+    setJoinMode(false)
+    setJoinCaseId(null)
   }
 
   function handleSubmit(e: FormEvent) {
     e.preventDefault()
-    onSubmit(toPayload(state))
+    onSubmit(toPayload(state), joinMode ? joinCaseId : null)
   }
   // Esc 取消（与底部提示一致）；Enter 由表单原生提交，textarea 内换行不受影响
   function handleKeyDown(e: KeyboardEvent<HTMLFormElement>) {
@@ -120,55 +131,56 @@ export function CustomerForm({ initial, initialPrimaryId, submitting, error, onS
       <Section title="关系">
         <ReferrerSelect value={state.referrer_id} onChange={(id) => set('referrer_id')(id)} />
 
-        {/* 家庭组 / 主副申请人 */}
+        {/* 组（Group）：一案一组 —— 新建独立成组 / 加入已有案件（成为本案参与人，组随案件走） */}
         <div className="rounded-[18px] border border-brand-100 bg-brand-50/50 p-[18px]">
           <h3 className="mb-3 flex items-center gap-1.5 text-[13.5px] font-bold text-ink">
-            <span aria-hidden>👥</span> 家庭组 / 主副申请人
+            <span aria-hidden>🧩</span> 组（Group）
           </h3>
           <div className="space-y-3">
             <label className="flex cursor-pointer items-start gap-2.5">
               <input
                 type="radio"
-                name="familyMode"
-                checked={!subMode}
-                onChange={pickSelf}
+                name="groupMode"
+                checked={!joinMode}
+                onChange={pickNewGroup}
                 className="mt-0.5 size-4 accent-brand"
               />
               <span className="min-w-0">
-                <span className="block text-sm font-semibold text-ink">本人是主申请人</span>
-                <span className="block text-xs text-faint">默认 —— 新建一个独立客户</span>
+                <span className="block text-sm font-semibold text-ink">新建独立客户（自成一组）</span>
+                <span className="block text-xs text-faint">默认 —— 不参加任何案件；TA 自己办案件时即自成一组</span>
               </span>
             </label>
 
             <label className="flex cursor-pointer items-start gap-2.5">
               <input
                 type="radio"
-                name="familyMode"
-                checked={subMode}
-                onChange={pickPrimary}
+                name="groupMode"
+                checked={joinMode}
+                onChange={pickJoin}
                 className="mt-0.5 size-4 accent-brand"
               />
               <span className="min-w-0">
-                <span className="block text-sm font-semibold text-ink">作为副申请人，挂靠到某位主申</span>
-                <span className="block text-xs text-faint">选中后，下面出现「选择主申」下拉</span>
+                <span className="block text-sm font-semibold text-ink">加入已有案件（成为本案参与人）</span>
+                <span className="block text-xs text-faint">选择一个案件，保存后 TA 加入该案的组（写入本案参与客户）</span>
               </span>
             </label>
 
-            {subMode && (
+            {joinMode && (
               <div className="space-y-3 border-t border-brand-100 pt-3">
-                <Select
-                  label="选择要挂靠的主申请人"
-                  placeholder="选择要挂靠的主申请人…"
-                  options={primaryOptions}
-                  value={state.primary_applicant_id}
-                  onChange={(e) => set('primary_applicant_id')(e.target.value)}
+                <CaseJoinPicker
+                  cases={joinableCases}
+                  applicants={allApplicants.data ?? []}
+                  customerById={customerById}
+                  value={joinCaseId}
+                  onChange={setJoinCaseId}
                 />
-                <TextField
-                  label="与主申请人关系"
-                  value={state.relationship_to_primary}
-                  onChange={(e) => set('relationship_to_primary')(e.target.value)}
-                  placeholder="如 配偶 / 子女 / 父母"
-                />
+                {selectedCase && (
+                  <p className="flex flex-wrap items-center gap-1.5 text-xs text-muted">
+                    将加入案件
+                    <span className="font-semibold text-ink tabular-nums">{selectedCase.case_number}</span>
+                    —— 保存后成为本案参与人，组随参与人集合自动更新
+                  </p>
+                )}
               </div>
             )}
           </div>
@@ -219,5 +231,92 @@ export function CustomerForm({ initial, initialPrimaryId, submitting, error, onS
         </div>
       </div>
     </form>
+  )
+}
+
+/**
+ * 「选择案件」选择器（可筛选下拉）：每项 = 案件号 + 签证 + 参与人名，右侧组标签（组码 · N 人）。
+ * 一案一组：选中即「加入该案的组」（保存后写 case_applicants）。
+ */
+function CaseJoinPicker({
+  cases,
+  applicants,
+  customerById,
+  value,
+  onChange,
+}: {
+  cases: Case[]
+  applicants: CaseApplicant[]
+  customerById: Record<string, Customer | undefined>
+  value: string | null
+  onChange: (id: string) => void
+}) {
+  const [query, setQuery] = useState('')
+  const q = query.trim().toLowerCase()
+  const options = cases.map((c) => {
+    const ids = caseParticipantIds(c, applicants)
+    const names = ids.map((id) => customerById[id]?.full_name ?? '').filter(Boolean)
+    return { caseRow: c, ids, names, code: caseGroupCode(ids, c.id) }
+  })
+  const list = q
+    ? options.filter(
+        (o) =>
+          o.caseRow.case_number.toLowerCase().includes(q) ||
+          o.names.some((n) => n.toLowerCase().includes(q)),
+      )
+    : options
+
+  return (
+    <div>
+      <span className="mb-1.5 block text-[13px] font-semibold text-body">选择案件</span>
+      <div className="overflow-hidden rounded-xl border border-brand-100 bg-white focus-within:border-brand focus-within:ring-2 focus-within:ring-brand-100">
+        <input
+          type="search"
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          placeholder="输入案件编号 / 参与人姓名筛选…"
+          aria-label="筛选选择案件"
+          className="w-full border-b border-line px-3.5 py-2.5 text-sm text-ink outline-none placeholder:text-faint"
+        />
+        <ul className="max-h-64 divide-y divide-line overflow-auto" role="listbox" aria-label="选择案件">
+          {list.length === 0 ? (
+            <li className="px-3.5 py-3 text-sm text-faint">
+              {cases.length === 0 ? '还没有案件可加入' : '没有匹配的案件'}
+            </li>
+          ) : (
+            list.map((o) => {
+              const selected = value === o.caseRow.id
+              return (
+                <li key={o.caseRow.id}>
+                  <button
+                    type="button"
+                    role="option"
+                    aria-selected={selected}
+                    onClick={() => onChange(o.caseRow.id)}
+                    className={`flex min-h-12 w-full items-center justify-between gap-3 px-3.5 py-2.5 text-left transition-colors ${
+                      selected ? 'bg-brand-50' : 'hover:bg-surface-2'
+                    }`}
+                  >
+                    <span className="min-w-0">
+                      <span
+                        className={`block truncate text-sm ${
+                          selected ? 'font-semibold text-brand-700' : 'font-medium text-ink'
+                        }`}
+                      >
+                        {o.caseRow.case_number} · {formatVisaType(o.caseRow.visa_subclass, o.caseRow.visa_stream)}
+                      </span>
+                      <span className="block truncate text-[11px] text-faint">参与人：{o.names.join('、') || '—'}</span>
+                    </span>
+                    <span className="shrink-0 rounded-full bg-[var(--color-lime-soft)] px-2 py-0.5 text-[11px] font-semibold text-[var(--color-lime-ink)]">
+                      {o.code} · {o.ids.length} 人
+                    </span>
+                  </button>
+                </li>
+              )
+            })
+          )}
+        </ul>
+      </div>
+    </div>
   )
 }

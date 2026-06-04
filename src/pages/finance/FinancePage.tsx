@@ -109,7 +109,7 @@ export function FinancePage() {
   }
 
   return (
-    <section className="mx-auto max-w-[1040px] space-y-5">
+    <section className="space-y-5">
       <h1 className="text-2xl font-bold tracking-[-0.02em] text-ink">财务</h1>
 
       {/* ── 上半部：近期案件应收 ─────────────────────────────────────── */}

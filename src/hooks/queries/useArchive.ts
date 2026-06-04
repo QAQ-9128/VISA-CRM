@@ -83,6 +83,8 @@ export function useDeleteArchiveFile() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: queryKeys.documents.all })
       qc.invalidateQueries({ queryKey: queryKeys.dashboard.payments })
+      // 删的文件可能带到期日 → 概览「即将到期」同步（dashboard 命名空间，documents 前缀盖不到）
+      qc.invalidateQueries({ queryKey: queryKeys.dashboard.expiringDocs })
     },
   })
 }

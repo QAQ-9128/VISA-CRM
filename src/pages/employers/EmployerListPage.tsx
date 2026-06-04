@@ -53,7 +53,7 @@ export function EmployerListPage() {
   const employers = useEmployers()
 
   return (
-    <section className="mx-auto max-w-3xl space-y-5">
+    <section className="space-y-5">
       <div className="flex items-center justify-between gap-3">
         <h1 className="text-2xl font-bold tracking-[-0.02em] text-ink">担保雇主</h1>
         <Link to="/employers/new">

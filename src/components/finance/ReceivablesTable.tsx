@@ -8,12 +8,6 @@ import { useBackSource } from '../../hooks/useBackSource'
 import { getCustomerPaymentColor, CUSTOMER_PAYMENT_TEXT_CLASS } from '../../lib/finance'
 import type { ReceivableRow, ReceivableTotals } from '../../lib/finance'
 
-// 合并角色淡化为灰标；主申/副申用小标签
-const ROLE_TAG: Record<string, string> = {
-  primary: 'bg-blue-100 text-blue-700',
-  secondary: 'bg-violet-100 text-violet-700',
-}
-
 function ReceivableRowItem({ row }: { row: ReceivableRow }) {
   const [open, setOpen] = useState(false) // 分阶段展开
   const [mode, setMode] = useState<RowMode>(null) // 记账▾ 打开的编辑器
@@ -25,12 +19,9 @@ function ReceivableRowItem({ row }: { row: ReceivableRow }) {
   return (
     <>
       <tr className={`border-b border-line ${open || mode ? 'bg-surface-2' : ''}`}>
-        {/* 客户 · 案件 */}
-        <td className={`py-2.5 pr-3 ${row.role === 'secondary' ? 'pl-5' : ''}`}>
+        {/* 客户 · 案件（参与人平级，无主/副申标签、无缩进） */}
+        <td className="py-2.5 pr-3">
           <div className="flex items-center gap-2.5">
-            {row.role === 'secondary' && (
-              <span className="select-none font-mono text-slate-300" aria-hidden>└─</span>
-            )}
             <Avatar name={row.customerName || '客户'} seed={row.customerId} size={34} />
             <div className="flex flex-wrap items-center gap-x-1.5 gap-y-0.5">
               <Link
@@ -43,12 +34,8 @@ function ReceivableRowItem({ row }: { row: ReceivableRow }) {
               {row.role === 'merged' && row.coApplicantNames.length > 0 && (
                 <span className="text-xs text-faint">＋ {row.coApplicantNames.join('、')}</span>
               )}
-              {row.role === 'merged' ? (
+              {row.role === 'merged' && (
                 <span className="rounded bg-slate-100 px-1.5 py-0.5 text-[10px] font-medium text-slate-500">合并</span>
-              ) : (
-                <span className={`rounded px-1.5 py-0.5 text-[10px] font-medium ${ROLE_TAG[row.role]}`}>
-                  {row.role === 'primary' ? '主申' : '副申'}
-                </span>
               )}
               <span className="text-xs text-faint">· {row.visaSubclass}</span>
               {isStaged && showPhaseTag && (

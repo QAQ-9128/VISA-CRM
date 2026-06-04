@@ -23,11 +23,25 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     let active = true
 
-    supabase.auth.getSession().then(({ data }) => {
-      if (!active) return
-      setSession(data.session)
-      setAuthReady(true)
-    })
+    supabase.auth
+      .getSession()
+      .then(({ data }) => {
+        if (!active) return
+        setSession(data.session)
+        setAuthReady(true)
+      })
+      .catch((err) => {
+        // getSession 失败也要结束加载，进登录页而非卡死
+        if (!active) return
+        console.warn('[auth] getSession 失败，按未登录处理：', err)
+        setAuthReady(true)
+      })
+
+    // 兜底：getSession 若因网络/代理/锁问题挂起不返回（症状=无限「加载中…」），
+    // 超时后强制结束加载，让用户至少进到登录页，而不是白卡死。
+    const fallback = setTimeout(() => {
+      if (active) setAuthReady(true)
+    }, 6000)
 
     const { data: sub } = supabase.auth.onAuthStateChange((_event, nextSession) => {
       // 仅同步操作，不要在此 await supabase
@@ -37,6 +51,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     return () => {
       active = false
+      clearTimeout(fallback)
       sub.subscription.unsubscribe()
     }
   }, [])

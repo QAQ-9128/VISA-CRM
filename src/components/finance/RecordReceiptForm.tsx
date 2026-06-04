@@ -8,7 +8,8 @@ import { formatVisaType } from '../../lib/visa'
 import type { ReceivableRow } from '../../lib/finance'
 
 const rowKey = (r: ReceivableRow) => `${r.caseId}:${r.applicantId ?? 'merged'}`
-const ROLE = { merged: '', primary: '· 主申', secondary: '· 副申' } as const
+// 参与人平级：下拉项不带 主申/副申 角色后缀，仅合并行带「合并」便于区分
+const ROLE = { merged: '· 合并', primary: '', secondary: '' } as const
 
 /**
  * 月度账目「+ 记收款」：选一条应收单元 → 复用现有 PaymentEntryForm（items 模式，带 plan_item_id/费用类别/付款方）

@@ -1,7 +1,7 @@
 import { supabase } from '../lib/supabase'
 import type { CaseApplicant } from '../types/models'
 
-/** 某案件的副申请人关联（主申是 cases.customer_id，不在此表）。 */
+/** 某案件的参与人关联（参与人 = 案件客户 cases.customer_id + 本表成员）。 */
 export async function listCaseApplicants(caseId: string): Promise<CaseApplicant[]> {
   const { data, error } = await supabase
     .from('case_applicants')
@@ -18,7 +18,7 @@ export async function listAllCaseApplicants(): Promise<CaseApplicant[]> {
   return data ?? []
 }
 
-/** 增量添加单个副申请人关联（unique(case_id,customer_id) 防重，UI 只在未关联时提供）。 */
+/** 增量添加单个参与人关联（unique(case_id,customer_id) 防重，UI 只在未关联时提供）。 */
 export async function addCaseApplicant(caseId: string, customerId: string): Promise<void> {
   const { error } = await supabase
     .from('case_applicants')
@@ -26,7 +26,7 @@ export async function addCaseApplicant(caseId: string, customerId: string): Prom
   if (error) throw error
 }
 
-/** 移除单个副申请人关联。 */
+/** 移除单个参与人关联。 */
 export async function removeCaseApplicant(caseId: string, customerId: string): Promise<void> {
   const { error } = await supabase
     .from('case_applicants')
@@ -36,7 +36,7 @@ export async function removeCaseApplicant(caseId: string, customerId: string): P
   if (error) throw error
 }
 
-/** 覆盖式设置某案件的副申请人：先删旧关联，再插入选中的客户。 */
+/** 覆盖式设置某案件的参与人：先删旧关联，再插入选中的客户。 */
 export async function setCaseApplicants(caseId: string, customerIds: string[]): Promise<void> {
   const del = await supabase.from('case_applicants').delete().eq('case_id', caseId)
   if (del.error) throw del.error

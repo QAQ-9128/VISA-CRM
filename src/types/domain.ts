@@ -161,6 +161,7 @@ export const DOC_TYPES = [
   'employment',
   'financial',
   'form',
+  'invoice',
   'other',
 ] as const
 export type DocType = (typeof DOC_TYPES)[number]
@@ -174,6 +175,7 @@ export const DOC_TYPE_LABELS: Record<DocType, string> = {
   employment: '雇佣证明',
   financial: '财务证明',
   form: '表格',
+  invoice: '发票', // 0017 additive：ALTER TYPE public.doc_type ADD VALUE 'invoice'（手动跑）
   other: '其他',
 }
 

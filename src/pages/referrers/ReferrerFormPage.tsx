@@ -9,11 +9,14 @@ import {
 import { BackLink } from '../../components/ui/BackLink'
 import { Card } from '../../components/ui/Card'
 import { LoadingBlock, ErrorBlock } from '../../components/ui/states'
+import { useSmartBack } from '../../hooks/useSmartBack'
 
 export function ReferrerFormPage() {
   const { id } = useParams()
   const editing = !!id
   const navigate = useNavigate()
+  // 取消 = 回到点进来的那个界面；刷新/直链兜底回介绍人列表
+  const goBack = useSmartBack('/referrers')
 
   const existing = useReferrer(id)
   const createM = useCreateReferrer()
@@ -26,15 +29,16 @@ export function ReferrerFormPage() {
   if (editing && existing.isError) return <ErrorBlock error={existing.error} />
 
   function handleSubmit(values: ReferrerFormValues) {
+    // 保存后 replace：表单页不留在历史里
     if (editing && id) {
-      updateM.mutate({ id, patch: values }, { onSuccess: () => navigate('/referrers') })
+      updateM.mutate({ id, patch: values }, { onSuccess: () => navigate('/referrers', { replace: true }) })
     } else {
-      createM.mutate(values, { onSuccess: () => navigate('/referrers') })
+      createM.mutate(values, { onSuccess: () => navigate('/referrers', { replace: true }) })
     }
   }
 
   return (
-    <section className="mx-auto max-w-2xl">
+    <section className="w-full">
       <div className="mb-3">
         <BackLink to="/referrers" label="介绍人列表" />
       </div>
@@ -47,7 +51,7 @@ export function ReferrerFormPage() {
           submitting={submitting}
           error={errorMsg}
           onSubmit={handleSubmit}
-          onCancel={() => navigate('/referrers')}
+          onCancel={goBack}
         />
       </Card>
     </section>

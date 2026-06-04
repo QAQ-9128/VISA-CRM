@@ -11,7 +11,7 @@ export function PagePlaceholder({
   children?: ReactNode
 }) {
   return (
-    <section className="mx-auto max-w-5xl space-y-5">
+    <section className="space-y-5">
       <div>
         <h1 className="text-2xl font-bold tracking-[-0.02em] text-ink">{title}</h1>
         {description && <p className="mt-1 text-sm text-muted">{description}</p>}

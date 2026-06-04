@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest'
 import {
   calculateWaitDays,
+  clusterRowsByGroup,
+  groupPositions,
   elapsedMonthsDays,
   formatElapsed,
   joinFamilyNames,
@@ -13,7 +15,7 @@ const TODAY = new Date(2026, 4, 29) // 2026-05-29
 
 const mkCase = (o: Partial<Case>): Case => ({
   id: 'c1', case_number: '00000001', customer_id: 'cu1', visa_subclass: '482', visa_stream: null, current_stage: 'visa_lodged',
-  currency: 'AUD', sync_tracking: true, trt_reminder_enabled: false, parent_case_id: null, parent_sync_progress: false, destination_country: 'Australia', assigned_to: null, created_by: null,
+  currency: 'AUD', sync_tracking: true, trt_reminder_enabled: false, parent_case_id: null, parent_sync_progress: false, destination_country: 'Australia', sponsor_position: null, sponsor_employer_id: null, assigned_to: null, created_by: null,
   is_archived: false, created_at: '', updated_at: '2026-05-20T00:00:00Z', ...o,
 })
 const mkCustomer = (o: Partial<Customer>): Customer => ({
@@ -313,5 +315,73 @@ describe('sortCaseRows', () => {
     )
     expect(sortCaseRows(staged, 'stage', 'asc').map((r) => r.caseId)).toEqual(['d', 'g'])
     expect(sortCaseRows(staged, 'stage', 'desc').map((r) => r.caseId)).toEqual(['g', 'd'])
+  })
+})
+
+describe('CaseRow.groupCode + clusterRowsByGroup（一案一组：组=本案参与人集合）', () => {
+  const groupCustomers = [
+    mkCustomer({ id: 'A', full_name: '甲' }),
+    mkCustomer({ id: 'B', full_name: '乙' }),
+    mkCustomer({ id: 'C', full_name: '丙' }),
+  ]
+
+  it('同参与人集合 ⇒ 同组同码（A+B 办两个案 → 两案同组；与 owner 无关）', () => {
+    const cases = [
+      mkCase({ id: 'c1', customer_id: 'A' }),
+      mkCase({ id: 'c2', customer_id: 'B' }),
+    ]
+    const rows = selectCaseRows(cases, [], [ca('c1', 'B'), ca('c2', 'A')], groupCustomers, TODAY, [])
+    const code = rows[0].groupCode
+    expect(code).toMatch(/^G-[0-9A-Z]{4}$/)
+    expect(rows.every((r) => r.groupCode === code)).toBe(true)
+  })
+
+  it('A+B 案与 A+C 案是不同的组（不按客户传递合并）；A 的独立案件又是另一组', () => {
+    const cases = [
+      mkCase({ id: 'c1', customer_id: 'A' }), // A+B
+      mkCase({ id: 'c2', customer_id: 'A' }), // A+C
+      mkCase({ id: 'c3', customer_id: 'A' }), // A 独立
+    ]
+    const rows = selectCaseRows(cases, [], [ca('c1', 'B'), ca('c2', 'C')], groupCustomers, TODAY, [])
+    const codes = new Map(rows.map((r) => [r.caseId, r.groupCode]))
+    expect(new Set(codes.values()).size).toBe(3) // 三个案件三个组
+  })
+
+  it('clusterRowsByGroup：同组相邻；组顺序=各组首行位置；组内保持原序', () => {
+    const rows = [
+      { groupCode: 'G-A', k: 1 },
+      { groupCode: 'G-B', k: 2 },
+      { groupCode: 'G-A', k: 3 },
+      { groupCode: 'G-C', k: 4 },
+      { groupCode: 'G-B', k: 5 },
+    ]
+    expect(clusterRowsByGroup(rows).map((r) => r.k)).toEqual([1, 3, 2, 5, 4])
+  })
+
+  it('同一个人的两个独立案件 → 两个组（不会聚在同一个组头下）', () => {
+    const cases = [mkCase({ id: 'c1', customer_id: 'A' }), mkCase({ id: 'c2', customer_id: 'A' })]
+    const rows = selectCaseRows(cases, [], [], groupCustomers, TODAY, [])
+    expect(rows[0].groupCode).not.toBe(rows[1].groupCode)
+  })
+
+  it('排序键 group：按组码排序', () => {
+    const cases = [mkCase({ id: 'c1', customer_id: 'A' }), mkCase({ id: 'c9', customer_id: 'C' })]
+    const rows = selectCaseRows(cases, [], [], groupCustomers, TODAY, [])
+    const asc = sortCaseRows(rows, 'group', 'asc').map((r) => r.groupCode)
+    expect(asc).toEqual([...asc].sort())
+  })
+
+  it('groupPositions：组首行 span=组行数（其余 null）、start/end/multi 标记正确（画组框用）', () => {
+    const rows = [
+      { groupCode: 'G-A' }, { groupCode: 'G-A' }, { groupCode: 'G-A' },
+      { groupCode: 'G-B' },
+    ]
+    expect(groupPositions(rows)).toEqual([
+      { span: 3, start: true, end: false, multi: true },
+      { span: null, start: false, end: false, multi: true },
+      { span: null, start: false, end: true, multi: true },
+      { span: 1, start: true, end: true, multi: false },
+    ])
+    expect(groupPositions([])).toEqual([])
   })
 })

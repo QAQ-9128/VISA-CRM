@@ -141,7 +141,7 @@ export function DashboardPage() {
 
   return (
     <div className="-mx-4 -mt-4 -mb-24 min-h-full bg-canvas px-4 pt-5 pb-24 md:-mx-8 md:-mt-6 md:-mb-8 md:px-8 md:pt-6 md:pb-10">
-      <div className="mx-auto max-w-[1320px] space-y-5">
+      <div className="space-y-5">
         {/* ① 顶部问候栏 */}
         <header className="flex flex-wrap items-center gap-4">
           <div className="min-w-0 flex-1">

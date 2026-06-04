@@ -14,7 +14,7 @@ export function Sidebar() {
     <aside className="hidden border-r border-line-2 bg-white md:flex md:w-[232px] md:shrink-0 md:flex-col md:p-4">
       {/* 品牌区 */}
       <div className="flex items-center gap-3 px-2.5 pt-1.5 pb-5">
-        <span className="grid size-[38px] place-items-center rounded-xl bg-[linear-gradient(135deg,#3b6bff,#6a5cff)] text-white shadow-brand">
+        <span className="grid size-[38px] place-items-center rounded-xl bg-[linear-gradient(135deg,#4e9a6b,#2e6a48)] text-white shadow-brand">
           <ShieldIcon className="size-[21px]" />
         </span>
         <div className="min-w-0">

@@ -23,7 +23,7 @@ export interface BackSource {
 /** 固定区域（列表/首页）→ 返回目标。 */
 const AREA: Record<string, BackTarget> = {
   dashboard: { to: '/', label: '返回概览' },
-  customers: { to: '/customers', label: '返回客户' },
+  customers: { to: '/customers', label: '返回客户列表' },
   cases: { to: '/cases', label: '返回案件' },
   finance: { to: '/finance', label: '返回财务' },
   archive: { to: '/storage', label: '返回档案库' },
@@ -48,6 +48,18 @@ export function deriveBackSource(pathname: string, search = ''): BackSource {
   const cas = /^\/cases\/([^/]+)$/.exec(pathname)
   if (cas) return { from: 'case', caseId: cas[1] }
   return {}
+}
+
+/**
+ * 应用内是否有可后退的历史：react-router 的 browser router 在 history.state.idx 记录
+ * 本会话内的导航序号（首页 = 0）。idx > 0 ⇒ 真·后退一定还落在应用内（精确回到原界面，
+ * 含筛选/tab/滚动位置）；否则（刷新后首条/直链/新标签）后退可能离开应用 → 走 fallback。
+ */
+export function canGoBackInApp(
+  historyState: unknown = typeof window !== 'undefined' ? window.history.state : null,
+): boolean {
+  const idx = (historyState as { idx?: unknown } | null)?.idx
+  return typeof idx === 'number' && idx > 0
 }
 
 /** 来源标记 → 返回目标；未知/缺失回落 fallback。 */

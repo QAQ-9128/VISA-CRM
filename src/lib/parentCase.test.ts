@@ -1,104 +1,51 @@
 import { describe, expect, it } from 'vitest'
-import { selectParentCaseCandidates, parentCaseDropdown, parentCaseOptionLabel } from './parentCase'
-import type { Case, Customer } from '../types/models'
+import { parentCaseDropdown, parentCaseOptionLabel, selectParentCaseCandidates } from './parentCase'
+import type { Case, CaseApplicant } from '../types/models'
 
-const mkCustomer = (o: Partial<Customer>): Customer => ({
-  id: 'cu1', full_name: '主申', is_starred: false, client_source: null, primary_applicant_id: null,
-  relationship_to_primary: null, birth_date: null, gender: null, passport_no: null, nationality: null, phone: null,
-  email: null, wechat: null, address: null, sponsor_employer_id: null, sponsor_position: null, referrer_id: null, notes: null,
-  assigned_to: null, created_by: null, is_archived: false, created_at: '', updated_at: '', ...o,
-})
 const mkCase = (o: Partial<Case>): Case => ({
-  id: 'c1', case_number: '00000001', customer_id: 'head', visa_subclass: '482', visa_stream: null, current_stage: 'todo',
-  currency: 'AUD', sync_tracking: true, trt_reminder_enabled: false, parent_case_id: null, parent_sync_progress: false, destination_country: 'Australia',
-  assigned_to: null, created_by: null, is_archived: false, created_at: '', updated_at: '', ...o,
+  id: 'c1', case_number: '00000001', customer_id: 'A', visa_subclass: '482', visa_stream: null,
+  current_stage: 'todo', currency: 'AUD', sync_tracking: false, trt_reminder_enabled: false,
+  parent_case_id: null, parent_sync_progress: false, destination_country: null,
+  sponsor_position: null, sponsor_employer_id: null, assigned_to: null, created_by: null,
+  is_archived: false, created_at: '2026-01-01', updated_at: '', ...o,
 })
+const ap = (case_id: string, customer_id: string): CaseApplicant =>
+  ({ id: `${case_id}-${customer_id}`, case_id, customer_id, created_at: '' }) as CaseApplicant
 
-// 家庭组：head(主申) ← sub(副申，primary_applicant_id=head)；lone 是无家庭组的独立客户
-const head = mkCustomer({ id: 'head', full_name: '李旻书' })
-const sub = mkCustomer({ id: 'sub', full_name: '邓韬', primary_applicant_id: 'head' })
-const lone = mkCustomer({ id: 'lone', full_name: '独立客户' })
-const CUSTOMERS = [head, sub, lone]
+describe('selectParentCaseCandidates（一案一组：候选 = 该客户拥有 ∪ 参与的其它案件）', () => {
+  const cases = [
+    mkCase({ id: 'own1', customer_id: 'A', created_at: '2026-01-01' }), // A 拥有
+    mkCase({ id: 'own2', customer_id: 'A', created_at: '2026-03-01' }), // A 拥有（更新）
+    mkCase({ id: 'part1', customer_id: 'B', created_at: '2026-02-01' }), // A 参与（B 拥有）
+    mkCase({ id: 'other', customer_id: 'C', created_at: '2026-04-01' }), // 无关
+    mkCase({ id: 'arch', customer_id: 'A', is_archived: true }), // 已归档
+  ]
+  const applicants = [ap('part1', 'A')]
 
-describe('selectParentCaseCandidates（依附主案件下拉范围：副申看其家庭组主申名下案件）', () => {
-  it('有家庭组、主申有 case → 列出主申名下未归档案件（按创建时间倒序）', () => {
-    const cases = [
-      mkCase({ id: 'p1', customer_id: 'head', created_at: '2026-01-01' }),
-      mkCase({ id: 'p2', customer_id: 'head', created_at: '2026-03-01' }),
-    ]
-    expect(selectParentCaseCandidates(cases, 'sub', CUSTOMERS).map((c) => c.id)).toEqual(['p2', 'p1'])
+  it('候选 = 拥有 ∪ 参与，排除归档与无关案件，按创建时间倒序', () => {
+    const out = selectParentCaseCandidates(cases, 'A', applicants)
+    expect(out.map((c) => c.id)).toEqual(['own2', 'part1', 'own1'])
   })
 
-  it('有家庭组、主申无 case → 空（→ UI 显示「无可选」）', () => {
-    const cases = [mkCase({ id: 'x', customer_id: 'sub' })] // 主申 head 名下没有案件
-    expect(selectParentCaseCandidates(cases, 'sub', CUSTOMERS)).toEqual([])
+  it('编辑中的案件本身被排除', () => {
+    const out = selectParentCaseCandidates(cases, 'A', applicants, 'own2')
+    expect(out.map((c) => c.id)).toEqual(['part1', 'own1'])
   })
 
-  it('无家庭组（自己就是主申/独立客户）→ 空', () => {
-    const cases = [mkCase({ id: 'l1', customer_id: 'lone' })]
-    expect(selectParentCaseCandidates(cases, 'lone', CUSTOMERS)).toEqual([])
+  it('不再有客户关联传递：C 只有自己的案件（A/B 的案不出现）', () => {
+    const out = selectParentCaseCandidates(cases, 'C', applicants)
+    expect(out.map((c) => c.id)).toEqual(['other'])
   })
 
-  it('排除归档的主申案件', () => {
-    const cases = [
-      mkCase({ id: 'p1', customer_id: 'head' }),
-      mkCase({ id: 'arc', customer_id: 'head', is_archived: true }),
-    ]
-    expect(selectParentCaseCandidates(cases, 'sub', CUSTOMERS).map((c) => c.id)).toEqual(['p1'])
-  })
-
-  it('排除正在编辑的案件本身（不能依附自己）', () => {
-    const cases = [
-      mkCase({ id: 'p1', customer_id: 'head' }),
-      mkCase({ id: 'self', customer_id: 'head' }),
-    ]
-    expect(selectParentCaseCandidates(cases, 'sub', CUSTOMERS, 'self').map((c) => c.id)).toEqual(['p1'])
+  it('无任何案件 → no-cases；有 → has-cases', () => {
+    expect(parentCaseDropdown(cases, 'D', applicants).state).toBe('no-cases')
+    expect(parentCaseDropdown(cases, 'A', applicants).state).toBe('has-cases')
   })
 })
 
-describe('parentCaseDropdown（严格只列家庭主申名下案件 + 空态判定，驱动 radio 2/3 启用）', () => {
-  it('有家庭主申且其有 case → state=has-cases，列出（created_at 倒序）', () => {
-    const cases = [
-      mkCase({ id: 'p1', customer_id: 'head', created_at: '2026-01-01' }),
-      mkCase({ id: 'p2', customer_id: 'head', created_at: '2026-03-01' }),
-    ]
-    const r = parentCaseDropdown(cases, 'sub', CUSTOMERS)
-    expect(r.state).toBe('has-cases')
-    expect(r.candidates.map((c) => c.id)).toEqual(['p2', 'p1'])
-  })
-
-  it('有家庭主申但其无 case → state=primary-no-cases，候选空（radio 2/3 禁用）', () => {
-    const cases = [mkCase({ id: 'x', customer_id: 'sub' })] // 主申 head 名下无案件
-    const r = parentCaseDropdown(cases, 'sub', CUSTOMERS)
-    expect(r.state).toBe('primary-no-cases')
-    expect(r.candidates).toEqual([])
-  })
-
-  it('无家庭主申（本人是主申/无家庭组）→ state=no-family-primary，候选空（radio 2/3 禁用）', () => {
-    const cases = [mkCase({ id: 'l1', customer_id: 'lone' })]
-    const r = parentCaseDropdown(cases, 'lone', CUSTOMERS)
-    expect(r.state).toBe('no-family-primary')
-    expect(r.candidates).toEqual([])
-  })
-
-  it('家庭主申名下有已归档 case → 归档不出现在下拉里', () => {
-    const cases = [
-      mkCase({ id: 'p1', customer_id: 'head' }),
-      mkCase({ id: 'arc', customer_id: 'head', is_archived: true }),
-    ]
-    const r = parentCaseDropdown(cases, 'sub', CUSTOMERS)
-    expect(r.state).toBe('has-cases')
-    expect(r.candidates.map((c) => c.id)).toEqual(['p1'])
-  })
-})
-
-describe('parentCaseOptionLabel（下拉每条显示格式：主申名 · 签证类型 · 编号 · 阶段）', () => {
-  it('含主申请客户名', () => {
-    const c = mkCase({ visa_subclass: '186', visa_stream: 'Direct Entry', case_number: '70193357', current_stage: 'todo' })
-    expect(parentCaseOptionLabel(c, '孙佳琪')).toBe('孙佳琪 · 186/Direct Entry · 70193357 · 待办')
-  })
-  it('无 stream 时签证类型只显示类别号', () => {
-    const c = mkCase({ visa_subclass: '500', visa_stream: null, case_number: '11250973', current_stage: 'granted' })
-    expect(parentCaseOptionLabel(c, '陈晨')).toBe('陈晨 · 500 · 11250973 · 下签')
+describe('parentCaseOptionLabel', () => {
+  it('客户名 · 签证 · 案件编号 · 阶段', () => {
+    const c = mkCase({ id: 'x', case_number: '12345678', visa_subclass: '482', visa_stream: 'Core Skills', current_stage: 'todo' })
+    expect(parentCaseOptionLabel(c, '王芳')).toBe('王芳 · 482/Core Skills · 12345678 · 待办')
   })
 })

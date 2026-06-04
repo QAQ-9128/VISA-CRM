@@ -1,36 +1,79 @@
 @import 'tailwindcss';
 
 /*
- * 设计令牌（Layout A「明亮工作台」视觉语言 → Tailwind v4 @theme）。
- * 仅生成新工具类（bg-brand / rounded-card / shadow-soft 等），不改既有 slate 工具类，
- * 因此对未改造的页面零影响。来源：CRM Design / design_handoff_dashboard_A。
+ * 设计令牌（薄荷绿设计语言 → Tailwind v4 @theme）。来源：「客户页面」参考图 + 客户给定的精确配色令牌。
+ * 全局换色策略：只改令牌层，让 brand(主色)、emerald(成功/已收)、rose(危险/未收/应付) 三套语义色
+ * 在源头统一变成 绿 / 珊瑚，全站 386 处用法自动跟随，无需逐文件改。
+ *   --green   #4e9a6b  主色 / 链接 / 已收
+ *   --green-deep #2e6a48  主按钮 / 选中标签
+ *   --lime    #c6e96e  阶段 chip / 高亮
+ *   --coral   #df7d76  应付 / 未收 / 负向
  */
 @theme {
-  /* 主色：明亮蓝（设计稿有意偏离品牌 indigo，已与需求确认采用） */
-  --color-brand: #3b6bff;
-  --color-brand-600: #2f5cf0;
-  --color-brand-700: #264fd6;
-  --color-brand-50: #eef3ff;
-  --color-brand-100: #dbe6ff;
+  /* 主色：雾绿（替换原蓝 brand；text-brand=已收/链接, brand-700=green-deep 主按钮/选中） */
+  --color-brand: #4e9a6b; /* --green */
+  --color-brand-600: #3f8a5b; /* hover 略深 */
+  --color-brand-700: #2e6a48; /* --green-deep */
+  --color-brand-800: #245238;
+  --color-brand-50: #e3f0e6; /* --green-bg */
+  --color-brand-100: #cfe6d6;
 
-  /* 画布 / 表面 / 描边 / 墨色 */
-  --color-canvas: #eef1f8;
-  --color-surface-2: #f7f9fd;
-  --color-line: #eef1f6;
-  --color-line-2: #e6eaf2;
-  --color-ink: #172033;
-  --color-body: #3a4458;
-  --color-muted: #6b7589;
-  --color-faint: #9aa4b8;
+  /* 画布 / 表面 / 描边 / 墨色（薄荷底 + 暖灰绿文字） */
+  --color-canvas: #e8f0ea; /* 页面薄荷底 */
+  --color-surface-2: #f1f6f1; /* 浅底 / 非选中填充（≈ --line2） */
+  --color-line: #e9f0ea; /* 发丝分隔线 */
+  --color-line-2: #e2ece4; /* 控件描边 */
+  --color-ink: #1f2620; /* 主文字 */
+  --color-body: #3a4640; /* 正文 */
+  --color-muted: #6e7a70; /* 次要 --ink2 */
+  --color-faint: #9ba59b; /* 最弱 --ink3 */
 
-  /* 圆角 */
-  --radius-card: 24px;
+  /* 圆角（图中卡片为 20） */
+  --radius-card: 20px;
   --radius-ctl: 14px;
 
-  /* 分层柔和阴影（精致感关键） */
-  --shadow-xs: 0 1px 2px rgb(23 32 51 / 0.05);
-  --shadow-soft: 0 10px 28px -14px rgb(28 40 75 / 0.28), 0 3px 8px -4px rgb(28 40 75 / 0.1);
-  --shadow-brand: 0 14px 26px -10px rgb(59 107 255 / 0.5);
+  /* 绿色系柔投影（精致感关键，对齐图中卡片阴影） */
+  --shadow-xs: 0 1px 2px rgb(40 90 60 / 0.06);
+  --shadow-soft: 0 14px 34px -20px rgb(40 90 60 / 0.22), 0 3px 8px -5px rgb(40 90 60 / 0.1);
+  --shadow-brand: 0 12px 22px -10px rgb(46 106 72 / 0.45);
+
+  /* ── 语义扩展色（图中的亮黄绿 chip / 珊瑚 / 中性 pill）────────────────── */
+  --color-lime: #c6e96e; /* 阶段 chip / 选中态高亮 */
+  --color-lime-d: #7d9e36;
+  --color-lime-ink: #4a6310; /* lime 底上的深字 */
+  --color-lime-soft: #eef7d6;
+  --color-coral: #df7d76; /* 应付 / 未收 / 负向 */
+  --color-coral-bg: #fbe7e4;
+  --color-mute-bg: #eef1ee; /* 中性 pill 底（待付款等） */
+  --color-mute-tx: #7e887e; /* 中性 pill 字 */
+
+  /* ── 重映射 Tailwind 默认 emerald(成功 / 已收 / 已支付) → 设计绿 ──────────── */
+  --color-emerald-50: #e3f0e6;
+  --color-emerald-100: #cfe6d6;
+  --color-emerald-200: #a9d3b6;
+  --color-emerald-300: #82bf95;
+  --color-emerald-400: #62ac79;
+  --color-emerald-500: #57a574;
+  --color-emerald-600: #4e9a6b;
+  --color-emerald-700: #357a52;
+  --color-emerald-800: #2e6a48;
+  --color-emerald-900: #234e36;
+
+  /* ── 重映射 Tailwind 默认 rose(危险 / 未收 / 应付) → 珊瑚 ──────────────── */
+  --color-rose-50: #fbe7e4;
+  --color-rose-100: #f6d2cd;
+  --color-rose-200: #efb8b1;
+  --color-rose-300: #e8a39b;
+  --color-rose-400: #e38a82;
+  --color-rose-500: #df7d76;
+  --color-rose-600: #d0635b;
+  --color-rose-700: #b14e47;
+  --color-rose-800: #8a3c37;
+  --color-rose-900: #6e2f2b;
+
+  /* 衬线标题字体栈（零网络依赖：系统中文宋体优先，覆盖 Tailwind 默认 font-serif） */
+  --font-serif: 'Source Han Serif SC', 'Source Han Serif CN', 'Noto Serif SC', 'Songti SC', STSong,
+    'Songti TC', SimSun, 'Times New Roman', serif;
 }
 
 /* 移动端优先的基础设定。组件样式一律用 Tailwind 工具类，断点用 md:/lg: 向上扩展。 */
@@ -41,7 +84,12 @@ html {
 body {
   margin: 0;
   font-family: system-ui, 'Segoe UI', Roboto, 'PingFang SC', 'Microsoft YaHei', sans-serif;
-  @apply bg-canvas text-body antialiased;
+  /* 薄荷渐变底（对齐参考图：右上柔光 + 整体斜向薄荷） */
+  background:
+    radial-gradient(900px 520px at 88% -8%, #dff0e2 0%, transparent 55%),
+    linear-gradient(150deg, #eaf1ec, #e6efe8 70%, #eef4ec);
+  background-attachment: fixed;
+  @apply text-body antialiased;
 }
 
 #root {

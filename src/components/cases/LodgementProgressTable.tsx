@@ -1,11 +1,10 @@
-import { useMemo, useState } from 'react'
+import { Fragment, useMemo, useState } from 'react'
 import type { MouseEvent } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useBackSource } from '../../hooks/useBackSource'
-import { sortCaseRows } from '../../lib/casesTable'
+import { clusterRowsByGroup, groupPositions, sortCaseRows } from '../../lib/casesTable'
 import type { CaseRow, CaseSortKey } from '../../lib/casesTable'
 import { computeWaitBar } from '../../lib/waitBar'
-import type { WaitTone } from '../../lib/waitBar'
 import { selectCaseTodoPreviews } from '../../lib/tasks'
 import { StageBadge } from './StageBadge'
 import { Avatar } from '../ui/Avatar'
@@ -16,19 +15,16 @@ import type { RecordRow } from '../../types/models'
 const fmtElapsed = (e: { months: number; days: number }) =>
   e.months <= 0 ? `${e.days} 天` : `${e.months} 个月 ${e.days} 天`
 
-/** 进度条色调 → 文字 / 条体颜色（绿<3月 / 琥珀3–6月 / 红≥6月，对齐设计稿 hex）。 */
-const WAIT_TEXT: Record<WaitTone, string> = {
+/** 距今文字色调（绿<3月 / 琥珀3–6月 / 红≥6月）；不再画进度条，只显示时间。 */
+const WAIT_TEXT: Record<ReturnType<typeof computeWaitBar>['tone'], string> = {
   ok: 'text-emerald-500',
   soon: 'text-amber-500',
   over: 'text-rose-500',
 }
-const WAIT_BAR: Record<WaitTone, string> = {
-  ok: 'bg-emerald-500',
-  soon: 'bg-amber-500',
-  over: 'bg-rose-500',
-}
 
 const truncate = (s: string, n = 30) => (s.length > n ? s.slice(0, n) + '…' : s)
+/** 参与人显示最长 5 个字，超出截断（title 提示全名）。 */
+const clipName = (s: string) => (s.length > 5 ? s.slice(0, 5) + '…' : s)
 
 interface Column {
   key: CaseSortKey
@@ -39,8 +35,8 @@ interface Column {
 // 提名两列浅蓝(表头 #e7eefc)、签证两列浅紫(表头 #efeafe)；组首列加 2px 左分隔线
 const COLUMNS: Column[] = [
   { key: 'caseNumber', label: '案件编号' },
-  { key: 'primary', label: '主申请' },
-  { key: 'secondary', label: '副申请' },
+  { key: 'primary', label: '参与人1' },
+  { key: 'secondary', label: '参与人2' },
   { key: 'visa', label: '签证类型' },
   { key: 'stage', label: '状态' },
   { key: 'nomDate', label: '提名递交时间', head: 'bg-[#e7eefc] border-l-2 border-line-2' },
@@ -49,11 +45,17 @@ const COLUMNS: Column[] = [
   { key: 'visaElapsed', label: '签证距今', head: 'bg-[#efeafe]' },
 ]
 
-/** 递交进度宽表：十列保留、提名蓝/签证紫分组、距今加颜色进度条、待办行标「待递交」。 */
+/** 递交进度宽表：参与人1/2 两列（名字截 5 字、无主副角色）、提名蓝/签证紫分组、距今只显时间、待办行标「待递交」。 */
 export function LodgementProgressTable({ rows, tasks }: { rows: CaseRow[]; tasks: RecordRow[] }) {
   const [sortKey, setSortKey] = useState<CaseSortKey>('nomDate')
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc')
-  const sorted = useMemo(() => sortCaseRows(rows, sortKey, sortDir), [rows, sortKey, sortDir])
+  // 排序后再按组聚类：同组案件永远相邻；组顺序跟随各组首行在当前排序中的位置
+  const sorted = useMemo(
+    () => clusterRowsByGroup(sortCaseRows(rows, sortKey, sortDir)),
+    [rows, sortKey, sortDir],
+  )
+  // 每行在组段中的位置：组首行上方插一条「组小节头行」（Group chip + 件数），代替旧的组框描边
+  const positions = useMemo(() => groupPositions(sorted), [sorted])
 
   function toggleSort(key: CaseSortKey) {
     if (key === sortKey) setSortDir((d) => (d === 'asc' ? 'desc' : 'asc'))
@@ -96,8 +98,11 @@ export function LodgementProgressTable({ rows, tasks }: { rows: CaseRow[]; tasks
             </tr>
           </thead>
           <tbody>
-            {sorted.map((r) => (
-              <CaseRowView key={r.rowKey} row={r} tasks={tasks} />
+            {sorted.map((r, i) => (
+              <Fragment key={r.rowKey}>
+                {positions[i].start && <GroupHeaderRow row={r} count={positions[i].span ?? 1} colSpan={COLUMNS.length + 1} />}
+                <CaseRowView row={r} tasks={tasks} />
+              </Fragment>
             ))}
           </tbody>
         </table>
@@ -106,7 +111,7 @@ export function LodgementProgressTable({ rows, tasks }: { rows: CaseRow[]; tasks
   )
 }
 
-/** 「距今」单元格：保留时长文字 + 颜色进度条；终态(下签/拒签)灰字不画条；未递交占位 —。 */
+/** 「距今」单元格：只显示时长文字（不画进度条）；终态(下签/拒签)灰字；未递交占位 —。 */
 function WaitCell({
   daysSince,
   elapsed,
@@ -119,14 +124,26 @@ function WaitCell({
   if (daysSince == null || !elapsed) return <span className="text-slate-300">—</span>
   const label = fmtElapsed(elapsed)
   if (frozen) return <span className="font-semibold text-faint">{label}</span>
-  const { tone, pct } = computeWaitBar(daysSince)
+  const { tone } = computeWaitBar(daysSince)
+  return <span className={`text-[13px] font-bold tabular-nums ${WAIT_TEXT[tone]}`}>{label}</span>
+}
+
+/** 组小节头行：浅底细行 = 组码 chip + 件数；一案一组（同参与人集合的案件共用一个组头）。 */
+function GroupHeaderRow({ row, count, colSpan }: { row: CaseRow; count: number; colSpan: number }) {
   return (
-    <div className="min-w-[104px]">
-      <div className={`text-[13px] font-bold tabular-nums ${WAIT_TEXT[tone]}`}>{label}</div>
-      <div className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-line-2">
-        <span className={`block h-full rounded-full ${WAIT_BAR[tone]}`} style={{ width: `${pct}%` }} />
-      </div>
-    </div>
+    <tr>
+      <td colSpan={colSpan} className="border-b border-line bg-surface-2 px-3.5 py-1.5">
+        <span className="flex items-center gap-2">
+          <span
+            title="同参与人的案件为一组"
+            className="rounded-full bg-[var(--color-lime-soft)] px-2.5 py-0.5 text-[12px] font-semibold text-[var(--color-lime-ink)]"
+          >
+            {row.groupCode}
+          </span>
+          <span className="text-[12px] text-faint">· {count} 件</span>
+        </span>
+      </td>
+    </tr>
   )
 }
 
@@ -144,13 +161,14 @@ function CaseRowView({ row, tasks }: { row: CaseRow; tasks: RecordRow[] }) {
   // 签证类型：粗体子类 + 灰色 stream 副行（如 482 / Core Skills）
   const [vSub, ...vRest] = row.visaLabel.split('/')
   const vStream = vRest.join('/')
-  const subName = row.secondaryName
   const navigate = useNavigate()
   const source = useBackSource()
   // 整行 → 案件详情；头像/名字单元格 → 该客户主页（stopPropagation 不触发行的案件跳转）
   const openCase = () => navigate(`/cases/${row.caseId}`, { state: { from: 'cases', view: 'lodge' } })
   const stop = (e: MouseEvent) => e.stopPropagation()
-  // 副申恰好一位时，其头像/名字可链到该客户；多位则保持纯文本（避免歧义）
+  // 参与人1 = 案件客户；参与人2 = 同案参与客户(case_applicants)，无主副角色；只有一人时第二列留空
+  const subName = row.secondaryName
+  // 参与人2 恰好一位时，其头像/名字可链到该客户；多位则保持纯文本（避免歧义）
   const singleSubId = row.secondaryCustomerIds.length === 1 ? row.secondaryCustomerIds[0] : null
 
   return (
@@ -171,11 +189,11 @@ function CaseRowView({ row, tasks }: { row: CaseRow; tasks: RecordRow[] }) {
             to={`/customers/${row.primaryCustomerId}`}
             state={source}
             onClick={stop}
-            title={`查看 ${row.primaryName} 客户主页`}
+            title={row.primaryName}
             className="group/cust -m-1 flex items-center gap-2.5 rounded-lg p-1 transition hover:bg-surface-2"
           >
             <Avatar name={row.primaryName} seed={row.caseId} size={34} />
-            <span className="font-medium text-ink group-hover/cust:text-brand">{row.primaryName}</span>
+            <span className="font-medium text-ink group-hover/cust:text-brand">{clipName(row.primaryName)}</span>
           </Link>
         ) : (
           <span className="text-slate-300">—</span>
@@ -188,16 +206,16 @@ function CaseRowView({ row, tasks }: { row: CaseRow; tasks: RecordRow[] }) {
               to={`/customers/${singleSubId}`}
               state={source}
               onClick={stop}
-              title={`查看 ${subName} 客户主页`}
+              title={subName}
               className="group/cust -m-1 flex items-center gap-2 rounded-lg p-1 transition hover:bg-surface-2"
             >
               <Avatar name={subName} seed={subName} size={28} />
-              <span className="text-body group-hover/cust:text-brand">{subName}</span>
+              <span className="text-body group-hover/cust:text-brand">{clipName(subName)}</span>
             </Link>
           ) : (
-            <span className="flex items-center gap-2">
+            <span className="flex items-center gap-2" title={subName}>
               <Avatar name={subName} seed={subName} size={28} />
-              <span className="text-body">{subName}</span>
+              <span className="text-body">{clipName(subName)}</span>
             </span>
           )
         ) : (

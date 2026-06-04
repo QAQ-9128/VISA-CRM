@@ -53,7 +53,7 @@ export function matchesCustomerFilter(c: Customer, f: CustomerFilter): boolean {
 
 /**
  * 签证类别过滤：空集不限；否则给定签证集合与已选签证有交集才算命中。
- * 列表传客户名下所有案件的签证集；看板按单张卡片的案件签证传。
+ * 列表传客户名下所有案件的签证集。
  */
 export function matchesVisaFilter(f: Pick<CustomerFilter, 'subclasses'>, subclasses: readonly string[]): boolean {
   if (!f.subclasses.size) return true

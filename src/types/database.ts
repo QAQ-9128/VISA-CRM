@@ -173,6 +173,8 @@ export interface Database {
           visa_subclass: string
           visa_stream: string | null
           destination_country: string | null
+          sponsor_position: string | null
+          sponsor_employer_id: string | null
           current_stage: CaseStage
           currency: string
           sync_tracking: boolean
@@ -192,6 +194,8 @@ export interface Database {
           visa_subclass: string
           visa_stream?: string | null
           destination_country?: string | null
+          sponsor_position?: string | null
+          sponsor_employer_id?: string | null
           current_stage?: CaseStage
           currency?: string
           sync_tracking?: boolean

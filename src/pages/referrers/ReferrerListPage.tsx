@@ -53,7 +53,7 @@ export function ReferrerListPage() {
   const referrers = useReferrers()
 
   return (
-    <section className="mx-auto max-w-3xl space-y-5">
+    <section className="space-y-5">
       <div className="flex items-center justify-between gap-3">
         <h1 className="text-2xl font-bold tracking-[-0.02em] text-ink">介绍人</h1>
         <Link to="/referrers/new">

@@ -25,6 +25,7 @@ export function RecordPaymentForm({
   installments,
   currency = 'AUD',
   defaultPayerCustomerId,
+  applicantId = null,
 }: {
   caseId: string
   items: Pick<PaymentPlanItem, 'id' | 'fee_category'>[]
@@ -32,6 +33,8 @@ export function RecordPaymentForm({
   currency?: string
   /** 案件主申 id：作为「付款方」默认占位（空 = 主申请） */
   defaultPayerCustomerId?: string
+  /** 账单归属客户：把这笔收款记到本案该客户名下（applicant_id）。null = 合并/未分人 */
+  applicantId?: string | null
 }) {
   const create = useCreatePayment(caseId)
   const allCustomers = useCustomers({})
@@ -57,6 +60,7 @@ export function RecordPaymentForm({
     create.mutate(
       {
         case_id: caseId,
+        applicant_id: applicantId,
         direction: 'from_client',
         plan_item_id: itemId || null,
         installment_id: installmentId || null,

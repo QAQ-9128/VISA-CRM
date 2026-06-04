@@ -3,12 +3,11 @@ import {
   addCaseApplicant,
   listAllCaseApplicants,
   listCaseApplicants,
-  removeCaseApplicant,
   setCaseApplicants,
 } from '../../api/caseApplicants'
 import { queryKeys } from './keys'
 
-/** 某案件的副申请人关联（案件表单回填用）。 */
+/** 某案件的参与人关联（参与人 = 案件客户 + 本表成员；案件表单回填/详情/费用卡用）。 */
 export function useCaseApplicants(caseId: string | undefined) {
   return useQuery({
     queryKey: queryKeys.caseApplicants.byCase(caseId ?? ''),
@@ -31,21 +30,12 @@ export function useSetCaseApplicants() {
   })
 }
 
-/** 从副申客户详情页加入/退出某案件（增量单条）。失效 caseApplicants.all → 案件表/财务/详情同步。 */
+/** 把客户加入某案件（增量单条；新建客户「加入已有案件」用）。失效 caseApplicants 前缀 → 全站参与人视图同步。 */
 export function useAddCaseApplicant() {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: ({ caseId, customerId }: { caseId: string; customerId: string }) =>
       addCaseApplicant(caseId, customerId),
-    onSuccess: () => qc.invalidateQueries({ queryKey: queryKeys.caseApplicants.all }),
-  })
-}
-
-export function useRemoveCaseApplicant() {
-  const qc = useQueryClient()
-  return useMutation({
-    mutationFn: ({ caseId, customerId }: { caseId: string; customerId: string }) =>
-      removeCaseApplicant(caseId, customerId),
     onSuccess: () => qc.invalidateQueries({ queryKey: queryKeys.caseApplicants.all }),
   })
 }

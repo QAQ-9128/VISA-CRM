@@ -17,8 +17,12 @@ export const TERMINAL_STAGES: ReadonlySet<CaseStage> = new Set<CaseStage>([
 export interface CaseListRow {
   caseId: string
   caseNumber: string
+  /** 案件所属组的派生组码（同组同码，用于按组聚类 + 组 ID 列） */
+  groupCode: string
   customerId: string
   customerName: string
+  /** 参与人：案件客户 + 同案参与客户(case_applicants)，、连接，无角色 */
+  participantsLabel: string
   /** 签证子类别(visa_stream)，无则 '' */
   stream: string
   visaSubclass: string
@@ -39,7 +43,7 @@ const overdue = (days: number | null, dha: number | null) =>
 
 /**
  * 由递交进度行(CaseRow)派生案件列表行，复用其 DHA/距今计算（紧急判定不重算）。
- * 补：客户名所属雇主、签证大类标签、updatedAt。
+ * 补：参与人拼接、客户所属雇主、签证大类标签、updatedAt。
  */
 export function selectCaseListRows(
   rows: CaseRow[],
@@ -63,8 +67,12 @@ export function selectCaseListRows(
     return {
       caseId: row.caseId,
       caseNumber: row.caseNumber,
+      groupCode: row.groupCode,
       customerId: c?.customer_id ?? '',
       customerName: row.primaryName,
+      participantsLabel: row.secondaryName
+        ? `${row.primaryName}、${row.secondaryName}`
+        : row.primaryName,
       stream: c?.visa_stream ?? '',
       visaSubclass: row.visaSubclass,
       visaCategory: visaCategoryLabel(row.visaSubclass),
@@ -82,7 +90,7 @@ export function selectCaseListRows(
 }
 
 export interface CaseListFilter {
-  /** 文本搜索：客户名 / 签证类别 / 大类 / 子类别 / 雇主 / 案件编号 */
+  /** 文本搜索：参与人名 / 签证类别 / 大类 / 子类别 / 雇主 / 案件编号 */
   search: string
   /** 选中的阶段（空 = 不限），同维度内为「或」 */
   stages: ReadonlySet<CaseStage>
@@ -107,7 +115,7 @@ export const EMPTY_FILTER: CaseListFilter = {
 
 function matchesSearch(row: CaseListRow, q: string): boolean {
   const hay = [
-    row.customerName,
+    row.participantsLabel,
     row.visaSubclass,
     row.visaCategory,
     row.stream,

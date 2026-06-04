@@ -1,4 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import type { QueryClient } from '@tanstack/react-query'
 import {
   archiveDocument,
   createDocument,
@@ -26,6 +27,15 @@ export function useDocumentsByCase(caseId: string | undefined) {
     queryFn: () => listDocumentsByCase(caseId as string),
     enabled: !!caseId,
   })
+}
+
+/**
+ * 文件变更后：documents 前缀（客户文件区 byCustomer / 案件文件区 byCase / 档案库 allList 全覆盖）
+ * + 概览「即将到期」（dashboard.expiringDocs 在 dashboard 命名空间下，前缀盖不到，需显式失效）。
+ */
+function invalidateDocuments(qc: QueryClient) {
+  qc.invalidateQueries({ queryKey: queryKeys.documents.all })
+  qc.invalidateQueries({ queryKey: queryKeys.dashboard.expiringDocs })
 }
 
 export interface AddDocumentInput {
@@ -60,7 +70,7 @@ export function useAddDocument() {
         uploaded_by: user?.id ?? null,
       })
     },
-    onSuccess: () => qc.invalidateQueries({ queryKey: queryKeys.documents.all }),
+    onSuccess: () => invalidateDocuments(qc),
   })
 }
 
@@ -68,7 +78,7 @@ export function useUpdateDocument() {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: ({ id, patch }: { id: string; patch: DocumentUpdate }) => updateDocument(id, patch),
-    onSuccess: () => qc.invalidateQueries({ queryKey: queryKeys.documents.all }),
+    onSuccess: () => invalidateDocuments(qc),
   })
 }
 
@@ -76,6 +86,6 @@ export function useArchiveDocument() {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: (id: string) => archiveDocument(id),
-    onSuccess: () => qc.invalidateQueries({ queryKey: queryKeys.documents.all }),
+    onSuccess: () => invalidateDocuments(qc),
   })
 }

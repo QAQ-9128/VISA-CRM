@@ -16,6 +16,7 @@ function caseRow(over: Partial<CaseRow> & Pick<CaseRow, 'caseId'>): CaseRow {
   return {
     rowKey: over.caseId,
     caseNumber: 'C0001',
+    groupCode: 'G-AB12',
     role: 'merged',
     primaryName: '张伟',
     primaryCustomerId: 'cust-1',
@@ -60,6 +61,7 @@ describe('selectCaseListRows', () => {
     expect(rows[0]).toMatchObject({
       caseId: 'c1',
       customerName: '张伟',
+      participantsLabel: '张伟', // 单参与人 → 只写一个名
       stream: 'Core Skills',
       visaSubclass: '482',
       visaCategory: '工作 / 雇主担保',
@@ -69,6 +71,16 @@ describe('selectCaseListRows', () => {
       referrerName: '林老师',
       urgent: true,
     })
+  })
+
+  it('多参与人 → participantsLabel 拼接案件客户 + 同案参与客户', () => {
+    const rows = selectCaseListRows(
+      [caseRow({ caseId: 'c1', primaryName: '张伟', secondaryName: '李娜、王芳', secondaryCustomerIds: ['cu2', 'cu3'] })],
+      [kase({ id: 'c1' })],
+      [customer({ id: 'cu1' })],
+      [],
+    )
+    expect(rows[0].participantsLabel).toBe('张伟、李娜、王芳')
   })
 
   it('已决(frozen)即使超 DHA 也不算紧急', () => {
@@ -96,9 +108,9 @@ describe('selectCaseListRows', () => {
 
 describe('filterCaseListRows', () => {
   const rows: CaseListRow[] = [
-    { caseId: 'c1', caseNumber: 'AA1', customerId: 'cu1', customerName: '张伟', stream: 'Core Skills', visaSubclass: '482', visaCategory: '工作 / 雇主担保', employerId: 'e1', employerName: '金煌餐饮', referrerId: 'r1', referrerName: '林老师', stage: 'nomination_lodged', updatedAt: '2025-05-01', urgent: false },
-    { caseId: 'c2', caseNumber: 'BB2', customerId: 'cu2', customerName: '王强', stream: 'Direct Entry', visaSubclass: '186', visaCategory: '工作 / 雇主担保', employerId: 'e2', employerName: '澳信科技', referrerId: 'r2', referrerName: '陈姐', stage: 'granted', updatedAt: '2025-04-01', urgent: false },
-    { caseId: 'c3', caseNumber: 'CC3', customerId: 'cu3', customerName: '陈静', stream: '', visaSubclass: '500', visaCategory: '学生 / 毕业生', employerId: null, employerName: '', referrerId: null, referrerName: '', stage: 'docs_requested', updatedAt: '2025-03-01', urgent: true },
+    { caseId: 'c1', caseNumber: 'AA1', groupCode: 'G-0001', customerId: 'cu1', customerName: '张伟', participantsLabel: '张伟', stream: 'Core Skills', visaSubclass: '482', visaCategory: '工作 / 雇主担保', employerId: 'e1', employerName: '金煌餐饮', referrerId: 'r1', referrerName: '林老师', stage: 'nomination_lodged', updatedAt: '2025-05-01', urgent: false },
+    { caseId: 'c2', caseNumber: 'BB2', groupCode: 'G-0002', customerId: 'cu2', customerName: '王强', participantsLabel: '王强、刘梅', stream: 'Direct Entry', visaSubclass: '186', visaCategory: '工作 / 雇主担保', employerId: 'e2', employerName: '澳信科技', referrerId: 'r2', referrerName: '陈姐', stage: 'granted', updatedAt: '2025-04-01', urgent: false },
+    { caseId: 'c3', caseNumber: 'CC3', groupCode: 'G-0003', customerId: 'cu3', customerName: '陈静', participantsLabel: '陈静', stream: '', visaSubclass: '500', visaCategory: '学生 / 毕业生', employerId: null, employerName: '', referrerId: null, referrerName: '', stage: 'docs_requested', updatedAt: '2025-03-01', urgent: true },
   ]
 
   it('空筛选 = 原样返回', () => {
@@ -133,8 +145,9 @@ describe('filterCaseListRows', () => {
     expect(filterCaseListRows(rows, { ...EMPTY_FILTER, search: '林老师' }).map((r) => r.caseId)).toEqual(['c1'])
   })
 
-  it('搜索匹配客户名 / 雇主 / 大类 / 案件编号（大小写不敏感）', () => {
+  it('搜索匹配参与人名 / 雇主 / 大类 / 案件编号（大小写不敏感）', () => {
     expect(filterCaseListRows(rows, { ...EMPTY_FILTER, search: '王强' }).map((r) => r.caseId)).toEqual(['c2'])
+    expect(filterCaseListRows(rows, { ...EMPTY_FILTER, search: '刘梅' }).map((r) => r.caseId)).toEqual(['c2']) // 同案参与人也可搜
     expect(filterCaseListRows(rows, { ...EMPTY_FILTER, search: '澳信' }).map((r) => r.caseId)).toEqual(['c2'])
     expect(filterCaseListRows(rows, { ...EMPTY_FILTER, search: '学生' }).map((r) => r.caseId)).toEqual(['c3'])
     expect(filterCaseListRows(rows, { ...EMPTY_FILTER, search: 'cc3' }).map((r) => r.caseId)).toEqual(['c3'])
@@ -144,9 +157,9 @@ describe('filterCaseListRows', () => {
 describe('caseListFacets', () => {
   it('收集出现过的阶段(按流程序)/子类别/雇主(去重排序)', () => {
     const rows: CaseListRow[] = [
-      { caseId: 'c1', caseNumber: 'A', customerId: '1', customerName: 'x', stream: '', visaSubclass: '186', visaCategory: '', employerId: 'e2', employerName: '乙', referrerId: 'r2', referrerName: '介乙', stage: 'visa_lodged', updatedAt: '', urgent: false },
-      { caseId: 'c2', caseNumber: 'B', customerId: '2', customerName: 'y', stream: '', visaSubclass: '482', visaCategory: '', employerId: 'e1', employerName: '甲', referrerId: 'r1', referrerName: '介甲', stage: 'todo', updatedAt: '', urgent: false },
-      { caseId: 'c3', caseNumber: 'C', customerId: '3', customerName: 'z', stream: '', visaSubclass: '482', visaCategory: '', employerId: 'e1', employerName: '甲', referrerId: 'r1', referrerName: '介甲', stage: 'todo', updatedAt: '', urgent: false },
+      { caseId: 'c1', caseNumber: 'A', groupCode: 'G-0001', customerId: '1', customerName: 'x', participantsLabel: 'x', stream: '', visaSubclass: '186', visaCategory: '', employerId: 'e2', employerName: '乙', referrerId: 'r2', referrerName: '介乙', stage: 'visa_lodged', updatedAt: '', urgent: false },
+      { caseId: 'c2', caseNumber: 'B', groupCode: 'G-0002', customerId: '2', customerName: 'y', participantsLabel: 'y', stream: '', visaSubclass: '482', visaCategory: '', employerId: 'e1', employerName: '甲', referrerId: 'r1', referrerName: '介甲', stage: 'todo', updatedAt: '', urgent: false },
+      { caseId: 'c3', caseNumber: 'C', groupCode: 'G-0003', customerId: '3', customerName: 'z', participantsLabel: 'z', stream: '', visaSubclass: '482', visaCategory: '', employerId: 'e1', employerName: '甲', referrerId: 'r1', referrerName: '介甲', stage: 'todo', updatedAt: '', urgent: false },
     ]
     const f = caseListFacets(rows)
     expect(f.stages).toEqual(['todo', 'visa_lodged']) // 按 CASE_STAGES 顺序
@@ -158,7 +171,7 @@ describe('caseListFacets', () => {
 
 describe('caseFilterFacets（阶段全列 · 签证只列已有 · 雇主/介绍人全集）', () => {
   const listRow = (caseId: string, sub: string): CaseListRow => ({
-    caseId, caseNumber: caseId, customerId: 'cu', customerName: 'x', stream: '', visaSubclass: sub,
+    caseId, caseNumber: caseId, groupCode: 'G-0001', customerId: 'cu', customerName: 'x', participantsLabel: 'x', stream: '', visaSubclass: sub,
     visaCategory: '', employerId: null, employerName: '', referrerId: null, referrerName: '',
     stage: 'todo', updatedAt: '', urgent: false,
   })

@@ -11,7 +11,7 @@ import type { Case } from '../types/models'
 const mkCase = (o: Partial<Case>): Case => ({
   id: 'c1', case_number: '00000001', customer_id: 'cu1', visa_subclass: '482', visa_stream: null, current_stage: 'todo',
   currency: 'AUD', sync_tracking: true, trt_reminder_enabled: false, parent_case_id: null, parent_sync_progress: false,
-  destination_country: 'Australia', assigned_to: null, created_by: null, is_archived: false, created_at: '', updated_at: '', ...o,
+  destination_country: 'Australia', sponsor_position: null, sponsor_employer_id: null, assigned_to: null, created_by: null, is_archived: false, created_at: '', updated_at: '', ...o,
 })
 
 describe('relationshipOf（存储字段 → 三态）', () => {

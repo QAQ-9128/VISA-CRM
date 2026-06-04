@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { selectFamilyGroupMembers, selectCoApplicantCases, selectJoinableCases } from './family'
+import { selectFamilyGroupMembers, selectCoApplicantCases, selectCustomerCases, selectJoinableCases } from './family'
 import type { Case, CaseApplicant, Customer, FamilyMemberLink } from '../types/models'
 
 const link = (primary: string, member: string): FamilyMemberLink =>
@@ -13,7 +13,7 @@ const mkCustomer = (o: Partial<Customer>): Customer => ({
 })
 const mkCase = (o: Partial<Case>): Case => ({
   id: 'c1', case_number: '00000001', customer_id: 'head', visa_subclass: '482', visa_stream: null, current_stage: 'todo',
-  currency: 'AUD', sync_tracking: true, trt_reminder_enabled: false, parent_case_id: null, parent_sync_progress: false, destination_country: 'Australia', assigned_to: null, created_by: null,
+  currency: 'AUD', sync_tracking: true, trt_reminder_enabled: false, parent_case_id: null, parent_sync_progress: false, destination_country: 'Australia', sponsor_position: null, sponsor_employer_id: null, assigned_to: null, created_by: null,
   is_archived: false, created_at: '', updated_at: '', ...o,
 })
 const ca = (case_id: string, customer_id: string): CaseApplicant => ({
@@ -85,5 +85,27 @@ describe('selectJoinableCases', () => {
     expect(selectJoinableCases(cases, [], 'head', ALL, links).map((c) => c.id)).toEqual(['cOther'])
     // 反向：other 可加入 head 的 482
     expect(selectJoinableCases(cases, [], 'other', ALL, links).map((c) => c.id)).toEqual(['c482'])
+  })
+})
+
+describe('selectCustomerCases（客户详情案件来源 = 拥有 ∪ 参与）', () => {
+  const ownA = mkCase({ id: 'ownA', customer_id: 'sub1', created_at: '2026-02-01' })
+  const ownB = mkCase({ id: 'ownB', customer_id: 'sub1', created_at: '2026-01-01' })
+  const aliceCase = mkCase({ id: 'al', customer_id: 'head', created_at: '2026-03-01' })
+  const archivedOwn = mkCase({ id: 'arcC', customer_id: 'sub1', is_archived: true })
+  const unrelated = mkCase({ id: 'un', customer_id: 'other' })
+  const applicants = [ca('al', 'sub1')] // sub1 参与 head 名下的案件
+  const cases = [ownA, ownB, aliceCase, archivedOwn, unrelated]
+
+  it('拥有在前（按 created_at）+ 参与的在后', () => {
+    expect(selectCustomerCases('sub1', cases, applicants).map((c) => c.id)).toEqual(['ownB', 'ownA', 'al'])
+  })
+  it('排除归档与无关案件', () => {
+    const ids = selectCustomerCases('sub1', cases, applicants).map((c) => c.id)
+    expect(ids).not.toContain('arcC')
+    expect(ids).not.toContain('un')
+  })
+  it('纯参与人（无自有案件）也能看到参与的案件', () => {
+    expect(selectCustomerCases('sub2', [aliceCase], [ca('al', 'sub2')]).map((c) => c.id)).toEqual(['al'])
   })
 })

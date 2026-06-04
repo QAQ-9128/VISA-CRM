@@ -1,50 +1,71 @@
-import { describe, expect, it, vi } from 'vitest'
-import { render, screen, fireEvent } from '@testing-library/react'
+import { describe, expect, it, vi, beforeEach } from 'vitest'
+import { render, screen, within } from '@testing-library/react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { MemoryRouter, Routes, Route } from 'react-router-dom'
 import { AuthContext } from '../../providers/auth-context'
 import type { AuthContextValue } from '../../providers/auth-context'
-import type { Customer } from '../../types/models'
+import type { Case, CaseStageHistory, Customer } from '../../types/models'
 
-// mock 客户读取，返回一个主申客户；其余查询在测试中无网络（retry:false）→ 空态
+// 客户本体；其余查询无网络(retry:false) → 优雅空态
 vi.mock('../../api/customers', async (orig) => {
   const actual = await orig<typeof import('../../api/customers')>()
   return {
     ...actual,
     getCustomer: vi.fn().mockResolvedValue({
-      id: 'cu1',
-      full_name: '测试客户',
-      primary_applicant_id: null,
-      client_source: null,
-      is_starred: false,
-      is_archived: false,
-      gender: 'male',
-      sponsor_employer_id: null,
-      sponsor_position: null,
-      referrer_id: null,
-      birth_date: null,
-      notes: null,
-      phone: null,
-      email: null,
+      id: 'cu1', full_name: '测试客户', primary_applicant_id: null, client_source: null,
+      is_starred: false, is_archived: false, gender: 'male', sponsor_employer_id: null,
+      sponsor_position: null, referrer_id: null, birth_date: null, notes: null, phone: null, email: null,
     } as unknown as Customer),
     listCustomers: vi.fn().mockResolvedValue([]),
   }
 })
 
+// 案件读取：页面用全量 listCases + listAllCaseApplicants（拥有∪参与），默认无案件，按测试覆盖
+vi.mock('../../api/cases', async (orig) => {
+  const actual = await orig<typeof import('../../api/cases')>()
+  return {
+    ...actual,
+    listCases: vi.fn().mockResolvedValue([]),
+    getCaseStageHistory: vi.fn().mockResolvedValue([]), // 概要带「审理时间」格读真实递交日；测试给空 → 该格不显示
+  }
+})
+vi.mock('../../api/caseApplicants', async (orig) => {
+  const actual = await orig<typeof import('../../api/caseApplicants')>()
+  return {
+    ...actual,
+    listAllCaseApplicants: vi.fn().mockResolvedValue([]),
+    listCaseApplicants: vi.fn().mockResolvedValue([]),
+  }
+})
+
 import { CustomerDetailPage } from './CustomerDetailPage'
+import { getCaseStageHistory, listCases } from '../../api/cases'
+import { listCustomers } from '../../api/customers'
+import { listAllCaseApplicants, listCaseApplicants } from '../../api/caseApplicants'
+import { queryKeys } from '../../hooks/queries/keys'
+
+const mkCase = (o: Partial<Case>): Case => ({
+  id: 'ca1', case_number: '12345678', customer_id: 'cu1', visa_subclass: '482', visa_stream: 'Core Skill',
+  destination_country: null, sponsor_position: null, sponsor_employer_id: null,
+  current_stage: 'nomination_lodged', currency: 'AUD', sync_tracking: true,
+  trt_reminder_enabled: false, parent_case_id: null, parent_sync_progress: false, assigned_to: null,
+  created_by: null, is_archived: false, created_at: '', updated_at: '', ...o,
+})
 
 const authValue = {
-  user: { id: 'u1' },
-  loading: false,
-  session: null,
-  profile: null,
-  isAdmin: true,
-  signIn: async () => {},
-  signOut: async () => {},
+  user: { id: 'u1' }, loading: false, session: null, profile: null, isAdmin: true,
+  signIn: async () => {}, signOut: async () => {},
 } as unknown as AuthContextValue
 
 function renderPage() {
-  const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+  const qc = new QueryClient({ defaultOptions: { queries: { retry: false, staleTime: Infinity, refetchOnMount: false } } })
+  // 费用卡加载门的查询（无网络，确定性）：付款计划/付款/款项 + 家庭关联 + 本案发票
+  qc.setQueryData(queryKeys.dashboard.plans, [])
+  qc.setQueryData(queryKeys.dashboard.payments, [])
+  qc.setQueryData(queryKeys.dashboard.planItems, [])
+  qc.setQueryData(queryKeys.familyLinks.all, [])
+  qc.setQueryData(queryKeys.documents.byCase('ca1'), [])
+  qc.setQueryData(queryKeys.documents.byCase('caA'), [])
   return render(
     <QueryClientProvider client={qc}>
       <AuthContext.Provider value={authValue}>
@@ -58,56 +79,123 @@ function renderPage() {
   )
 }
 
-describe('CustomerDetailPage（tab 结构）', () => {
-  it('头部 + 5 个 tab（家庭成员并入案件）；默认在概览（KPI + 基本信息），编辑客户/收藏在', async () => {
+beforeEach(() => {
+  vi.mocked(listCases).mockResolvedValue([])
+  vi.mocked(listCustomers).mockResolvedValue([])
+  vi.mocked(listAllCaseApplicants).mockResolvedValue([])
+  vi.mocked(listCaseApplicants).mockResolvedValue([])
+  vi.mocked(getCaseStageHistory).mockResolvedValue([])
+})
+
+describe('CustomerDetailPage（案件中心单页 · 无 tab）', () => {
+  it('概要带：姓名 + 参与案件格 + 编辑客户；无主/副申、无所属组、不再有任何 tab', async () => {
     renderPage()
-    expect(await screen.findByText('测试客户')).toBeInTheDocument()
-    for (const t of ['概览', '案件 / 家庭成员', '付款', '文件', '记录']) {
-      expect(screen.getByRole('button', { name: t })).toBeInTheDocument()
-    }
-    // 家庭成员不再是独立 tab
-    expect(screen.queryByRole('button', { name: '家庭成员' })).not.toBeInTheDocument()
+    expect((await screen.findAllByText('测试客户')).length).toBeGreaterThan(0)
+    expect(screen.queryByText('主申请人')).not.toBeInTheDocument() // 去角色：不再标主/副申
+    // 一案一组：概要带不再显示「所属组」，改「参与案件 N 件」（链到案件参与管理）
+    expect(screen.getByText('参与案件')).toBeInTheDocument()
+    expect(screen.getByText(/^\d+ 件$/)).toBeInTheDocument()
+    expect(screen.queryByText('所属组 Group')).not.toBeInTheDocument()
+    // 性别·生日格（客户属性放进概要带）；gender=male → 男，birth_date 空则无日期
+    expect(screen.getByText('性别 · 生日')).toBeInTheDocument()
+    expect(screen.getByText('男')).toBeInTheDocument()
     expect(screen.getByText('编辑客户')).toBeInTheDocument()
-    expect(screen.getByText('活跃案件')).toBeInTheDocument() // KPI（概览唯一统计来源）
-    expect(screen.getByText('基本信息')).toBeInTheDocument()
-    // 概览不渲染完整记录时间线 / 上传区
-    expect(screen.queryByText('记录时间线')).not.toBeInTheDocument()
+    // 旧 tab 全部消失
+    for (const t of ['概览', '案件 / 家庭成员', '付款', '文件', '记录']) {
+      expect(screen.queryByRole('button', { name: t })).not.toBeInTheDocument()
+    }
   })
 
-  it('切到「记录」tab → 渲染完整记录功能（快速添加 + 时间线）', async () => {
+  it('概要带「审理时间」：阶段=提名递交且有真实递交历史 → 提名审理时间 · 已 N 天', async () => {
+    vi.mocked(listCases).mockResolvedValue([mkCase({ id: 'ca1', current_stage: 'nomination_lodged' })])
+    vi.mocked(getCaseStageHistory).mockResolvedValue([
+      {
+        id: 'h1', case_id: 'ca1', from_stage: 'todo', to_stage: 'nomination_lodged', note: null,
+        changed_by: null, changed_at: '2026-05-01T00:00:00Z', effective_at: '2026-05-01T00:00:00Z',
+      } as CaseStageHistory,
+    ])
     renderPage()
-    await screen.findByText('测试客户')
-    fireEvent.click(screen.getByRole('button', { name: '记录' }))
-    expect(await screen.findByText('快速添加记录')).toBeInTheDocument()
-    expect(screen.getByText('记录时间线')).toBeInTheDocument()
+    expect(await screen.findByText('审理时间')).toBeInTheDocument()
+    expect(screen.getByText('提名审理时间')).toBeInTheDocument()
+    expect(screen.getByText(/^已 \d+ 天$/)).toBeInTheDocument()
   })
 
-  it('切到「文件」tab → 渲染完整文件功能（上传 + 待补充 + 文件总数统计卡）', async () => {
+  it('概要带「审理时间」：其它阶段（如下签）→ 此格不显示；无递交历史也不显示', async () => {
+    vi.mocked(listCases).mockResolvedValue([mkCase({ id: 'ca1', current_stage: 'granted' })])
     renderPage()
-    await screen.findByText('测试客户')
-    fireEvent.click(screen.getByRole('button', { name: '文件' }))
-    expect(await screen.findByText('选择文件上传')).toBeInTheDocument()
-    expect(screen.getByText('待补充 / 缺失提醒')).toBeInTheDocument()
-    expect(screen.getByText('文件总数')).toBeInTheDocument() // full 变体统计卡
+    expect((await screen.findAllByText('测试客户')).length).toBeGreaterThan(0)
+    expect(screen.queryByText('审理时间')).not.toBeInTheDocument()
+    expect(screen.queryByText(/^已 \d+ 天$/)).not.toBeInTheDocument()
   })
 
-  it('家庭成员并入「案件 / 家庭成员」tab，且概览也含三个按钮（含关联现有客户，同一套 flow）', async () => {
+  it('两张主卡：相关案件 + 费用记录；无案件时空态不崩', async () => {
     renderPage()
-    await screen.findByText('测试客户')
-    // 概览也有三按钮
-    expect(screen.getByText('+ 添加副申请人')).toBeInTheDocument()
-    expect(screen.getByText('+ 一键添加家庭成员')).toBeInTheDocument()
-    expect(screen.getByText('+ 关联现有客户')).toBeInTheDocument()
-    // 切到「案件 / 家庭成员」tab，三按钮（家庭成员管理）仍在，与案件同 tab
-    fireEvent.click(screen.getByRole('button', { name: '案件 / 家庭成员' }))
-    expect(await screen.findByText('+ 关联现有客户')).toBeInTheDocument()
-    expect(screen.getByText('+ 新建案件')).toBeInTheDocument() // 案件与家庭成员同在该 tab
+    await screen.findAllByText('测试客户')
+    expect(screen.getByText('相关案件')).toBeInTheDocument()
+    expect(screen.getByText('费用记录')).toBeInTheDocument()
+    expect(screen.getByText(/暂无案件 · 点右上/)).toBeInTheDocument() // 相关案件空态
+    expect(screen.getByText('暂无案件')).toBeInTheDocument() // 概要带当前案件格
   })
 
   it('底部归档 / 彻底删除常驻', async () => {
     renderPage()
-    await screen.findByText('测试客户')
+    await screen.findAllByText('测试客户')
     expect(screen.getByText('归档')).toBeInTheDocument()
     expect(screen.getByText('彻底删除')).toBeInTheDocument()
+  })
+
+  it('有案件时：案件 tab 渲染，且概要带「当前案件·阶段」与之同步显示 visa', async () => {
+    vi.mocked(listCases).mockResolvedValue([mkCase({ id: 'ca1', visa_subclass: '482', visa_stream: 'Core Skill' })])
+    renderPage()
+    await screen.findAllByText('测试客户')
+    // 案件 tab（相关案件卡内，唯一的同名 button）
+    expect(await screen.findByRole('button', { name: '482/Core Skill' })).toBeInTheDocument()
+    // 概要带「当前案件·阶段」格同步出现 visa 文本（纯文本，非 button）
+    const bandCell = screen.getByText('当前案件 · 阶段').parentElement as HTMLElement
+    expect(within(bandCell).getByText('482/Core Skill')).toBeInTheDocument()
+    // 案件卡不再有「主申请人 / 副申请人」行
+    expect(screen.getByText('签证子类别')).toBeInTheDocument()
+    expect(screen.queryByText('副申请人')).not.toBeInTheDocument()
+  })
+
+  it('费用记录卡标题带案件号 tag + 客户侧应收合计贴底（纯应收视图）', async () => {
+    vi.mocked(listCases).mockResolvedValue([mkCase({ id: 'ca1', visa_subclass: '482' })])
+    renderPage()
+    await screen.findAllByText('测试客户')
+    expect(await screen.findByText('应收合计')).toBeInTheDocument()
+    expect(screen.queryByText('本案净额')).not.toBeInTheDocument()
+  })
+
+  it('参与的案件：出现在参与人页面（无归属/主导标注）、平铺参与客户、阶段可推进', async () => {
+    const alice = { id: 'al1', full_name: 'Alice', primary_applicant_id: null, is_archived: false } as unknown as Customer
+    const part = { id: 'x1', case_id: 'caA', customer_id: 'cu1', created_at: '' }
+    vi.mocked(listCustomers).mockResolvedValue([alice])
+    vi.mocked(listCases).mockResolvedValue([mkCase({ id: 'caA', customer_id: 'al1', visa_subclass: '482', visa_stream: null })])
+    vi.mocked(listAllCaseApplicants).mockResolvedValue([part] as never)
+    vi.mocked(listCaseApplicants).mockResolvedValue([part] as never)
+    renderPage()
+    await screen.findAllByText('测试客户')
+    // 参与的案件出现在 tab，且**不再标注归属人**（没有谁主导一说）
+    expect(await screen.findByRole('button', { name: '482' })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /482.*Alice/ })).not.toBeInTheDocument()
+    // 以案件为组：平铺「参与客户」（owner + 参与人，无角色）+ 全员进度一致
+    expect(screen.getByText('参与客户')).toBeInTheDocument()
+    expect(await screen.findByText('Alice、测试客户')).toBeInTheDocument()
+    expect(screen.getByText('· 全员进度一致')).toBeInTheDocument()
+    // 参与人页面同样可推进阶段：StageControl 渲染且非「同步锁定」态（按钮选了新阶段才会亮起）
+    expect(screen.getByRole('button', { name: /更新阶段/ })).toBeInTheDocument()
+    expect(screen.queryByText(/进度同步自主案件/)).not.toBeInTheDocument()
+  })
+
+  it('客户页无「同步主案件」锁定：即使案件设了 parent_sync_progress，进度照样可编辑', async () => {
+    vi.mocked(listCases).mockResolvedValue([
+      mkCase({ id: 'ca1', parent_case_id: 'caP', parent_sync_progress: true }), // 旧「进度同步」子案
+    ])
+    renderPage()
+    await screen.findAllByText('测试客户')
+    expect(screen.queryByText(/进度同步自主案件/)).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /更新阶段/ })).toBeInTheDocument()
+    // 阶段下拉可操作（非禁用）
+    expect(screen.getByRole('combobox')).not.toBeDisabled()
   })
 })

@@ -14,17 +14,13 @@ function todayStr(): string {
 }
 
 /** 阶段流转：选择新阶段 + 可填备注 → 写入 case_stage_history。
- *  disabled=true（进度同步态）时整块禁用 + 灰显，只读展示当前阶段 + 提示。 */
+ *  一案一组：一份进度全员共享，无任何锁定/同步态——随时可编辑。 */
 export function StageControl({
   caseId,
   currentStage,
-  disabled = false,
-  disabledHint,
 }: {
   caseId: string
   currentStage: CaseStage
-  disabled?: boolean
-  disabledHint?: string
 }) {
   const [stage, setStage] = useState<CaseStage>(currentStage)
   const [note, setNote] = useState('')
@@ -57,14 +53,7 @@ export function StageControl({
         <StageBadge stage={currentStage} />
       </div>
 
-      {disabled && (
-        <p className="rounded-[12px] bg-surface-2 px-3 py-2 text-xs text-muted">
-          {disabledHint ?? '本案件进度同步自主案件，stage 自动跟随，无法在此独立编辑。'}
-        </p>
-      )}
-
-      {/* 禁用态：用 fieldset disabled 原生级联禁用内部所有控件 + 灰显 */}
-      <fieldset disabled={disabled} className={disabled ? 'space-y-3 opacity-50' : 'space-y-3'}>
+      <fieldset className="space-y-3">
         <Select
           label="切换到"
           options={options}

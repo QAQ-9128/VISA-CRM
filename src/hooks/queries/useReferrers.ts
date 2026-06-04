@@ -1,4 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import type { QueryClient } from '@tanstack/react-query'
 import {
   archiveReferrer,
   createReferrer,
@@ -23,12 +24,21 @@ export function useReferrer(id: string | undefined | null) {
   })
 }
 
+/**
+ * 介绍人变更后：referrers 前缀 + finance.referrers（财务页/客户财务/概要带的介绍人名
+ * 走 finance 命名空间的独立缓存键，前缀盖不到，需显式失效——改名/归档即处处同步）。
+ */
+function invalidateReferrers(qc: QueryClient) {
+  qc.invalidateQueries({ queryKey: queryKeys.referrers.all })
+  qc.invalidateQueries({ queryKey: queryKeys.finance.referrers })
+}
+
 export function useCreateReferrer() {
   const qc = useQueryClient()
   const { user } = useAuth()
   return useMutation({
     mutationFn: (input: ReferrerInsert) => createReferrer({ ...input, created_by: user?.id ?? null }),
-    onSuccess: () => qc.invalidateQueries({ queryKey: queryKeys.referrers.all }),
+    onSuccess: () => invalidateReferrers(qc),
   })
 }
 
@@ -36,7 +46,7 @@ export function useUpdateReferrer() {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: ({ id, patch }: { id: string; patch: ReferrerUpdate }) => updateReferrer(id, patch),
-    onSuccess: () => qc.invalidateQueries({ queryKey: queryKeys.referrers.all }),
+    onSuccess: () => invalidateReferrers(qc),
   })
 }
 
@@ -44,7 +54,7 @@ export function useArchiveReferrer() {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: (id: string) => archiveReferrer(id),
-    onSuccess: () => qc.invalidateQueries({ queryKey: queryKeys.referrers.all }),
+    onSuccess: () => invalidateReferrers(qc),
   })
 }
 
@@ -54,7 +64,7 @@ export function useDeleteReferrer() {
   return useMutation({
     mutationFn: (id: string) => deleteReferrer(id),
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: queryKeys.referrers.all })
+      invalidateReferrers(qc)
       qc.invalidateQueries({ queryKey: queryKeys.customers.all })
       qc.invalidateQueries({ queryKey: queryKeys.dashboard.activeCustomers })
     },

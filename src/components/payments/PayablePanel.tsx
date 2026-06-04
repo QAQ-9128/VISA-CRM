@@ -21,11 +21,14 @@ export function QuickPayoutForm({
   direction,
   currency,
   onDone,
+  applicantId = null,
 }: {
   caseId: string
   direction: PaymentDirection
   currency: string
   onDone: () => void
+  /** 账单归属客户：把这笔付款记到本案该客户名下（applicant_id）。null = 合并/未分人 */
+  applicantId?: string | null
 }) {
   const create = useCreatePayment(caseId)
   const [amount, setAmount] = useState('')
@@ -37,7 +40,7 @@ export function QuickPayoutForm({
     e.preventDefault()
     if (amount.trim() === '' || Number(amount) <= 0) return
     create.mutate(
-      { case_id: caseId, direction, amount: Number(amount), currency, method, paid_at: paidAt || null },
+      { case_id: caseId, applicant_id: applicantId, direction, amount: Number(amount), currency, method, paid_at: paidAt || null },
       { onSuccess: () => { setAmount(''); onDone() } },
     )
   }

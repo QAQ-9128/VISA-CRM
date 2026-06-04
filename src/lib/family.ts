@@ -67,6 +67,22 @@ export function selectCoApplicantCases(
 }
 
 /**
+ * 客户详情「相关案件」来源 = 拥有 ∪ 参与（组⊃客户⊃案件：案件独属一个客户，
+ * 但多人参加的案件在每个参与人页面都可见）。拥有在前、各按 created_at 升序。
+ */
+export function selectCustomerCases(
+  customerId: string,
+  cases: Case[],
+  applicants: CaseApplicant[],
+): Case[] {
+  const byCreated = (a: Case, b: Case) =>
+    (a.created_at ?? '').localeCompare(b.created_at ?? '') || a.id.localeCompare(b.id)
+  const owned = cases.filter((c) => c.customer_id === customerId && !c.is_archived).sort(byCreated)
+  const participated = selectCoApplicantCases(cases, applicants, customerId).slice().sort(byCreated)
+  return [...owned, ...participated]
+}
+
+/**
  * 可加入的案件：同「案件家庭组」成员（含 primary_applicant_id 家族 + 关联现有客户）名下、
  * 未归档、非本人主申、且尚未加入的案件。links 默认空 = 旧行为。
  */

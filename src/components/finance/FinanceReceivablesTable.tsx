@@ -11,11 +11,6 @@ import { getCustomerPaymentColor, CUSTOMER_PAYMENT_TEXT_CLASS } from '../../lib/
 import type { ReceivableTotals } from '../../lib/finance'
 import type { FinanceTableRow, FinanceStatusKind } from '../../lib/financeRows'
 
-const ROLE_TAG: Record<string, string> = {
-  primary: 'bg-blue-100 text-blue-700',
-  secondary: 'bg-violet-100 text-violet-700',
-}
-
 const STATUS_TONE: Record<FinanceStatusKind, PillTone> = {
   unset: 'slate',
   settled: 'emerald',
@@ -72,10 +67,9 @@ function FinanceRow({ entry }: { entry: FinanceTableRow }) {
   return (
     <>
       <tr className={`border-b border-line align-top ${open || mode ? 'bg-surface-2' : ''}`}>
-        {/* 客户 */}
-        <td className={`py-3 pr-3 ${row.role === 'secondary' ? 'pl-5' : ''}`}>
+        {/* 客户（参与人平级，无主/副申标签、无缩进） */}
+        <td className="py-3 pr-3">
           <div className="flex items-center gap-2.5">
-            {row.role === 'secondary' && <span className="select-none font-mono text-slate-300" aria-hidden>└─</span>}
             <Avatar name={row.customerName || '客户'} seed={row.customerId} size={34} />
             <div className="flex flex-wrap items-center gap-x-1.5 gap-y-0.5">
               <Link
@@ -88,12 +82,8 @@ function FinanceRow({ entry }: { entry: FinanceTableRow }) {
               {row.role === 'merged' && row.coApplicantNames.length > 0 && (
                 <span className="text-xs text-faint">＋ {row.coApplicantNames.join('、')}</span>
               )}
-              {row.role === 'merged' ? (
+              {row.role === 'merged' && (
                 <span className="rounded bg-slate-100 px-1.5 py-0.5 text-[10px] font-medium text-slate-500">合并</span>
-              ) : (
-                <span className={`rounded px-1.5 py-0.5 text-[10px] font-medium ${ROLE_TAG[row.role]}`}>
-                  {row.role === 'primary' ? '主申' : '副申'}
-                </span>
               )}
             </div>
           </div>

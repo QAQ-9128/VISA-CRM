@@ -21,7 +21,7 @@ export interface PaymentEntryValues {
   fee_category: string | null
   /** 归属的款项明细 id（items 模式下有值；否则 null = 未归类） */
   plan_item_id: string | null
-  /** 实际付款方客户 id（showPayer 时可选；空 = 回落案件主申） */
+  /** 实际付款方客户 id（showPayer 时可选；空 = 回落案件客户） */
   from_client_customer_id: string | null
 }
 
@@ -40,7 +40,7 @@ interface Props {
   showFeeCategory?: boolean
   /** 是否显示「付款方」下拉（仅客户收款 from_client 用）。 */
   showPayer?: boolean
-  /** 「付款方」默认项指向的客户（案件主申）id，用于占位文案；空 = 「主申请」。 */
+  /** 「付款方」默认项指向的客户（案件客户）id，用于占位文案；空 = 「案件客户」。 */
   defaultPayerCustomerId?: string
   /** 提供则显示「针对哪条款项」下拉（取代费用类别）；fee_category 自动 = 选中款项的类别。 */
   items?: { id: string; fee_category: string }[]
@@ -70,7 +70,7 @@ export function PaymentEntryForm({
   const allCustomers = useCustomers({})
   const customerList = allCustomers.data ?? []
   const defaultPayerName =
-    customerList.find((c) => c.id === defaultPayerCustomerId)?.full_name ?? '主申请'
+    customerList.find((c) => c.id === defaultPayerCustomerId)?.full_name ?? '案件客户'
   const itemMode = !!items && items.length > 0
   const [itemId, setItemId] = useState(initialItemId ?? (items?.[0]?.id ?? ''))
   // 已有类别：命中预设 → 选中预设；非空但非预设 → 选「其他」并把原值放进手填框；空 → 未分类。

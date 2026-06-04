@@ -18,7 +18,7 @@ export async function listCasesByCustomer(
   return data ?? []
 }
 
-/** 全部案件（看板用），默认排除归档，按创建时间倒序。 */
+/** 全部案件（案件列表/递交进度等全局视图用），默认排除归档，按创建时间倒序。 */
 export async function listCases(opts: { includeArchived?: boolean } = {}): Promise<Case[]> {
   let query = supabase.from('cases').select('*')
   if (!opts.includeArchived) query = query.eq('is_archived', false)

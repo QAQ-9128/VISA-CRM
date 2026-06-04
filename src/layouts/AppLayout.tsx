@@ -10,11 +10,11 @@ import { ShieldIcon } from '../components/ui/icons'
  */
 export function AppLayout() {
   return (
-    <div className="flex min-h-svh bg-canvas">
+    <div className="flex min-h-svh">
       <Sidebar />
       <div className="flex min-w-0 flex-1 flex-col">
         <header className="flex items-center gap-2.5 border-b border-line-2 bg-white px-4 py-3 md:hidden">
-          <span className="grid size-8 place-items-center rounded-lg bg-[linear-gradient(135deg,#3b6bff,#6a5cff)] text-white">
+          <span className="grid size-8 place-items-center rounded-lg bg-[linear-gradient(135deg,#4e9a6b,#2e6a48)] text-white">
             <ShieldIcon className="size-[18px]" />
           </span>
           <span className="text-base font-bold text-ink">签证 CRM</span>

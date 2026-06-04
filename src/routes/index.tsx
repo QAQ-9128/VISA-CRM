@@ -7,6 +7,7 @@ import { LoginPage } from '../pages/LoginPage'
 import { DashboardPage } from '../pages/DashboardPage'
 import { CustomerListPage } from '../pages/customers/CustomerListPage'
 import { CustomerDetailPage } from '../pages/customers/CustomerDetailPage'
+import { GroupManagementPage } from '../pages/customers/GroupManagementPage'
 import { CustomerFormPage } from '../pages/customers/CustomerFormPage'
 import { CasesPage } from '../pages/cases/CasesPage'
 import { CaseDetailPage } from '../pages/cases/CaseDetailPage'
@@ -37,6 +38,7 @@ export const router = createBrowserRouter([
           { path: 'customers/new', element: <CustomerFormPage /> },
           { path: 'customers/:id', element: <CustomerDetailPage /> },
           { path: 'customers/:id/edit', element: <CustomerFormPage /> },
+          { path: 'customers/:id/group', element: <GroupManagementPage /> },
           { path: 'cases', element: <CasesPage /> },
           { path: 'cases/new', element: <CaseFormPage /> },
           { path: 'cases/:id', element: <CaseDetailPage /> },

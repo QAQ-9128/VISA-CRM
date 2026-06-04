@@ -1,6 +1,7 @@
 import { utcDayDiff } from './dateDiff'
 import { formatVisaType } from './visa'
 import { getLodgementLodgedDate } from './lodgementStatus'
+import { caseGroupCode } from './caseGroups'
 import { CASE_STAGES } from '../types/domain'
 import type { CaseStage } from '../types/domain'
 import type { Case, CaseApplicant, CaseStageHistory, Customer, Lodgement } from '../types/models'
@@ -123,6 +124,8 @@ export interface CaseRow {
   rowKey: string
   caseId: string
   caseNumber: string
+  /** 本案的派生组码（一案一组：组 = 案件客户 + 本案参与客户；同参与人集合同码） */
+  groupCode: string
   /** 行角色：进度追踪始终同步，故恒为 merged（主+副同行）。primary/secondary 保留以兼容类型。 */
   role: CaseRowRole
   /** 主申请列 */
@@ -238,6 +241,8 @@ export function selectCaseRows(
     const base = {
       caseId: c.id,
       caseNumber: c.case_number,
+      // 一案一组：组码由本案参与人集合派生（owner + case_applicants），同集合同码
+      groupCode: caseGroupCode([c.customer_id, ...(subsByCase.get(c.id) ?? [])], c.id),
       visaSubclass: c.visa_subclass,
       currentStage: c.current_stage,
       lodged,
@@ -272,6 +277,7 @@ export function selectCaseRows(
 }
 
 export type CaseSortKey =
+  | 'group'
   | 'caseNumber'
   | 'primary'
   | 'secondary'
@@ -288,6 +294,8 @@ export function sortCaseRows(rows: CaseRow[], key: CaseSortKey, dir: 'asc' | 'de
   const sign = dir === 'asc' ? 1 : -1
   const cmp = (a: CaseRow, b: CaseRow): number => {
     switch (key) {
+      case 'group':
+        return a.groupCode.localeCompare(b.groupCode)
       case 'caseNumber':
         return a.caseNumber.localeCompare(b.caseNumber)
       case 'primary':
@@ -313,4 +321,44 @@ export function sortCaseRows(rows: CaseRow[], key: CaseSortKey, dir: 'asc' | 'de
     }
   }
   return [...rows].sort((a, b) => sign * cmp(a, b) || a.caseNumber.localeCompare(b.caseNumber))
+}
+
+/**
+ * 把行按「组」聚类：同组的行相邻放在一起。
+ * 组的先后 = 各组**首行**在当前排序中的位置（保持用户选的排序语义）；组内行保持当前排序。
+ */
+export function clusterRowsByGroup<T extends { groupCode: string }>(rows: T[]): T[] {
+  const byGroup = new Map<string, T[]>() // Map 保插入序 → 组按首行出现顺序排列
+  for (const r of rows) {
+    const list = byGroup.get(r.groupCode) ?? []
+    list.push(r)
+    byGroup.set(r.groupCode, list)
+  }
+  return [...byGroup.values()].flat()
+}
+
+/** 行在其组段里的位置（表格画「组框」用：组 ID 只在首行显示一次 + 多行组整块描边）。 */
+export interface GroupPos {
+  /** 组 ID 单元格的 rowSpan：首行 = 组行数；其余行 null（不渲染该单元格） */
+  span: number | null
+  start: boolean
+  end: boolean
+  /** 该组是否多于一行（只有多行组才画框，单行组保持普通行） */
+  multi: boolean
+}
+
+/** 对**已聚类**的行计算每行的组段位置（连续同 groupCode 视为一段）。 */
+export function groupPositions<T extends { groupCode: string }>(rows: T[]): GroupPos[] {
+  const out: GroupPos[] = []
+  let i = 0
+  while (i < rows.length) {
+    let j = i + 1
+    while (j < rows.length && rows[j].groupCode === rows[i].groupCode) j++
+    const size = j - i
+    for (let k = i; k < j; k++) {
+      out.push({ span: k === i ? size : null, start: k === i, end: k === j - 1, multi: size > 1 })
+    }
+    i = j
+  }
+  return out
 }
