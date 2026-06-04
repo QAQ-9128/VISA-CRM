@@ -105,7 +105,11 @@ function CaseGroupBlock({
         <span className="rounded-full bg-[var(--color-lime-soft)] px-2.5 py-0.5 text-[12px] font-semibold text-[var(--color-lime-ink)]">
           {code}
         </span>
-        <Link to={`/cases/${caseRow.id}`} state={source} className="text-sm font-semibold text-brand hover:underline">
+        <Link
+          to={`/customers/${caseRow.customer_id}?case=${caseRow.id}`}
+          state={source}
+          className="text-sm font-semibold text-brand hover:underline"
+        >
           {formatVisaType(caseRow.visa_subclass, caseRow.visa_stream)} · {caseRow.case_number}
         </Link>
         <StageBadge stage={caseRow.current_stage} />

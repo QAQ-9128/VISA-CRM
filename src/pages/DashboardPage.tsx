@@ -244,7 +244,7 @@ export function DashboardPage() {
               {d.todoCases.slice(0, 5).map((t) => (
                 <Link
                   key={t.caseId}
-                  to={`/cases/${t.caseId}`}
+                  to={`/customers/${t.customerId}?case=${t.caseId}`}
                   state={source}
                   className="flex items-center gap-3 border-t border-line py-2.5 first:border-t-0 hover:opacity-70"
                 >
@@ -364,7 +364,7 @@ export function DashboardPage() {
             {d.overdueInstallments.map((x) => (
               <PersonRow
                 key={x.installmentId}
-                to={`/cases/${x.caseId}`}
+                to={`/customers/${x.customerId}?case=${x.caseId}`}
                 state={source}
                 name={x.customerName}
                 seed={x.caseId}
@@ -410,7 +410,7 @@ export function DashboardPage() {
               <h3 className="text-base font-bold text-ink">递交进度</h3>
               <div className="mt-[3px] text-[12.5px] text-faint">按递交时间排序</div>
             </div>
-            <Link to="/cases?view=lodge" className="flex items-center gap-0.5 text-[13px] font-semibold text-brand hover:text-brand-600">
+            <Link to="/cases" className="flex items-center gap-0.5 text-[13px] font-semibold text-brand hover:text-brand-600">
               打开案件表 <ChevronRightIcon className="size-3.5" />
             </Link>
           </div>

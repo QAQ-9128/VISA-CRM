@@ -119,7 +119,7 @@ function PayoutItemRow({ item, signed = false }: { item: PayoutItem; signed?: bo
   return (
     <li className="flex flex-wrap items-center gap-x-3 gap-y-1 border-b border-slate-100 py-2.5 last:border-0">
       <Badge className={DIR_STYLE[item.direction]}>{PAYMENT_DIRECTION_LABELS[item.direction]}</Badge>
-      <Link to={`/cases/${item.caseId}`} state={source} className="text-sm text-slate-900 hover:underline">
+      <Link to={`/customers/${item.customerId}?case=${item.caseId}`} state={source} className="text-sm text-slate-900 hover:underline">
         {item.customerName || '（未知客户）'}
         {item.direction === 'to_referrer' && (
           <span className="text-slate-500"> → {item.referrerName || '未指定介绍人'}</span>

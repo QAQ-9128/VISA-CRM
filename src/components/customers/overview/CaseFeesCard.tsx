@@ -512,7 +512,7 @@ export function CaseFeesCard({
   return (
     <Card className="h-full">
       <div className="mb-1 flex items-center gap-2">
-        <h2 className="font-serif text-[17px] font-bold text-ink">
+        <h2 className="font-serif text-[18px] font-bold tracking-[-0.01em] text-ink">
           <span aria-hidden className="mr-1.5">💳</span>费用记录
         </h2>
         <span className="rounded-full bg-[var(--color-lime-soft)] px-2.5 py-0.5 text-[12px] font-semibold text-[var(--color-lime-ink)]">

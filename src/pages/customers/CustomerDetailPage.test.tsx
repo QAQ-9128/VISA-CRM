@@ -1,5 +1,5 @@
 import { describe, expect, it, vi, beforeEach } from 'vitest'
-import { render, screen, within } from '@testing-library/react'
+import { render, screen, within, fireEvent } from '@testing-library/react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { MemoryRouter, Routes, Route } from 'react-router-dom'
 import { AuthContext } from '../../providers/auth-context'
@@ -57,7 +57,7 @@ const authValue = {
   signIn: async () => {}, signOut: async () => {},
 } as unknown as AuthContextValue
 
-function renderPage() {
+function renderPage(entry = '/customers/cu1') {
   const qc = new QueryClient({ defaultOptions: { queries: { retry: false, staleTime: Infinity, refetchOnMount: false } } })
   // 费用卡加载门的查询（无网络，确定性）：付款计划/付款/款项 + 家庭关联 + 本案发票
   qc.setQueryData(queryKeys.dashboard.plans, [])
@@ -69,7 +69,7 @@ function renderPage() {
   return render(
     <QueryClientProvider client={qc}>
       <AuthContext.Provider value={authValue}>
-        <MemoryRouter initialEntries={['/customers/cu1']}>
+        <MemoryRouter initialEntries={[entry]}>
           <Routes>
             <Route path="/customers/:id" element={<CustomerDetailPage />} />
           </Routes>
@@ -144,18 +144,34 @@ describe('CustomerDetailPage（案件中心单页 · 无 tab）', () => {
     expect(screen.getByText('彻底删除')).toBeInTheDocument()
   })
 
-  it('有案件时：案件 tab 渲染，且概要带「当前案件·阶段」与之同步显示 visa', async () => {
-    vi.mocked(listCases).mockResolvedValue([mkCase({ id: 'ca1', visa_subclass: '482', visa_stream: 'Core Skill' })])
+  it('有案件时：案件 tab 渲染，且概要带「案件·阶段」格列出每个案件的阶段（多案全列、可点切换）', async () => {
+    vi.mocked(listCases).mockResolvedValue([
+      mkCase({ id: 'ca1', visa_subclass: '482', visa_stream: 'Core Skill', current_stage: 'nomination_lodged' }),
+      mkCase({ id: 'ca2', visa_subclass: '500', visa_stream: null, current_stage: 'granted', created_at: '2026-02-01' }),
+    ])
     renderPage()
     await screen.findAllByText('测试客户')
-    // 案件 tab（相关案件卡内，唯一的同名 button）
+    // 案件 tab（相关案件卡内）
     expect(await screen.findByRole('button', { name: '482/Core Skill' })).toBeInTheDocument()
-    // 概要带「当前案件·阶段」格同步出现 visa 文本（纯文本，非 button）
-    const bandCell = screen.getByText('当前案件 · 阶段').parentElement as HTMLElement
+    // 概要带「案件 · 阶段」格：两个案件的 visa + 阶段徽章**都**列出
+    const bandCell = screen.getByText('案件 · 阶段').parentElement as HTMLElement
     expect(within(bandCell).getByText('482/Core Skill')).toBeInTheDocument()
+    expect(within(bandCell).getByText('500')).toBeInTheDocument()
+    expect(within(bandCell).getByText('提名递交')).toBeInTheDocument()
+    expect(within(bandCell).getByText('下签')).toBeInTheDocument()
+    expect(within(bandCell).getByText('点击切换当前案件')).toBeInTheDocument()
     // 案件卡不再有「主申请人 / 副申请人」行
     expect(screen.getByText('签证子类别')).toBeInTheDocument()
     expect(screen.queryByText('副申请人')).not.toBeInTheDocument()
+    // 编辑案件直达表单；「打开案件页」已随案件详情页删除
+    expect(screen.getByRole('link', { name: '编辑案件 ›' })).toHaveAttribute('href', '/cases/ca1/edit')
+    expect(screen.queryByText(/打开案件页/)).not.toBeInTheDocument()
+    // 本案 Group 组码（与案件页/案件表同码）+ 案件级 归档/删除收进「⋯」菜单（与客户级底部操作分开）
+    expect(screen.getByText('Group 组码')).toBeInTheDocument()
+    expect(screen.getByText(/^G-[0-9A-Z]{4}$/)).toBeInTheDocument()
+    expect(screen.getByLabelText('本案更多操作')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /归档本案/ })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /彻底删除本案/ })).toBeInTheDocument()
   })
 
   it('费用记录卡标题带案件号 tag + 客户侧应收合计贴底（纯应收视图）', async () => {
@@ -182,9 +198,22 @@ describe('CustomerDetailPage（案件中心单页 · 无 tab）', () => {
     expect(screen.getByText('参与客户')).toBeInTheDocument()
     expect(await screen.findByText('Alice、测试客户')).toBeInTheDocument()
     expect(screen.getByText('· 全员进度一致')).toBeInTheDocument()
-    // 参与人页面同样可推进阶段：StageControl 渲染且非「同步锁定」态（按钮选了新阶段才会亮起）
+    // 参与人页面同样可推进阶段：与案件页同一「阶段进展」卡（推进阶段 → 展开 StageControl）
+    expect(screen.getByText('阶段进展')).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: '推进阶段 →' }))
     expect(screen.getByRole('button', { name: /更新阶段/ })).toBeInTheDocument()
     expect(screen.queryByText(/进度同步自主案件/)).not.toBeInTheDocument()
+  })
+
+  it('?case= 直达：URL 带 case 参数 → 自动选中该案件（全站案件链接的落点）', async () => {
+    vi.mocked(listCases).mockResolvedValue([
+      mkCase({ id: 'ca1', visa_subclass: '482', visa_stream: 'Core Skill' }),
+      mkCase({ id: 'ca2', visa_subclass: '500', visa_stream: null, created_at: '2026-02-01' }),
+    ])
+    renderPage('/customers/cu1?case=ca2')
+    await screen.findAllByText('测试客户')
+    // 选中的是 ca2（500）：编辑案件链接指向 ca2
+    expect(await screen.findByRole('link', { name: '编辑案件 ›' })).toHaveAttribute('href', '/cases/ca2/edit')
   })
 
   it('客户页无「同步主案件」锁定：即使案件设了 parent_sync_progress，进度照样可编辑', async () => {
@@ -194,8 +223,9 @@ describe('CustomerDetailPage（案件中心单页 · 无 tab）', () => {
     renderPage()
     await screen.findAllByText('测试客户')
     expect(screen.queryByText(/进度同步自主案件/)).not.toBeInTheDocument()
+    // 展开推进阶段 → StageControl 可操作（非禁用）
+    fireEvent.click(screen.getByRole('button', { name: '推进阶段 →' }))
     expect(screen.getByRole('button', { name: /更新阶段/ })).toBeInTheDocument()
-    // 阶段下拉可操作（非禁用）
     expect(screen.getByRole('combobox')).not.toBeDisabled()
   })
 })

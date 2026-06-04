@@ -74,7 +74,7 @@ export function LodgementProgressTable({ rows, tasks }: { rows: CaseRow[]; tasks
       <div className="overflow-x-auto">
         <table className="w-full min-w-[1180px] border-separate border-spacing-0 text-sm">
           <thead>
-            <tr className="text-left text-[11px] font-bold tracking-[0.04em] text-muted uppercase">
+            <tr className="text-left text-[11.5px] font-bold tracking-[0.05em] text-muted uppercase">
               {COLUMNS.map((col) => (
                 <th
                   key={col.key}
@@ -123,9 +123,9 @@ function WaitCell({
 }) {
   if (daysSince == null || !elapsed) return <span className="text-slate-300">—</span>
   const label = fmtElapsed(elapsed)
-  if (frozen) return <span className="font-semibold text-faint">{label}</span>
+  if (frozen) return <span className="text-[13px] font-semibold text-faint">{label}</span>
   const { tone } = computeWaitBar(daysSince)
-  return <span className={`text-[13px] font-bold tabular-nums ${WAIT_TEXT[tone]}`}>{label}</span>
+  return <span className={`text-[13.5px] font-bold tabular-nums ${WAIT_TEXT[tone]}`}>{label}</span>
 }
 
 /** 组小节头行：浅底细行 = 组码 chip + 件数；一案一组（同参与人集合的案件共用一个组头）。 */
@@ -136,11 +136,11 @@ function GroupHeaderRow({ row, count, colSpan }: { row: CaseRow; count: number; 
         <span className="flex items-center gap-2">
           <span
             title="同参与人的案件为一组"
-            className="rounded-full bg-[var(--color-lime-soft)] px-2.5 py-0.5 text-[12px] font-semibold text-[var(--color-lime-ink)]"
+            className="rounded-full bg-[var(--color-lime-soft)] px-2.5 py-0.5 text-[12.5px] font-bold tracking-[0.02em] text-[var(--color-lime-ink)]"
           >
             {row.groupCode}
           </span>
-          <span className="text-[12px] text-faint">· {count} 件</span>
+          <span className="text-[12px] font-medium text-faint">· {count} 件</span>
         </span>
       </td>
     </tr>
@@ -163,8 +163,8 @@ function CaseRowView({ row, tasks }: { row: CaseRow; tasks: RecordRow[] }) {
   const vStream = vRest.join('/')
   const navigate = useNavigate()
   const source = useBackSource()
-  // 整行 → 案件详情；头像/名字单元格 → 该客户主页（stopPropagation 不触发行的案件跳转）
-  const openCase = () => navigate(`/cases/${row.caseId}`, { state: { from: 'cases', view: 'lodge' } })
+  // 整行 → 客户详情并选中该案（案件详情页已删）；头像/名字单元格 → 该客户主页（stopPropagation）
+  const openCase = () => navigate(`/customers/${row.primaryCustomerId}?case=${row.caseId}`, { state: source })
   const stop = (e: MouseEvent) => e.stopPropagation()
   // 参与人1 = 案件客户；参与人2 = 同案参与客户(case_applicants)，无主副角色；只有一人时第二列留空
   const subName = row.secondaryName
@@ -175,10 +175,10 @@ function CaseRowView({ row, tasks }: { row: CaseRow; tasks: RecordRow[] }) {
     <tr onClick={openCase} className="group cursor-pointer align-middle">
       <td className={`${td} ${plainBg}`}>
         <Link
-          to={`/cases/${row.caseId}`}
-          state={{ from: 'cases', view: 'lodge' }}
+          to={`/customers/${row.primaryCustomerId}?case=${row.caseId}`}
+          state={source}
           onClick={stop}
-          className="font-semibold tabular-nums text-brand hover:underline"
+          className="text-[13.5px] font-bold tabular-nums text-brand hover:underline"
         >
           {row.caseNumber}
         </Link>
@@ -193,7 +193,7 @@ function CaseRowView({ row, tasks }: { row: CaseRow; tasks: RecordRow[] }) {
             className="group/cust -m-1 flex items-center gap-2.5 rounded-lg p-1 transition hover:bg-surface-2"
           >
             <Avatar name={row.primaryName} seed={row.caseId} size={34} />
-            <span className="font-medium text-ink group-hover/cust:text-brand">{clipName(row.primaryName)}</span>
+            <span className="text-[13.5px] font-semibold text-ink group-hover/cust:text-brand">{clipName(row.primaryName)}</span>
           </Link>
         ) : (
           <span className="text-slate-300">—</span>
@@ -210,12 +210,12 @@ function CaseRowView({ row, tasks }: { row: CaseRow; tasks: RecordRow[] }) {
               className="group/cust -m-1 flex items-center gap-2 rounded-lg p-1 transition hover:bg-surface-2"
             >
               <Avatar name={subName} seed={subName} size={28} />
-              <span className="text-body group-hover/cust:text-brand">{clipName(subName)}</span>
+              <span className="text-[13px] font-medium text-body group-hover/cust:text-brand">{clipName(subName)}</span>
             </Link>
           ) : (
             <span className="flex items-center gap-2" title={subName}>
               <Avatar name={subName} seed={subName} size={28} />
-              <span className="text-body">{clipName(subName)}</span>
+              <span className="text-[13px] font-medium text-body">{clipName(subName)}</span>
             </span>
           )
         ) : (
@@ -223,17 +223,20 @@ function CaseRowView({ row, tasks }: { row: CaseRow; tasks: RecordRow[] }) {
         )}
       </td>
       <td className={`${td} ${plainBg}`}>
-        <div className="font-bold text-ink">{vSub}</div>
-        <div className="mt-0.5 text-[11.5px] text-faint">{vStream || '—'}</div>
+        {/* 签证类型：lime 签证标签（与费用卡/参与管理页同款），stream 副行 */}
+        <span className="inline-flex items-center rounded-full bg-[var(--color-lime-soft)] px-2.5 py-1 text-[13px] font-bold tracking-[0.01em] text-[var(--color-lime-ink)]">
+          {vSub}
+        </span>
+        <div className="mt-1 text-[12px] font-medium text-faint">{vStream || '—'}</div>
       </td>
       <td className={`${td} ${plainBg}`}>
         <StageBadge stage={row.currentStage} />
       </td>
 
       {/* 提名组（浅蓝） */}
-      <td className={`${td} ${nomBg} ${split} tabular-nums text-body`}>
+      <td className={`${td} ${nomBg} ${split} text-[13px] font-medium tabular-nums text-body`}>
         {todo ? (
-          <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-50 px-2.5 py-0.5 text-xs font-semibold text-amber-700">
+          <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-50 px-2.5 py-1 text-[12.5px] font-bold text-amber-700">
             <span className="size-1.5 rounded-full bg-amber-500" />
             待递交
           </span>
@@ -246,7 +249,7 @@ function CaseRowView({ row, tasks }: { row: CaseRow; tasks: RecordRow[] }) {
       </td>
 
       {/* 签证组（浅紫） */}
-      <td className={`${td} ${visaBg} ${split} tabular-nums text-body`}>
+      <td className={`${td} ${visaBg} ${split} text-[13px] font-medium tabular-nums text-body`}>
         {row.visaLodgedDate || <span className="text-slate-300">—</span>}
       </td>
       <td className={`${td} ${visaBg}`}>
@@ -260,7 +263,7 @@ function CaseRowView({ row, tasks }: { row: CaseRow; tasks: RecordRow[] }) {
         ) : (
           <ul className="space-y-0.5">
             {todos.map((t) => (
-              <li key={t.id} className="text-[12.5px] leading-snug font-medium text-body" title={t.content}>
+              <li key={t.id} className="text-[13px] leading-snug font-medium text-body" title={t.content}>
                 <span className="mr-1">{t.emoji_marker || '📝'}</span>
                 {truncate(t.content)}
               </li>

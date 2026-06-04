@@ -302,6 +302,8 @@ export function selectTodoCases(cases: Case[], customerById: CustomerMap): TodoC
 export interface OverdueInstallmentItem {
   installmentId: string
   caseId: string
+  /** 案件客户 id（跳客户详情并选中该案用） */
+  customerId: string
   customerName: string
   amount: number | string
   dueDate: string
@@ -325,6 +327,7 @@ export function selectOverdueInstallments(
     items.push({
       installmentId: i.id,
       caseId: plan?.case_id ?? '',
+      customerId: c?.customer_id ?? '',
       customerName: c ? customerById[c.customer_id]?.full_name ?? '' : '',
       amount: i.amount,
       dueDate: i.due_date,

@@ -13,13 +13,13 @@ import { formatMoney } from '../../../lib/money'
 import { GENDER_LABELS } from '../../../types/domain'
 import type { Case, Customer } from '../../../types/models'
 
-/** 概要带的一格（发丝分隔）：标题 + 主值 + 副说明。 */
+/** 概要带的一格（发丝分隔）：标题 + 主值 + 副说明。字号/字重略升，强化可读性。 */
 function Cell({ label, children, sub, subTone }: { label: string; children: ReactNode; sub?: ReactNode; subTone?: string }) {
   return (
     <div className="min-w-[8.5rem] flex-1 px-5 py-1">
-      <div className="text-[11.5px] text-muted">{label}</div>
-      <div className="mt-1 text-[15px] font-bold text-ink">{children}</div>
-      {sub != null && <div className={`mt-0.5 text-[11.5px] ${subTone ?? 'text-faint'}`}>{sub}</div>}
+      <div className="text-[12px] font-semibold tracking-[0.02em] text-muted">{label}</div>
+      <div className="mt-1 text-[15.5px] font-bold text-ink">{children}</div>
+      {sub != null && <div className={`mt-0.5 text-[12px] font-medium ${subTone ?? 'text-faint'}`}>{sub}</div>}
     </div>
   )
 }
@@ -34,11 +34,17 @@ export function SummaryBand({
   customer,
   selectedCase,
   caseCount = 0,
+  cases = [],
+  onSelectCase,
 }: {
   customer: Customer
   selectedCase: Case | null
   /** TA 参与的案件数（拥有 ∪ 参与，一案一组） */
   caseCount?: number
+  /** TA 参与的全部案件（「案件 · 阶段」格逐案列出阶段） */
+  cases?: Case[]
+  /** 点某个案件行 → 切换选中案件（与下方相关案件卡联动） */
+  onSelectCase?: (caseId: string) => void
 }) {
   const source = useBackSource() // 进案件参与管理带来源 → 返回文案随来源
   const update = useUpdateCustomer()
@@ -78,14 +84,32 @@ export function SummaryBand({
             <span aria-hidden className="text-[12px]">›</span>
           </Link>
         </Cell>
-        <Cell label="当前案件 · 阶段">
-          {selectedCase ? (
-            <span className="flex flex-wrap items-center gap-1.5">
-              <span>{formatVisaType(selectedCase.visa_subclass, selectedCase.visa_stream)}</span>
-              <StageBadge stage={selectedCase.current_stage} />
-            </span>
-          ) : (
+        <Cell label="案件 · 阶段" sub={cases.length > 1 ? '点击切换当前案件' : undefined}>
+          {cases.length === 0 ? (
             <span className="text-faint">暂无案件</span>
+          ) : (
+            <span className="flex flex-col gap-1">
+              {/* 多案全列：每案一行 签证 + 阶段徽章；当前选中行高亮，可点切换（与相关案件卡同步） */}
+              {cases.map((cs) => {
+                const active = cs.id === selectedCase?.id
+                return (
+                  <button
+                    key={cs.id}
+                    type="button"
+                    onClick={() => onSelectCase?.(cs.id)}
+                    className={`flex w-fit flex-wrap items-center gap-1.5 rounded text-left ${
+                      active ? '' : 'opacity-60 hover:opacity-100'
+                    }`}
+                    title={active ? '当前案件' : '切换为当前案件'}
+                  >
+                    <span className={active ? '' : 'font-medium'}>
+                      {formatVisaType(cs.visa_subclass, cs.visa_stream)}
+                    </span>
+                    <StageBadge stage={cs.current_stage} />
+                  </button>
+                )
+              })}
+            </span>
           )}
         </Cell>
         {/* 审理时间：只在提名递交/签证递交阶段出现，其余阶段整格不显示 */}

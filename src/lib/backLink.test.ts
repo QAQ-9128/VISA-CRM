@@ -25,13 +25,12 @@ describe('deriveBackSource（按路由推导来源）', () => {
     expect(deriveBackSource('/employers')).toEqual({ from: 'employers' })
     expect(deriveBackSource('/referrers')).toEqual({ from: 'referrers' })
   })
-  it('案件区按 tab', () => {
+  it('递交进度（案件列表/详情页已删，无 view 变体）', () => {
     expect(deriveBackSource('/cases')).toEqual({ from: 'cases' })
-    expect(deriveBackSource('/cases', '?view=lodge')).toEqual({ from: 'cases', view: 'lodge' })
   })
-  it('详情页 → 带 id 的来源', () => {
+  it('详情页 → 带 id 的来源（仅客户；/cases/:id 路由已删不再派生）', () => {
     expect(deriveBackSource('/customers/cu1')).toEqual({ from: 'customer', customerId: 'cu1' })
-    expect(deriveBackSource('/cases/ca1')).toEqual({ from: 'case', caseId: 'ca1' })
+    expect(deriveBackSource('/cases/ca1')).toEqual({})
   })
   it('未知路由 → 空（详情页回落 fallback）', () => {
     expect(deriveBackSource('/whatever')).toEqual({})
@@ -45,13 +44,13 @@ describe('resolveBackLink（来源 → 返回目标）', () => {
     expect(resolveBackLink({ from: 'customers' }, FALLBACK)).toEqual({ to: '/customers', label: '返回客户列表' })
     expect(resolveBackLink({ from: 'archive' }, FALLBACK)).toEqual({ to: '/storage', label: '返回档案库' })
   })
-  it('案件区按 tab', () => {
-    expect(resolveBackLink({ from: 'cases' }, FALLBACK)).toEqual({ to: '/cases', label: '返回案件' })
-    expect(resolveBackLink({ from: 'cases', view: 'lodge' }, FALLBACK)).toEqual({ to: '/cases?view=lodge', label: '返回递交进度' })
+  it('递交进度（旧 view 标记一并归并）', () => {
+    expect(resolveBackLink({ from: 'cases' }, FALLBACK)).toEqual({ to: '/cases', label: '返回递交进度' })
+    expect(resolveBackLink({ from: 'cases', view: 'lodge' }, FALLBACK)).toEqual({ to: '/cases', label: '返回递交进度' })
   })
-  it('来自具体客户/案件详情 → 回到该详情', () => {
+  it('来自客户详情 → 回到该客户；旧「案件详情」state 兜底回递交进度（页已删）', () => {
     expect(resolveBackLink({ from: 'customer', customerId: 'cu1' }, FALLBACK)).toEqual({ to: '/customers/cu1', label: '返回客户档案' })
-    expect(resolveBackLink({ from: 'case', caseId: 'ca1' }, FALLBACK)).toEqual({ to: '/cases/ca1', label: '返回案件' })
+    expect(resolveBackLink({ from: 'case', caseId: 'ca1' }, FALLBACK)).toEqual({ to: '/cases', label: '返回递交进度' })
   })
   it('缺 id / 未知 / 空 → fallback', () => {
     expect(resolveBackLink({ from: 'customer' }, FALLBACK)).toEqual(FALLBACK)

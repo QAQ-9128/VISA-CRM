@@ -94,8 +94,8 @@ function ReceiptItemRow({
       >
         {item.customerName || '（未知客户）'}
       </Link>
-      {/* 案件信息（签证类型 · 编号）保持指向案件 */}
-      <Link to={`/cases/${item.caseId}`} state={source} className="text-sm text-slate-400 hover:underline">
+      {/* 案件信息（签证类型 · 编号）→ 客户详情并选中该案（案件详情页已删） */}
+      <Link to={`/customers/${item.customerId}?case=${item.caseId}`} state={source} className="text-sm text-slate-400 hover:underline">
         · {item.visaSubclass}
       </Link>
       {showCaseNumber && item.caseNumber && (

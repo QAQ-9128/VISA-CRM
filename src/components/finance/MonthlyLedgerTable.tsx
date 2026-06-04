@@ -109,7 +109,7 @@ function ReceiptRow({ item, color }: { item: ReceiptItem; color: CustomerPayment
           <Link to={`/customers/${item.payerId}`} state={source} className={`text-sm font-medium hover:underline ${color === 'default' ? 'text-ink' : CUSTOMER_PAYMENT_TEXT_CLASS[color]}`}>
             {item.customerName || '（未知客户）'}
           </Link>
-          <Link to={`/cases/${item.caseId}`} state={source} className="text-xs text-faint hover:underline">· {item.visaSubclass}</Link>
+          <Link to={`/customers/${item.customerId}?case=${item.caseId}`} state={source} className="text-xs text-faint hover:underline">· {item.visaSubclass}</Link>
           {item.feeCategory && <Badge className="bg-sky-100 text-sky-800">{item.feeCategory}</Badge>}
         </div>
       </td>
@@ -168,7 +168,7 @@ function PayoutRow({ item }: { item: PayoutItem }) {
     <tr className="border-b border-line align-top">
       <td className={td}><TypeBadge row={{ kind: 'payout', id: item.paymentId, date: item.paidAt, item }} /></td>
       <td className={td}>
-        <Link to={`/cases/${item.caseId}`} state={source} className="text-sm text-ink hover:underline">
+        <Link to={`/customers/${item.customerId}?case=${item.caseId}`} state={source} className="text-sm text-ink hover:underline">
           {item.customerName || '（未知客户）'}
           {item.direction === 'to_referrer' && <span className="text-muted"> → {item.referrerName || '未指定介绍人'}</span>}
         </Link>

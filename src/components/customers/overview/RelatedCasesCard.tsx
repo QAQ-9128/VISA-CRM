@@ -3,31 +3,29 @@ import { Link } from 'react-router-dom'
 import { useBackSource } from '../../../hooks/useBackSource'
 import { Card } from '../../ui/Card'
 import { StageBadge } from '../../cases/StageBadge'
-import { StageControl } from '../../cases/StageControl'
-import { StageTimeline } from '../../cases/StageTimeline'
+import { StageProgressCard } from '../../cases/StageProgressCard'
+import { CaseTodosCard } from '../../cases/CaseTodosCard'
 import { useCaseApplicants } from '../../../hooks/queries/useCaseApplicants'
 import { useCustomers } from '../../../hooks/queries/useCustomers'
 import { useEmployer } from '../../../hooks/queries/useEmployers'
 import { useReferrer } from '../../../hooks/queries/useReferrers'
-import { useCaseStageHistory } from '../../../hooks/queries/useCases'
+import { useArchiveCase, useCaseStageHistory, useDeleteCase } from '../../../hooks/queries/useCases'
+import { caseGroupCode, caseParticipantIds } from '../../../lib/caseGroups'
 import { useLodgements } from '../../../hooks/queries/useLodgements'
-import { useRecordsByCase } from '../../../hooks/queries/useRecords'
-import { useDocumentsByCase } from '../../../hooks/queries/useDocuments'
 import { getLodgementLodgedDate } from '../../../lib/lodgementStatus'
 import { computeLodgementProgress } from '../../../lib/lodgementProgress'
 import { formatElapsed } from '../../../lib/casesTable'
 import { shouldShowTrtReminder, monthsSinceGrant } from '../../../lib/trt'
-import { selectCaseTodos } from '../../../lib/caseTodos'
 import { formatVisaType } from '../../../lib/visa'
 import type { Case, Customer } from '../../../types/models'
 import type { LodgementType } from '../../../types/domain'
 
-/** 本案信息一行（2 列布局里的一格）。无值留「—」，不编造。 */
+/** 本案信息一行（2 列布局里的一格）。无值留「—」，不编造。标签加重、值加粗，强化可读性。 */
 function InfoRow({ label, children, valueClass }: { label: string; children?: React.ReactNode; valueClass?: string }) {
   return (
-    <div className="flex items-center justify-between gap-3 border-b border-line py-2 last:border-0">
-      <span className="shrink-0 text-[13px] text-muted">{label}</span>
-      <span className={`min-w-0 truncate text-right text-[13px] font-medium ${valueClass ?? 'text-ink'}`}>{children || '—'}</span>
+    <div className="flex items-center justify-between gap-3 border-b border-line py-2.5 last:border-0">
+      <span className="shrink-0 text-[12.5px] font-semibold text-muted">{label}</span>
+      <span className={`min-w-0 truncate text-right text-[14px] font-semibold ${valueClass ?? 'text-ink'}`}>{children || '—'}</span>
     </div>
   )
 }
@@ -45,10 +43,10 @@ function MilestoneCard({
   const progress = computeLodgementProgress(date, dhaDays)
   return (
     <div className="rounded-[14px] border border-line-2 bg-surface-2/50 p-3">
-      <div className="text-[12px] font-semibold text-muted">{title}</div>
-      <div className="mt-1 text-[15px] font-bold tabular-nums text-ink">{date ?? '—'}</div>
+      <div className="text-[12.5px] font-bold text-muted">{title}</div>
+      <div className="mt-1 text-[16px] font-bold tabular-nums text-ink">{date ?? '—'}</div>
       {date && (
-        <div className="mt-1 space-y-0.5 text-[11.5px]">
+        <div className="mt-1 space-y-0.5 text-[12px] font-medium">
           <div className="text-faint">已过 {formatElapsed(date)}</div>
           {progress && (
             <div className={progress.isOverdue ? 'font-semibold text-rose-600' : 'text-emerald-600'}>
@@ -59,12 +57,6 @@ function MilestoneCard({
       )}
     </div>
   )
-}
-
-const TODO_TONE: Record<string, string> = {
-  amber: 'text-amber-700',
-  rose: 'text-rose-600',
-  default: 'text-body',
 }
 
 /**
@@ -113,8 +105,22 @@ export function RelatedCasesCard({
   }, [selectedCase, applicants.data, customerNameById, customer.id, customer.full_name])
   const history = useCaseStageHistory(caseId)
   const lodgements = useLodgements(caseId)
-  const records = useRecordsByCase(caseId)
-  const docs = useDocumentsByCase(caseId)
+  // 案件级危险操作（与案件页同款确认文案）；归档/删除后列表自动刷新、选中回落到首个案件
+  const archiveM = useArchiveCase()
+  const delM = useDeleteCase()
+  // 一案一组：本案组码 = 参与人集合派生（与案件页/案件表同码）
+  const groupCode = selectedCase ? caseGroupCode(caseParticipantIds(selectedCase, applicants.data ?? []), selectedCase.id) : ''
+
+  function handleArchiveCase() {
+    if (!selectedCase) return
+    if (!window.confirm('确定归档该案件吗？归档后默认不显示，可随时恢复。')) return
+    archiveM.mutate(selectedCase.id)
+  }
+  function handleDeleteCase() {
+    if (!selectedCase) return
+    if (!window.confirm('彻底删除该案件？\n\n将连同其递交记录、阶段历史、账目一并【永久删除，不可恢复】！\n如只想暂时隐藏，请用「归档案件」。')) return
+    delM.mutate(selectedCase.id)
+  }
 
   const hist = useMemo(() => history.data ?? [], [history.data])
   const nomDate = getLodgementLodgedDate(hist, 'nomination')
@@ -131,16 +137,12 @@ export function RelatedCasesCard({
 
   const showTrt = selectedCase ? shouldShowTrtReminder(selectedCase, cases, hist) : false
   const trtMonths = showTrt ? monthsSinceGrant(hist) ?? 0 : 0
-  const todos = useMemo(
-    () => selectCaseTodos({ records: records.data ?? [], docs: docs.data ?? [], trt: { show: showTrt, months: trtMonths } }),
-    [records.data, docs.data, showTrt, trtMonths],
-  )
 
   return (
     <Card className="h-full">
       {/* 案件 tab 条 + 新建 */}
       <div className="mb-4 flex items-center justify-between gap-2">
-        <h2 className="font-serif text-[17px] font-bold text-ink">相关案件</h2>
+        <h2 className="font-serif text-[18px] font-bold tracking-[-0.01em] text-ink">相关案件</h2>
         <Link
           to={`/cases/new?customer=${customer.id}`}
           className="grid size-8 place-items-center rounded-full bg-surface-2 text-lg text-brand hover:bg-brand-50"
@@ -165,7 +167,7 @@ export function RelatedCasesCard({
                   key={cs.id}
                   type="button"
                   onClick={() => onSelectCase(cs.id)}
-                  className={`rounded-full px-3.5 py-1.5 text-[13px] font-semibold transition-colors ${
+                  className={`rounded-full px-3.5 py-1.5 text-[13.5px] font-bold transition-colors ${
                     activeTab ? 'bg-brand-700 text-white shadow-brand' : 'bg-surface-2 text-body hover:bg-brand-50'
                   }`}
                 >
@@ -177,15 +179,51 @@ export function RelatedCasesCard({
 
           {selectedCase && (
             <div className="space-y-5 pt-4">
-              {/* 打开案件页：客户详情 → 案件详情 的直达入口（阶段链/费用/待办的完整单页） */}
-              <div className="-mb-2 flex justify-end">
+              {/* 本案操作：编辑案件 + ⋯ 菜单（归档/删除收纳于此，与页面底部的客户级操作彻底分开） */}
+              <div className="-mb-2 flex items-center justify-end gap-2.5">
                 <Link
-                  to={`/cases/${selectedCase.id}`}
+                  to={`/cases/${selectedCase.id}/edit`}
                   state={backSource}
                   className="text-[12.5px] font-semibold text-brand hover:text-brand-600 hover:underline"
+                  title="编辑签证类别/担保/参与人等"
                 >
-                  打开案件页 ›
+                  编辑案件 ›
                 </Link>
+                <details className="relative">
+                  <summary
+                    aria-label="本案更多操作"
+                    title="本案更多操作（归档 / 删除）"
+                    className="grid size-7 cursor-pointer list-none place-items-center rounded-full text-muted transition-colors hover:bg-surface-2 hover:text-ink [&::-webkit-details-marker]:hidden"
+                  >
+                    ⋯
+                  </summary>
+                  <div className="absolute right-0 z-10 mt-1 w-44 overflow-hidden rounded-[12px] border border-line bg-white py-1 shadow-soft">
+                    <button
+                      type="button"
+                      disabled={archiveM.isPending || selectedCase.is_archived}
+                      onClick={(e) => {
+                        e.currentTarget.closest('details')?.removeAttribute('open')
+                        handleArchiveCase()
+                      }}
+                      className="block w-full px-3.5 py-2 text-left text-[13px] text-body hover:bg-surface-2 disabled:opacity-50"
+                    >
+                      {selectedCase.is_archived ? '已归档' : '归档本案'}
+                      <span className="block text-[11px] text-faint">隐藏不删数据，可恢复</span>
+                    </button>
+                    <button
+                      type="button"
+                      disabled={delM.isPending}
+                      onClick={(e) => {
+                        e.currentTarget.closest('details')?.removeAttribute('open')
+                        handleDeleteCase()
+                      }}
+                      className="block w-full px-3.5 py-2 text-left text-[13px] text-rose-600 hover:bg-rose-50 disabled:opacity-50"
+                    >
+                      {delM.isPending ? '删除中…' : '彻底删除本案'}
+                      <span className="block text-[11px] text-rose-300">连同账目/历史，不可恢复</span>
+                    </button>
+                  </div>
+                </details>
               </div>
 
               {/* 本案信息（2 列） */}
@@ -200,16 +238,21 @@ export function RelatedCasesCard({
                 </InfoRow>
                 {/* 一案一组：平铺显示本案全部参与客户（无归属/主导之分），全员进度一致 */}
                 <InfoRow label="参与客户">{participantNames.join('、')}</InfoRow>
+                <InfoRow label="Group 组码">
+                  <span className="rounded-full bg-[var(--color-lime-soft)] px-2 py-0.5 text-[11px] font-semibold text-[var(--color-lime-ink)]">
+                    {groupCode}
+                  </span>
+                </InfoRow>
               </div>
 
               {/* 当前状态：更新至 chip + 日期 + 两里程碑卡 */}
               <div>
                 <div className="mb-2 flex flex-wrap items-center gap-2">
-                  <span className="text-[13px] text-muted">更新至</span>
+                  <span className="text-[13px] font-semibold text-muted">更新至</span>
                   <StageBadge stage={selectedCase.current_stage} />
-                  <span className="text-[12px] text-faint">{updatedAt ?? '—'}</span>
+                  <span className="text-[12.5px] font-medium tabular-nums text-faint">{updatedAt ?? '—'}</span>
                   {participantNames.length > 1 && (
-                    <span className="text-[12px] text-faint">· 全员进度一致</span>
+                    <span className="text-[12.5px] font-medium text-faint">· 全员进度一致</span>
                   )}
                 </div>
                 <div className="grid grid-cols-2 gap-3">
@@ -218,43 +261,11 @@ export function RelatedCasesCard({
                 </div>
               </div>
 
-              {/* 阶段流转 · Records（复用） */}
-              <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-                {/* 客户页无「同步主案件」锁定：只要参与本案，进度都可在此编辑（一份进度全员共享） */}
-                <StageControl caseId={selectedCase.id} currentStage={selectedCase.current_stage} />
-                <div className="space-y-3 rounded-card bg-white p-[18px] shadow-soft">
-                  <h3 className="font-serif text-[15px] font-bold text-ink">阶段流转 · Records</h3>
-                  <StageTimeline caseId={selectedCase.id} />
-                </div>
-              </div>
+              {/* 阶段进展（与案件详情页同一组件，UI 完全一致）：真实阶段链 + 推进阶段 + 阶段流转记录 */}
+              <StageProgressCard caseRow={selectedCase} key={selectedCase.id} />
 
-              {/* 本案待办清单（只本案派生） */}
-              <div className="border-t border-line pt-4">
-                <div className="mb-2 flex items-center justify-between">
-                  <h3 className="font-serif text-[15px] font-bold text-ink">本案待办清单</h3>
-                  <span className="text-[12px] text-faint">共 {todos.length} 项</span>
-                </div>
-                {todos.length === 0 ? (
-                  <p className="text-sm text-faint">本案暂无待办</p>
-                ) : (
-                  <ul className="space-y-2">
-                    {todos.map((t) => (
-                      <li key={t.id} className="flex items-center gap-2 text-sm">
-                        <span aria-hidden>{t.kind === 'trt' ? '⚠️' : t.kind === 'expiry' ? '📎' : '☑️'}</span>
-                        <span className={`min-w-0 flex-1 truncate ${TODO_TONE[t.tone]}`}>
-                          {t.text}
-                          {t.sub && <span className="text-[11.5px] text-faint"> · {t.sub}</span>}
-                        </span>
-                        {t.badge && (
-                          <span className={`shrink-0 text-[12px] font-semibold ${t.tone === 'rose' ? 'text-rose-600' : 'text-faint'}`}>
-                            {t.badge}
-                          </span>
-                        )}
-                      </li>
-                    ))}
-                  </ul>
-                )}
-              </div>
+              {/* 本案待办（与案件详情页同一组件，功能完全一致：+添加 / 完成 / 删除 / 近期跟进） */}
+              <CaseTodosCard caseRow={selectedCase} trt={{ show: showTrt, months: trtMonths }} key={`todos-${selectedCase.id}`} />
             </div>
           )}
         </>

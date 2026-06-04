@@ -1,28 +1,18 @@
-import { Pill } from '../ui/Pill'
-import type { PillTone } from '../ui/Pill'
-import { CASE_STAGE_LABELS } from '../../types/domain'
+import { CASE_STAGE_LABELS, CASE_STAGE_STYLES } from '../../types/domain'
 import type { CaseStage } from '../../types/domain'
 
-/** 阶段 → Pill 色调（对齐 domain 语义色；见 full-site README）。 */
-const STAGE_TONE: Record<CaseStage, PillTone> = {
-  todo: 'slate',
-  drafted: 'amber',
-  nomination_lodged: 'blue',
-  nomination_approved: 'cyan',
-  visa_lodged: 'indigo',
-  docs_requested: 'amber',
-  docs_completed: 'teal',
-  granted: 'emerald',
-  refused: 'rose',
-  appeal: 'violet',
-  withdrawn: 'slate',
-  additional_docs: 'amber', // 旧数据兼容
-}
-
+/**
+ * 阶段徽章：逐阶段专属配色（CASE_STAGE_STYLES 为唯一来源，11 个正式阶段互不重色——
+ * 阶段进展链 / 阶段流转记录 / 列表状态列同一套色，扫一眼颜色即知阶段）。
+ */
 export function StageBadge({ stage }: { stage: CaseStage }) {
   return (
-    <Pill tone={STAGE_TONE[stage] ?? 'slate'} dot={false}>
-      {CASE_STAGE_LABELS[stage]}
-    </Pill>
+    <span
+      className={`inline-flex items-center whitespace-nowrap rounded-full px-[11px] py-1 text-xs font-semibold ${
+        CASE_STAGE_STYLES[stage] ?? 'bg-slate-100 text-slate-700'
+      }`}
+    >
+      {CASE_STAGE_LABELS[stage] ?? stage}
+    </span>
   )
 }

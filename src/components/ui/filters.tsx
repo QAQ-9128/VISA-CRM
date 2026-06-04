@@ -62,7 +62,7 @@ export function Chip({
     <button
       type="button"
       onClick={onClick}
-      className={`inline-flex min-h-9 items-center gap-1.5 rounded-full px-3 py-1.5 text-[13px] font-semibold transition-colors ${
+      className={`inline-flex min-h-9 items-center gap-1.5 rounded-full px-3 py-1.5 text-[13.5px] font-semibold transition-colors ${
         active ? 'bg-brand text-white shadow-xs' : 'bg-surface-2 text-body hover:bg-line-2'
       }`}
     >
@@ -75,7 +75,7 @@ export function Chip({
 export function FilterGroup({ label, children }: { label: string; children: ReactNode }) {
   return (
     <div className="flex flex-wrap items-center gap-2">
-      <span className="w-16 shrink-0 text-[13px] font-semibold text-muted">{label}</span>
+      <span className="w-16 shrink-0 text-[13.5px] font-bold text-muted">{label}</span>
       {children}
     </div>
   )

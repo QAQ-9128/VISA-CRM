@@ -73,7 +73,7 @@ function FinanceRow({ entry }: { entry: FinanceTableRow }) {
             <Avatar name={row.customerName || '客户'} seed={row.customerId} size={34} />
             <div className="flex flex-wrap items-center gap-x-1.5 gap-y-0.5">
               <Link
-                to={`/cases/${row.caseId}`}
+                to={`/customers/${row.customerId}?case=${row.caseId}`}
                 state={source}
                 className={`text-sm font-semibold hover:underline ${nameColor === 'default' ? 'text-ink' : CUSTOMER_PAYMENT_TEXT_CLASS[nameColor]}`}
               >

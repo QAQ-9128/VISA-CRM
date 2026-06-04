@@ -476,7 +476,7 @@ describe('月度账目合并流水（selectLedgerRows / filter / counts）', () 
   })
   const pyt = (id: string, paidAt: string | null): PayoutItem => ({
     paymentId: id, direction: 'to_company', amount: 50, method: 'transfer', customerName: '张三',
-    referrerName: null, paidAt, note: null, caseId: 'c1',
+    customerId: 'cu', referrerName: null, paidAt, note: null, caseId: 'c1',
   })
   const receipts = (items: ReceiptItem[]): FinanceReceipts => ({ items, total: 0 })
   const payouts = (items: PayoutItem[]): FinancePayouts => ({ items, toCompanyTotal: 0, toReferrerTotal: 0 })

@@ -23,7 +23,7 @@ export interface NavItem {
 export const NAV_ITEMS: NavItem[] = [
   { to: '/', label: '概览', icon: HomeIcon, end: true },
   { to: '/customers', label: '客户列表', icon: UsersIcon },
-  { to: '/cases', label: '案件', icon: BriefcaseIcon },
+  { to: '/cases', label: '递交进度', icon: BriefcaseIcon },
   { to: '/finance', label: '财务', icon: WalletIcon },
   { to: '/employers', label: '雇主', icon: BuildingIcon },
   { to: '/referrers', label: '介绍人', icon: UserPlusIcon },

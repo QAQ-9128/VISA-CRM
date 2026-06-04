@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { Link, useLocation, useNavigate, useParams } from 'react-router-dom'
+import { Link, useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { useArchiveCustomer, useCustomer, useDeleteCustomer } from '../../hooks/queries/useCustomers'
 import { useCases } from '../../hooks/queries/useCases'
 import { useAllCaseApplicants } from '../../hooks/queries/useCaseApplicants'
@@ -21,13 +21,22 @@ export function CustomerDetailPage() {
   const { id } = useParams()
   const navigate = useNavigate()
   const location = useLocation()
+  const [searchParams] = useSearchParams()
   const query = useCustomer(id)
   // 案件来源 = 拥有 ∪ 参与（多人案件在每个参与人页面都可见）
   const allCases = useCases()
   const allApplicants = useAllCaseApplicants()
   const archive = useArchiveCustomer()
   const del = useDeleteCustomer()
-  const [picked, setPicked] = useState<string | null>(null)
+  // ?case=<id> 直达并选中该案件（案件详情页已删，全站案件链接都跳到这里）。
+  // 派生式选中（无 effect）：手动点 tab 的选择只在「同一个 case 参数」下生效；参数一变即选中新案。
+  const caseParam = searchParams.get('case')
+  const [pickedState, setPickedState] = useState<{ forParam: string | null; id: string | null }>({
+    forParam: caseParam,
+    id: caseParam,
+  })
+  const picked = pickedState.forParam === caseParam ? pickedState.id : caseParam
+  const setPicked = (id: string | null) => setPickedState({ forParam: caseParam, id })
   const caseList = useMemo(
     () => (id ? selectCustomerCases(id, allCases.data ?? [], allApplicants.data ?? []) : []),
     [id, allCases.data, allApplicants.data],
@@ -71,7 +80,13 @@ export function CustomerDetailPage() {
       <BackLink to={back.to} label={back.label} />
 
       {/* ① 概要带 */}
-      <SummaryBand customer={c} selectedCase={selectedCase} caseCount={caseList.length} />
+      <SummaryBand
+        customer={c}
+        selectedCase={selectedCase}
+        caseCount={caseList.length}
+        cases={caseList}
+        onSelectCase={setPicked}
+      />
 
       {/* ② 相关案件卡（左，主） + ③ 费用记录卡（右，本案） */}
       <div className="grid grid-cols-1 items-stretch gap-5 lg:grid-cols-[minmax(0,1.6fr)_minmax(0,1fr)]">

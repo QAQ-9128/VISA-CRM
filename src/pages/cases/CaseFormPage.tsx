@@ -28,8 +28,8 @@ export function CaseFormPage() {
   const err = createM.error ?? updateM.error ?? setApplicantsM.error
   const errorMsg = err instanceof Error ? err.message : err ? '保存失败' : null
 
-  // 取消 = 回到点进来的那个界面（应用内历史后退；刷新/直链则兜底到案件详情或客户档案）
-  const goBack = useSmartBack(editing && id ? `/cases/${id}` : `/customers/${customerId}`)
+  // 取消 = 回到点进来的那个界面（应用内历史后退；刷新/直链则兜底到客户档案——案件详情页已删）
+  const goBack = useSmartBack(`/customers/${customerId ?? ''}`)
 
   if (editing && existing.isPending) return <LoadingBlock />
   if (editing && existing.isError) return <ErrorBlock error={existing.error} />
@@ -47,13 +47,13 @@ export function CaseFormPage() {
     )
   }
 
-  // 保存完成后写参与人即跳详情。案件之间平级：无「进度同步主案件」逻辑（同步概念已废）。
+  // 保存完成后写参与人即跳客户详情并选中该案（案件详情页已删）。
   function finishSave(saved: Case, applicantIds: string[]) {
     setApplicantsM.mutate(
       { caseId: saved.id, customerIds: applicantIds },
       {
-        // 保存后 replace：表单页不留在历史里 → 案件详情再「返回」直接回到进表单前的界面
-        onSuccess: () => navigate(`/cases/${saved.id}`, { replace: true }),
+        // 保存后 replace：表单页不留在历史里 → 客户页再「返回」直接回到进表单前的界面
+        onSuccess: () => navigate(`/customers/${saved.customer_id}?case=${saved.id}`, { replace: true }),
       },
     )
   }
@@ -69,10 +69,7 @@ export function CaseFormPage() {
   return (
     <section className="w-full">
       <div className="mb-3">
-        <BackLink
-          to={editing && id ? `/cases/${id}` : `/customers/${customerId}`}
-          label={editing ? '返回案件' : '返回客户档案'}
-        />
+        <BackLink to={`/customers/${customerId ?? ''}`} label="返回客户档案" />
       </div>
       <h1 className="text-2xl font-bold tracking-[-0.02em] text-ink">
         {editing ? '编辑案件' : '新建案件'}

@@ -330,6 +330,8 @@ export interface PayoutItem {
   amount: number
   method: PaymentMethod
   customerName: string
+  /** 归属客户 id（applicant_id 优先，回落案件客户）——案件链接跳客户详情用 */
+  customerId: string
   /** 仅 to_referrer 有值：对应客户的介绍人 */
   referrerName: string | null
   paidAt: string | null
@@ -371,6 +373,7 @@ export function selectFinancePayouts(
       amount: num(p.amount),
       method: p.method,
       customerName: customer?.full_name ?? '',
+      customerId: ownerId ?? '',
       referrerName: referrer?.name ?? null,
       paidAt: p.paid_at,
       note: p.note,

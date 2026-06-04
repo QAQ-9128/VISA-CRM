@@ -10,7 +10,6 @@ import { CustomerDetailPage } from '../pages/customers/CustomerDetailPage'
 import { GroupManagementPage } from '../pages/customers/GroupManagementPage'
 import { CustomerFormPage } from '../pages/customers/CustomerFormPage'
 import { CasesPage } from '../pages/cases/CasesPage'
-import { CaseDetailPage } from '../pages/cases/CaseDetailPage'
 import { CaseFormPage } from '../pages/cases/CaseFormPage'
 import { EmployerListPage } from '../pages/employers/EmployerListPage'
 import { EmployerFormPage } from '../pages/employers/EmployerFormPage'
@@ -39,9 +38,9 @@ export const router = createBrowserRouter([
           { path: 'customers/:id', element: <CustomerDetailPage /> },
           { path: 'customers/:id/edit', element: <CustomerFormPage /> },
           { path: 'customers/:id/group', element: <GroupManagementPage /> },
+          // 案件详情页已删（案件功能全部在客户详情页 ?case= 选中）；保留 递交进度 + 新建/编辑表单
           { path: 'cases', element: <CasesPage /> },
           { path: 'cases/new', element: <CaseFormPage /> },
-          { path: 'cases/:id', element: <CaseDetailPage /> },
           { path: 'cases/:id/edit', element: <CaseFormPage /> },
           { path: 'employers', element: <EmployerListPage /> },
           { path: 'employers/new', element: <EmployerFormPage /> },

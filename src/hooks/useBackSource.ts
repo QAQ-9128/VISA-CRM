@@ -8,5 +8,5 @@ import type { BackSource } from '../lib/backLink'
  */
 export function useBackSource(): BackSource {
   const loc = useLocation()
-  return deriveBackSource(loc.pathname, loc.search)
+  return deriveBackSource(loc.pathname)
 }

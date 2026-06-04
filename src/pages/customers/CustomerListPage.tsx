@@ -53,16 +53,16 @@ function customerMatches(c: Customer, f: CustomerFilter, subByCustomer: Map<stri
 }
 
 /**
- * 一行案件（签证 | 职位 | 雇主 | 阶段徽章）：点击 → 该案件详情页。
+ * 一行案件（签证 | 职位 | 雇主 | 阶段徽章）：点击 → 该客户详情并选中该案（案件详情页已删）。
  * 外层是客户 <a>（整行/整卡链到客户档案），HTML 不允许嵌套 <a> → 用 navigate + stopPropagation。
  */
-function CaseLine({ line }: { line: ReturnType<typeof selectCustomerCaseLines>[number] }) {
+function CaseLine({ line, customerId }: { line: ReturnType<typeof selectCustomerCaseLines>[number]; customerId: string }) {
   const navigate = useNavigate()
   const source = useBackSource()
   const open = (e: { preventDefault: () => void; stopPropagation: () => void }) => {
     e.preventDefault()
     e.stopPropagation()
-    navigate(`/cases/${line.caseId}`, { state: source })
+    navigate(`/customers/${customerId}?case=${line.caseId}`, { state: source })
   }
   return (
     <div
@@ -131,9 +131,9 @@ function CustomerRow({
             <p className="mt-0.5 text-xs text-faint">暂无案件</p>
           ) : (
             <div className="mt-1 space-y-1">
-              {/* 每案一行：签证类型 | 职位 | 担保雇主 | 状态。点击整行 → 案件详情（外层是客户链接，不能嵌套 <a>，用 navigate） */}
+              {/* 每案一行：签证类型 | 职位 | 担保雇主 | 状态。点击整行 → 客户详情并选中该案 */}
               {lines.map((line) => (
-                <CaseLine key={line.caseId} line={line} />
+                <CaseLine key={line.caseId} line={line} customerId={c.id} />
               ))}
             </div>
           )}
@@ -447,9 +447,9 @@ function SourceBoard({
                           <p className="mt-0.5 text-xs text-faint">暂无案件</p>
                         ) : (
                           <div className="mt-1 space-y-1">
-                            {/* 点签证行 → 案件详情（卡片其余区域仍进客户档案） */}
+                            {/* 点签证行 → 客户详情并选中该案（卡片其余区域仍进客户档案） */}
                             {lines.map((line) => (
-                              <CaseLine key={line.caseId} line={line} />
+                              <CaseLine key={line.caseId} line={line} customerId={m.id} />
                             ))}
                           </div>
                         )}
