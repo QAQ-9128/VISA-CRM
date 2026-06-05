@@ -15,6 +15,8 @@ export interface CustomerFormState {
   sponsor_employer_id: string
   sponsor_position: string
   referrer_id: string
+  /** 归属人（referrers.kind=owner 实体 id；'' = 未归属），与 client_source 三色无关 */
+  owner_referrer_id: string
   birth_date: string
   gender: string
   notes: string
@@ -36,6 +38,7 @@ export function initialFormState(c?: Customer, initialPrimaryId?: string): Custo
     sponsor_employer_id: c?.sponsor_employer_id ?? '',
     sponsor_position: c?.sponsor_position ?? '',
     referrer_id: c?.referrer_id ?? '',
+    owner_referrer_id: c?.owner_referrer_id ?? '',
     birth_date: c?.birth_date ?? '',
     gender: c?.gender ?? '',
     notes: c?.notes ?? '',
@@ -57,6 +60,7 @@ export function toPayload(s: CustomerFormState): CustomerFormValues {
     sponsor_employer_id: s.sponsor_employer_id || null,
     sponsor_position: trimOrNull(s.sponsor_position),
     referrer_id: s.referrer_id || null,
+    owner_referrer_id: s.owner_referrer_id || null,
     birth_date: trimOrNull(s.birth_date),
     gender: s.gender || null,
     notes: trimOrNull(s.notes),

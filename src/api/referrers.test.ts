@@ -23,6 +23,17 @@ describe('listReferrers', () => {
     await api.listReferrers({ includeArchived: true })
     expect(b.referrers.eq).not.toHaveBeenCalledWith('is_archived', false)
   })
+
+  // referrers 一表两用（介绍人/归属人）：kind 过滤可选——名字解析处不传 kind 取全量
+  it('传 kind 时按 kind 过滤；不传不加 kind 条件', async () => {
+    const b1 = wireFrom(fromMock, { referrers: { data: [] } })
+    await api.listReferrers({ kind: 'owner' })
+    expect(b1.referrers.eq).toHaveBeenCalledWith('kind', 'owner')
+
+    const b2 = wireFrom(fromMock, { referrers: { data: [] } })
+    await api.listReferrers()
+    expect(b2.referrers.eq).not.toHaveBeenCalledWith('kind', expect.anything())
+  })
 })
 
 describe('getReferrer', () => {

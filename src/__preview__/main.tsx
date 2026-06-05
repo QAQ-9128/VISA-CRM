@@ -21,6 +21,8 @@ import { FinancePage } from '../pages/finance/FinancePage'
 import { CasesPage } from '../pages/cases/CasesPage'
 import { ArchivePage } from '../pages/archive/ArchivePage'
 import { RecycleBin } from '../pages/archive/RecycleBin'
+import { ReferrerListPage } from '../pages/referrers/ReferrerListPage'
+import { CustomerFormPage } from '../pages/customers/CustomerFormPage'
 import { AuthContext } from '../providers/auth-context'
 import type { AuthContextValue } from '../providers/auth-context'
 import { queryKeys } from '../hooks/queries/keys'
@@ -41,7 +43,7 @@ window.fetch = () => new Promise<Response>(() => {})
 const cust = (o: Partial<Customer>): Customer => ({
   id: 'P', full_name: 'Alice', birth_date: null, gender: null, passport_no: null, nationality: null,
   phone: null, email: null, wechat: null, address: null, sponsor_employer_id: null, sponsor_position: null,
-  referrer_id: null, primary_applicant_id: null, relationship_to_primary: null, client_source: null,
+  referrer_id: null, owner_referrer_id: null, primary_applicant_id: null, relationship_to_primary: null, client_source: null,
   is_starred: false, notes: null, assigned_to: null, created_by: null, is_archived: false,
   created_at: '', updated_at: '', ...o,
 })
@@ -97,13 +99,15 @@ const chk = (o: Partial<ChecklistItem>): ChecklistItem => ({
 } as ChecklistItem)
 
 // ── 人物 / 案件 ───────────────────────────────────────────────
-const alice = cust({ id: 'P', full_name: 'Alice', sponsor_employer_id: 'E1', sponsor_position: 'Finance Broker', referrer_id: 'R1', is_starred: true, gender: 'male' })
+const alice = cust({ id: 'P', full_name: 'Alice', sponsor_employer_id: 'E1', sponsor_position: 'Finance Broker', referrer_id: 'R1', owner_referrer_id: 'O1', is_starred: true, gender: 'male' })
 const ben = cust({ id: 'S', full_name: 'Ben', primary_applicant_id: 'P', relationship_to_primary: '配偶' })
 const zoe = cust({ id: 'Z', full_name: 'Zoe（已归档）', is_archived: true }) // 归档客户：任何页面不应露出她的东西
 const employer: Employer = { id: 'E1', name: 'Company ABC', abn: null, contact_name: null, contact_phone: null, contact_email: null, address: null, note: null, is_archived: false, created_by: null, created_at: '', updated_at: '' } as unknown as Employer
 const employerArch: Employer = { ...employer, id: 'EA', name: '旧雇主（已归档）', is_archived: true } as Employer
-const referrer: Referrer = { id: 'R1', name: 'CICI', phone: null, email: null, note: null, is_archived: false, created_by: null, created_at: '', updated_at: '' } as unknown as Referrer
+const referrer: Referrer = { id: 'R1', name: 'CICI', kind: 'referrer', phone: null, email: null, note: null, is_archived: false, created_by: null, created_at: '', updated_at: '' } as unknown as Referrer
 const referrerArch: Referrer = { ...referrer, id: 'RA', name: '旧介绍人（已归档）', is_archived: true } as Referrer
+// 归属人（与介绍人同表 kind=owner）：Alice 归属于 刘祎
+const owner: Referrer = { ...referrer, id: 'O1', name: '刘祎', kind: 'owner' } as Referrer
 const profileU1 = { id: 'u1', role: 'admin', full_name: '李顾问', active: true, created_at: '', updated_at: '' } as unknown as Profile
 
 const C482 = kase({ id: 'C482', case_number: '10042X', visa_subclass: '482', visa_stream: 'Core Skill', sync_tracking: false, updated_at: '2026-06-03T00:00:00Z' })
@@ -188,8 +192,9 @@ seed(queryKeys.familyLinks.all, [])
 seed(queryKeys.caseApplicants.all, applicantsAll)
 seed(queryKeys.employers.list, [employer])
 seed([...queryKeys.employers.list, { includeArchived: true }], [employer, employerArch])
-seed(queryKeys.referrers.list, [referrer])
-seed([...queryKeys.referrers.list, { includeArchived: true }], [referrer, referrerArch])
+seed(queryKeys.referrers.list, [referrer, owner])
+seed([...queryKeys.referrers.list, { includeArchived: true }], [referrer, owner, referrerArch])
+seed(queryKeys.referrers.detail('O1'), owner)
 seed(queryKeys.employers.detail('E1'), employer)
 seed(queryKeys.referrers.detail('R1'), referrer)
 seed(queryKeys.profiles.list, [profileU1])
@@ -251,6 +256,17 @@ const ENTRY: Record<string, string> = {
   cases: '/cases',
   archive: '/storage',
   recycle: '/storage', // 静态截图点不了 tab → 直接渲染 RecycleBin
+  referrers: '/referrers',
+  owners: '/referrers?kind=owner', // 介绍人页·归属人视图
+  quick: '/customers/new', // 新建客户页（快速建档卡 + 完整表单并存）
+  edit: '/customers/P/edit', // 编辑客户（完整表单，回填 Alice）
+}
+
+// 截图辅助：?focus=owner → 渲染后聚焦第一个归属人下拉，展开选项列表（无头截图点不了输入框）
+if (params.get('focus') === 'owner') {
+  window.setTimeout(() => {
+    document.querySelector<HTMLInputElement>('[role="combobox"]')?.focus()
+  }, 600)
 }
 
 createRoot(document.getElementById('root')!).render(
@@ -261,10 +277,13 @@ createRoot(document.getElementById('root')!).render(
           <Routes>
             <Route element={<AppLayout />}>
               <Route path="/" element={<DashboardPage />} />
+              <Route path="/customers/new" element={<CustomerFormPage />} />
+              <Route path="/customers/:id/edit" element={<CustomerFormPage />} />
               <Route path="/customers/:id" element={<CustomerDetailPage />} />
               <Route path="/finance" element={<FinancePage />} />
               <Route path="/cases" element={<CasesPage />} />
               <Route path="/storage" element={page === 'recycle' ? <RecycleBin /> : <ArchivePage />} />
+              <Route path="/referrers" element={<ReferrerListPage />} />
             </Route>
           </Routes>
         </MemoryRouter>

@@ -21,7 +21,7 @@ const mkCase = (o: Partial<Case>): Case => ({
 const mkCustomer = (o: Partial<Customer>): Customer => ({
   id: 'cu1', full_name: '张三', is_starred: false, client_source: null, primary_applicant_id: null,
   relationship_to_primary: null, birth_date: null, gender: null, passport_no: null, nationality: null, phone: null,
-  email: null, wechat: null, address: null, sponsor_employer_id: null, sponsor_position: null, referrer_id: null, notes: null,
+  email: null, wechat: null, address: null, sponsor_employer_id: null, sponsor_position: null, referrer_id: null, owner_referrer_id: null, notes: null,
   assigned_to: null, created_by: null, is_archived: false, created_at: '', updated_at: '', ...o,
 })
 const mkPayment = (o: Partial<Payment>): Payment => ({
@@ -30,7 +30,7 @@ const mkPayment = (o: Partial<Payment>): Payment => ({
   from_client_customer_id: null, recorded_by: null, created_at: '', ...o,
 })
 const mkReferrer = (o: Partial<Referrer>): Referrer => ({
-  id: 'r1', name: '王介绍', contact_phone: null, contact_email: null, notes: null,
+  id: 'r1', name: '王介绍', kind: 'referrer', contact_phone: null, contact_email: null, notes: null,
   is_archived: false, created_by: null, created_at: '', updated_at: '', ...o,
 })
 

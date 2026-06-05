@@ -1,6 +1,7 @@
 import { useNavigate, useParams } from 'react-router-dom'
 import { CustomerForm } from '../../components/customers/CustomerForm'
 import type { CustomerFormNext, CustomerFormValues } from '../../components/customers/CustomerForm'
+import { QuickCustomerForm } from '../../components/customers/QuickCustomerForm'
 import {
   useCreateCustomer,
   useCustomer,
@@ -71,15 +72,42 @@ export function CustomerFormPage() {
       <h1 className="text-2xl font-bold tracking-[-0.02em] text-ink">
         {editing ? '编辑客户' : '新建客户'}
       </h1>
-      <Card className="mt-5">
-        <CustomerForm
-          initial={editing ? existing.data ?? undefined : undefined}
-          submitting={submitting}
-          error={errorMsg}
-          onSubmit={handleSubmit}
-          onCancel={goBack}
-        />
-      </Card>
+      {editing ? (
+        <Card className="mt-5">
+          <CustomerForm
+            initial={existing.data ?? undefined}
+            submitting={submitting}
+            error={errorMsg}
+            onSubmit={handleSubmit}
+            onCancel={goBack}
+          />
+        </Card>
+      ) : (
+        /* 新建：快速建档卡片 + 完整表单同页并存（2026-06 图纸）——都能看到、都能用 */
+        <div className="mt-5 grid grid-cols-1 items-start gap-5 lg:grid-cols-[380px_minmax(0,1fr)]">
+          <Card className="lg:sticky lg:top-4">
+            <h2 className="text-base font-bold text-ink">⚡ 快速建档</h2>
+            <p className="mt-1 mb-4 text-[13px] text-faint">
+              只录基础信息，建完即进客户档案；案件之后在客户页里建
+            </p>
+            <QuickCustomerForm
+              onCreated={(customerId) => navigate(`/customers/${customerId}`, { replace: true })}
+            />
+          </Card>
+          <Card>
+            <h2 className="text-base font-bold text-ink">完整建档</h2>
+            <p className="mt-1 mb-4 text-[13px] text-faint">
+              需要担保信息、加入已有案件（建副申）、保存并新建案件等用这边
+            </p>
+            <CustomerForm
+              submitting={submitting}
+              error={errorMsg}
+              onSubmit={handleSubmit}
+              onCancel={goBack}
+            />
+          </Card>
+        </div>
+      )}
     </section>
   )
 }

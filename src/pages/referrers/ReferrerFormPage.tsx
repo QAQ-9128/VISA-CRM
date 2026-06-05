@@ -1,4 +1,4 @@
-import { useNavigate, useParams } from 'react-router-dom'
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { ReferrerForm } from '../../components/referrers/ReferrerForm'
 import type { ReferrerFormValues } from '../../components/referrers/ReferrerForm'
 import {
@@ -15,6 +15,9 @@ export function ReferrerFormPage() {
   const { id } = useParams()
   const editing = !!id
   const navigate = useNavigate()
+  const [searchParams] = useSearchParams()
+  // 列表页开关带过来的默认类型：?kind=owner → 新建归属人（编辑时以实体自身 kind 为准）
+  const defaultKind = searchParams.get('kind') === 'owner' ? ('owner' as const) : ('referrer' as const)
   // 取消 = 回到点进来的那个界面；刷新/直链兜底回介绍人列表
   const goBack = useSmartBack('/referrers')
 
@@ -40,14 +43,17 @@ export function ReferrerFormPage() {
   return (
     <section className="w-full">
       <div className="mb-3">
-        <BackLink to="/referrers" label="介绍人列表" />
+        <BackLink to="/referrers" label="介绍人 / 归属人列表" />
       </div>
       <h1 className="text-2xl font-bold tracking-[-0.02em] text-ink">
-        {editing ? '编辑介绍人' : '新建介绍人'}
+        {editing
+          ? `编辑${existing.data?.kind === 'owner' ? '归属人' : '介绍人'}`
+          : `新建${defaultKind === 'owner' ? '归属人' : '介绍人'}`}
       </h1>
       <Card className="mt-5">
         <ReferrerForm
           initial={editing ? existing.data ?? undefined : undefined}
+          defaultKind={defaultKind}
           submitting={submitting}
           error={errorMsg}
           onSubmit={handleSubmit}

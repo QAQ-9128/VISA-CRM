@@ -5,6 +5,7 @@ import { Button } from '../../ui/Button'
 import { StageBadge } from '../../cases/StageBadge'
 import { useBackSource } from '../../../hooks/useBackSource'
 import { useUpdateCustomer } from '../../../hooks/queries/useCustomers'
+import { useReferrer } from '../../../hooks/queries/useReferrers'
 import { useCaseStageHistory } from '../../../hooks/queries/useCases'
 import { useCustomerFinance } from '../../../hooks/queries/useCustomerFinance'
 import { selectProcessingTime } from '../../../lib/processingTime'
@@ -49,6 +50,8 @@ export function SummaryBand({
   const source = useBackSource() // 进案件参与管理带来源 → 返回文案随来源
   const update = useUpdateCustomer()
   const finance = useCustomerFinance(customer.id)
+  // 归属人名字（detail 查询不滤归档：归属人被归档时历史归属仍可见）
+  const owner = useReferrer(customer.owner_referrer_id)
 
   // 客户级财务合计（全部案件，不随案件切换）
   const t = finance.receivableTotals
@@ -124,6 +127,13 @@ export function SummaryBand({
         >
           {customer.gender ? (
             (GENDER_LABELS as Record<string, string>)[customer.gender] ?? customer.gender
+          ) : (
+            <span className="text-faint">—</span>
+          )}
+        </Cell>
+        <Cell label="归属人">
+          {customer.owner_referrer_id ? (
+            owner.isPending ? '…' : owner.data?.name ?? <span className="text-faint">—</span>
           ) : (
             <span className="text-faint">—</span>
           )}

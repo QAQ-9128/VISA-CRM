@@ -5,7 +5,7 @@ import type { Customer, FamilyMemberLink } from '../types/models'
 const mk = (o: Partial<Customer>): Customer => ({
   id: 'cu', full_name: '客户', is_starred: false, client_source: null, primary_applicant_id: null,
   relationship_to_primary: null, birth_date: null, gender: null, passport_no: null, nationality: null, phone: null,
-  email: null, wechat: null, address: null, sponsor_employer_id: null, sponsor_position: null, referrer_id: null, notes: null,
+  email: null, wechat: null, address: null, sponsor_employer_id: null, sponsor_position: null, referrer_id: null, owner_referrer_id: null, notes: null,
   assigned_to: null, created_by: null, is_archived: false, created_at: '', updated_at: '', ...o,
 })
 const mkLink = (o: Partial<FamilyMemberLink> & { primary_customer_id: string; member_customer_id: string }): FamilyMemberLink => ({

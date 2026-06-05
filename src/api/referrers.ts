@@ -1,14 +1,19 @@
 import { supabase } from '../lib/supabase'
 import type { Referrer } from '../types/models'
 import type { TablesInsert, TablesUpdate } from '../types/database'
+import type { ReferrerKind } from '../types/domain'
 
 export type ReferrerInsert = TablesInsert<'referrers'>
 export type ReferrerUpdate = TablesUpdate<'referrers'>
 
-/** 介绍人列表，默认排除归档，按名称排序。 */
-export async function listReferrers(opts: { includeArchived?: boolean } = {}): Promise<Referrer[]> {
+/** 介绍人/归属人列表（一表两用），默认排除归档，按名称排序。
+ *  kind 可选过滤：'referrer' 介绍人 / 'owner' 归属人；不传 = 全量（名字解析处用）。 */
+export async function listReferrers(
+  opts: { includeArchived?: boolean; kind?: ReferrerKind } = {},
+): Promise<Referrer[]> {
   let query = supabase.from('referrers').select('*')
   if (!opts.includeArchived) query = query.eq('is_archived', false)
+  if (opts.kind) query = query.eq('kind', opts.kind)
   query = query.order('name', { ascending: true })
   const { data, error } = await query
   if (error) throw error

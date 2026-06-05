@@ -37,10 +37,20 @@ vi.mock('../../api/caseApplicants', async (orig) => {
     listCaseApplicants: vi.fn().mockResolvedValue([]),
   }
 })
+// 归属人名字解析（概要带「归属人」格经 useReferrer → getReferrer）
+vi.mock('../../api/referrers', async (orig) => {
+  const actual = await orig<typeof import('../../api/referrers')>()
+  return {
+    ...actual,
+    getReferrer: vi.fn().mockResolvedValue(null),
+    listReferrers: vi.fn().mockResolvedValue([]),
+  }
+})
 
 import { CustomerDetailPage } from './CustomerDetailPage'
 import { getCaseStageHistory, listCases } from '../../api/cases'
-import { listCustomers } from '../../api/customers'
+import { getCustomer, listCustomers } from '../../api/customers'
+import { getReferrer } from '../../api/referrers'
 import { listAllCaseApplicants, listCaseApplicants } from '../../api/caseApplicants'
 import { queryKeys } from '../../hooks/queries/keys'
 
@@ -90,6 +100,22 @@ beforeEach(() => {
 })
 
 describe('CustomerDetailPage（案件中心单页 · 无 tab）', () => {
+  it('概要带「归属人」格：有归属人 → 解析显示名字；无 → —', async () => {
+    vi.mocked(getCustomer).mockResolvedValueOnce({
+      id: 'cu1', full_name: '测试客户', primary_applicant_id: null, client_source: null,
+      is_starred: false, is_archived: false, gender: 'male', sponsor_employer_id: null,
+      sponsor_position: null, referrer_id: null, owner_referrer_id: 'o1',
+      birth_date: null, notes: null, phone: null, email: null,
+    } as unknown as Customer)
+    vi.mocked(getReferrer).mockResolvedValue({
+      id: 'o1', name: '刘祎', kind: 'owner', contact_phone: null, contact_email: null,
+      notes: null, is_archived: false, created_by: null, created_at: '', updated_at: '',
+    } as unknown as Awaited<ReturnType<typeof getReferrer>>)
+    renderPage()
+    expect(await screen.findByText('归属人')).toBeInTheDocument()
+    expect(await screen.findByText('刘祎')).toBeInTheDocument()
+  })
+
   // 彻底删除是 admin 专属（RLS 同样限制）：staff 连按钮都不应看到——
   // 否则点了会被 RLS 静默挡在末步，且删客户流程的前置过户已写入，留脏数据。
   it('staff（非 admin）：客户「彻底删除」与案件「彻底删除本案」均不显示；归档仍在', async () => {

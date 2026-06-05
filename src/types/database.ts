@@ -20,6 +20,7 @@ import type {
   PaymentDirection,
   PaymentMethod,
   RecordType,
+  ReferrerKind,
 } from './domain'
 
 type Timestamp = string // ISO 时间戳
@@ -89,6 +90,8 @@ export interface Database {
         Row: {
           id: string
           name: string
+          /** 一表两用：referrer=介绍人 / owner=归属人（介绍人页开关切换） */
+          kind: ReferrerKind
           contact_phone: string | null
           contact_email: string | null
           notes: string | null
@@ -100,6 +103,7 @@ export interface Database {
         Insert: {
           id?: string
           name: string
+          kind?: ReferrerKind
           contact_phone?: string | null
           contact_email?: string | null
           notes?: string | null
@@ -126,6 +130,8 @@ export interface Database {
           sponsor_employer_id: string | null
           sponsor_position: string | null
           referrer_id: string | null
+          /** 归属人（referrers.kind=owner）；与 client_source（来源·三色）无关、并存 */
+          owner_referrer_id: string | null
           primary_applicant_id: string | null
           relationship_to_primary: string | null
           client_source: string | null
@@ -151,6 +157,7 @@ export interface Database {
           sponsor_employer_id?: string | null
           sponsor_position?: string | null
           referrer_id?: string | null
+          owner_referrer_id?: string | null
           primary_applicant_id?: string | null
           relationship_to_primary?: string | null
           client_source?: string | null

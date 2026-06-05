@@ -1,5 +1,16 @@
 # Progress Log
 
+## Session 2026-06-06 · 快速建档弹窗 + 归属人（完成）
+- [x] 0030 迁移：referrers.kind('referrer'|'owner') + customers.owner_referrer_id 外键（待用户在 Dashboard 执行）
+- [x] OwnerSelect：Notion 式选择/创建 combobox（输入过滤/创建行/Enter 不冒泡提交/清空，6 测试）；useCreateOwner hook
+- [x] QuickCustomerDialog：五字段小卡片（姓名/性别/生日/归属人/介绍人），lib/quickCustomer 锁五键无案件字段；成功跳客户详情
+- [x] 入口（用户纠偏后）：原「新建客户」整页表单保留不动，概览+客户列表各加「⚡ 快速新建」额外入口
+- [x] 介绍人页 pill 开关 介绍人/归属人（kind 过滤、新建带 kind、空态随 kind）；ReferrerForm 加类型 Select；ReferrerSelect 只列介绍人（kind 缺失防御=介绍人）
+- [x] 编辑大表单关系区加 OwnerSelect；SummaryBand 概要带加「归属人」格（useReferrer 解析名）
+- [x] 测试工厂批量补 owner_referrer_id/kind（9 文件）；765 测试全绿 / lint / tsc+build
+- [x] 预览：page=quick（弹窗直渲染）/referrers；截图验收 弹窗/开关/概要带归属人 全部正确
+- ⚠ 注意：新功能（建归属人/保存归属人字段）需先跑 0030 迁移；既有功能不受未迁移影响（kind 过滤均在客户端）
+
 ## Session 2026-06-05 · 视觉验收两观察项修复（完成）
 - [x] 0 元行：selectFinanceReceipts/Payouts 过滤「金额 0 且无发票」的明细行（带发票的保留以便查看/编辑；负数冲红保留；合计本就 +0 不变）——TDD 2 测试，/finance 与客户页账目同享
 - [x] 登录页对齐薄荷绿主题：logo 渐变改用侧栏同款 #4e9a6b→#2e6a48；「记住我」勾选框 accent-brand

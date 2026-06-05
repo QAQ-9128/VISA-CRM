@@ -18,7 +18,10 @@ export function ReferrerSelect({
   const [name, setName] = useState('')
   const [phone, setPhone] = useState('')
 
-  const options = (referrers.data ?? []).map((r) => ({ value: r.id, label: r.name }))
+  // 一表两用后只列介绍人；kind 缺失（0030 迁移未跑/旧缓存）按介绍人处理，避免下拉突然变空
+  const options = (referrers.data ?? [])
+    .filter((r) => (r.kind ?? 'referrer') === 'referrer')
+    .map((r) => ({ value: r.id, label: r.name }))
 
   function handleCreate() {
     create.mutate(

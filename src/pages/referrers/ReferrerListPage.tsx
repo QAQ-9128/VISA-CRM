@@ -1,4 +1,5 @@
-import { Link } from 'react-router-dom'
+import { useState } from 'react'
+import { Link, useSearchParams } from 'react-router-dom'
 import { useArchiveReferrer, useDeleteReferrer, useReferrers } from '../../hooks/queries/useReferrers'
 import { useAuth } from '../../hooks/useAuth'
 import { Button } from '../../components/ui/Button'
@@ -6,9 +7,11 @@ import { Card } from '../../components/ui/Card'
 import { Well } from '../../components/ui/Well'
 import { UserPlusIcon, PlusIcon } from '../../components/ui/icons'
 import { LoadingBlock, ErrorBlock, EmptyState } from '../../components/ui/states'
+import { REFERRER_KIND_LABELS } from '../../types/domain'
+import type { ReferrerKind } from '../../types/domain'
 import type { Referrer } from '../../types/models'
 
-function ReferrerRow({ r }: { r: Referrer }) {
+function ReferrerRow({ r, kindLabel }: { r: Referrer; kindLabel: string }) {
   const archive = useArchiveReferrer()
   const del = useDeleteReferrer()
   // 彻底删除是 admin 专属（RLS 同样限制）：staff 不渲染按钮，归档不受影响
@@ -32,7 +35,7 @@ function ReferrerRow({ r }: { r: Referrer }) {
         disabled={archive.isPending}
         className="shrink-0 text-xs text-faint hover:text-body"
         onClick={() => {
-          if (window.confirm(`归档介绍人「${r.name}」？已挂靠的客户不受影响。`)) archive.mutate(r.id)
+          if (window.confirm(`归档${kindLabel}「${r.name}」？已挂靠的客户不受影响。`)) archive.mutate(r.id)
         }}
       >
         归档
@@ -43,7 +46,7 @@ function ReferrerRow({ r }: { r: Referrer }) {
           disabled={del.isPending}
           className="shrink-0 text-xs text-faint hover:text-rose-600"
           onClick={() => {
-            if (window.confirm(`彻底删除介绍人「${r.name}」？【不可恢复】，已挂靠客户的「介绍人」将被清空。如只想隐藏请用「归档」。`))
+            if (window.confirm(`彻底删除${kindLabel}「${r.name}」？【不可恢复】，已挂靠客户的「${kindLabel}」将被清空。如只想隐藏请用「归档」。`))
               del.mutate(r.id)
           }}
         >
@@ -54,39 +57,69 @@ function ReferrerRow({ r }: { r: Referrer }) {
   )
 }
 
+/** 介绍人 / 归属人管理（referrers 一表两用，开关切换；kind 缺失的旧数据按介绍人处理）。 */
 export function ReferrerListPage() {
   const referrers = useReferrers()
+  // ?kind=owner 深链直达归属人视图（新建归属人保存后返回也好落回原 tab）
+  const [searchParams] = useSearchParams()
+  const [kind, setKind] = useState<ReferrerKind>(
+    searchParams.get('kind') === 'owner' ? 'owner' : 'referrer',
+  )
+  const kindLabel = REFERRER_KIND_LABELS[kind]
+  const rows = (referrers.data ?? []).filter((r) => (r.kind ?? 'referrer') === kind)
+  const newTo = kind === 'owner' ? '/referrers/new?kind=owner' : '/referrers/new'
 
   return (
     <section className="space-y-5">
       <div className="flex items-center justify-between gap-3">
-        <h1 className="text-2xl font-bold tracking-[-0.02em] text-ink">介绍人</h1>
-        <Link to="/referrers/new">
+        <div>
+          <h1 className="text-2xl font-bold tracking-[-0.02em] text-ink">介绍人 / 归属人</h1>
+          <p className="mt-0.5 text-sm text-muted">
+            {kind === 'referrer' ? '介绍客户来的人，财务「付介绍人」对账用' : '客户归属的人/渠道，建档时可直接选择或创建'}
+          </p>
+        </div>
+        <Link to={newTo}>
           <Button>
-            <PlusIcon className="size-[18px]" /> 新建介绍人
+            <PlusIcon className="size-[18px]" /> 新建{kindLabel}
           </Button>
         </Link>
+      </div>
+
+      {/* 介绍人 / 归属人 开关（与档案库 文件/回收站 同款段控） */}
+      <div className="inline-flex gap-1 rounded-full bg-surface-2 p-1">
+        {(['referrer', 'owner'] as const).map((k) => (
+          <button
+            key={k}
+            type="button"
+            onClick={() => setKind(k)}
+            className={`min-h-9 rounded-full px-4 text-[13.5px] font-semibold transition-colors ${
+              kind === k ? 'bg-white text-brand-700 shadow-xs' : 'text-muted hover:text-body'
+            }`}
+          >
+            {REFERRER_KIND_LABELS[k]}
+          </button>
+        ))}
       </div>
 
       {referrers.isPending ? (
         <LoadingBlock />
       ) : referrers.isError ? (
         <ErrorBlock error={referrers.error} />
-      ) : referrers.data.length === 0 ? (
+      ) : rows.length === 0 ? (
         <EmptyState
-          title="还没有介绍人"
+          title={`还没有${kindLabel}`}
           icon="🤝"
           action={
-            <Link to="/referrers/new">
-              <Button>新建第一个介绍人</Button>
+            <Link to={newTo}>
+              <Button>新建第一个{kindLabel}</Button>
             </Link>
           }
         />
       ) : (
         <Card>
           <ul>
-            {referrers.data.map((r) => (
-              <ReferrerRow key={r.id} r={r} />
+            {rows.map((r) => (
+              <ReferrerRow key={r.id} r={r} kindLabel={kindLabel} />
             ))}
           </ul>
         </Card>

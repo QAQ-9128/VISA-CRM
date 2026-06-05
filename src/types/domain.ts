@@ -209,6 +209,15 @@ export const CLIENT_SOURCE_DOT: Record<ClientSource, string> = {
   yellow: 'bg-yellow-500',
 }
 
+// ── 人员类型（referrers 一表两用：介绍人 / 归属人，介绍人页开关切换）──────
+export const REFERRER_KINDS = ['referrer', 'owner'] as const
+export type ReferrerKind = (typeof REFERRER_KINDS)[number]
+
+export const REFERRER_KIND_LABELS: Record<ReferrerKind, string> = {
+  referrer: '介绍人',
+  owner: '归属人',
+}
+
 // ── 性别（DB 为 text 可空；存英文键、显中文）──────────────
 export const GENDERS = ['male', 'female', 'other'] as const
 export type Gender = (typeof GENDERS)[number]

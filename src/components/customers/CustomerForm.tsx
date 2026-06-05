@@ -7,6 +7,7 @@ import { Select } from '../ui/Select'
 import { Checkbox } from '../ui/Checkbox'
 import { EmployerSelect } from '../employers/EmployerSelect'
 import { ReferrerSelect } from '../referrers/ReferrerSelect'
+import { OwnerSelect } from './OwnerSelect'
 import { useCustomers } from '../../hooks/queries/useCustomers'
 import { useCases } from '../../hooks/queries/useCases'
 import { useAllCaseApplicants } from '../../hooks/queries/useCaseApplicants'
@@ -141,6 +142,11 @@ export function CustomerForm({ initial, submitting, error, onSubmit, onCancel }:
 
       {/* 关系 */}
       <Section title="关系">
+        {/* 归属人（与介绍人同表 kind=owner；选择或输入新名字即创建）与介绍人并列、互不混 */}
+        <OwnerSelect
+          value={state.owner_referrer_id || null}
+          onChange={(id) => set('owner_referrer_id')(id ?? '')}
+        />
         <ReferrerSelect value={state.referrer_id} onChange={(id) => set('referrer_id')(id)} />
 
         {/* 组（Group）：一案一组 —— 新建独立成组 / 加入已有案件（成为本案参与人，组随案件走） */}

@@ -43,6 +43,18 @@ export function useCreateReferrer() {
   })
 }
 
+/** 创建归属人（referrers 一表两用，kind 固定 owner）；OwnerSelect 的「创建 "…"」行用。 */
+export function useCreateOwner() {
+  const qc = useQueryClient()
+  const { user } = useAuth()
+  return useMutation({
+    mutationFn: (input: ReferrerInsert) =>
+      createReferrer({ ...input, kind: 'owner', created_by: user?.id ?? null }),
+    onSuccess: () => invalidateReferrers(qc),
+    meta: { success: '归属人已创建', errorPrefix: '创建归属人失败' },
+  })
+}
+
 export function useUpdateReferrer() {
   const qc = useQueryClient()
   return useMutation({
