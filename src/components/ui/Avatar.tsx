@@ -27,25 +27,29 @@ export function Avatar({
   name,
   seed,
   size = 40,
+  radius,
 }: {
   name: string
   /** 用于稳定取色（一般传客户 id）；缺省回落到 name */
   seed?: string
   /** 像素值，或 sm/md/lg 关键字 */
   size?: number | keyof typeof KEYWORD_PX
+  /** 圆角像素；缺省为整圆（概览 mockup 头像用 10） */
+  radius?: number
 }) {
   const px = typeof size === 'number' ? size : KEYWORD_PX[size]
   const key = (seed || name || '').trim()
   const grad = GRADS[key ? hash(key) % GRADS.length : GRADS.length - 1]
   return (
     <span
-      className="inline-grid shrink-0 place-items-center rounded-full font-semibold text-white"
+      className={`inline-grid shrink-0 place-items-center font-semibold text-white ${radius == null ? 'rounded-full' : ''}`}
       style={{
         width: px,
         height: px,
         fontSize: Math.round(px * 0.4),
         background: grad,
         boxShadow: '0 4px 10px -4px rgba(23,32,51,.4)',
+        ...(radius != null ? { borderRadius: radius } : null),
       }}
       aria-hidden
     >

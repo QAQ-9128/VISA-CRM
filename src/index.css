@@ -1,4 +1,12 @@
-@import 'tailwindcss';
+/*
+ * source(none) + 显式 @source：关闭 Tailwind v4 的全仓库自动扫描。
+ * 仓库根目录长期堆着设计稿文件夹 / 截图 / zip（未 gitignore），自动扫描会把
+ * vite dev 首个请求和 build 拖到 10 分钟以上（事件循环被扫描占死，表现为
+ * localhost 能握手但 HTTP 永不响应）。类名只存在于 src/ 与 index.html。
+ */
+@import 'tailwindcss' source(none);
+@source '../src';
+@source '../index.html';
 
 /*
  * 设计令牌（薄荷绿设计语言 → Tailwind v4 @theme）。来源：「客户页面」参考图 + 客户给定的精确配色令牌。

@@ -1,255 +1,342 @@
 import { useMemo, useState } from 'react'
-import type { ReactNode } from 'react'
+import { Link } from 'react-router-dom'
 import { useFinance } from '../../hooks/queries/useFinance'
-import { Card } from '../../components/ui/Card'
 import { LoadingBlock, ErrorBlock } from '../../components/ui/states'
-import { FinanceReceivablesTable } from '../../components/finance/FinanceReceivablesTable'
-import { MonthlyLedgerTable } from '../../components/finance/MonthlyLedgerTable'
-import { MonthSelector } from '../../components/finance/MonthSelector'
-import { BanknoteIcon, ClockIcon, SearchIcon, UsersIcon, WalletIcon } from '../../components/ui/icons'
-import { sumFinanceReceivables, selectCasePaymentColors } from '../../lib/finance'
+import { useBackSource } from '../../hooks/useBackSource'
+import { avatarInitial } from '../../lib/avatar'
+import { formatAmount, formatMoney } from '../../lib/money'
+import { currentMonth, shiftMonth } from '../../lib/month'
 import {
-  buildFinanceTableRows,
-  filterFinanceTableRows,
-  owingCustomerCount,
-  financeRowsToCsv,
-} from '../../lib/financeRows'
-import type { FinanceStatusKind } from '../../lib/financeRows'
-import { formatMoney } from '../../lib/money'
-import { currentMonth } from '../../lib/month'
+  selectMonthlyOverview,
+  groupPayouts,
+  monthTitle,
+  formatMonthDay,
+  receiptSubtitle,
+  payoutSubtitle,
+  payoutDisplayName,
+} from '../../lib/monthlyOverview'
+import type { ReceiptItem, PayoutItem } from '../../lib/finance'
 
-/** 统计卡：彩色圆标 + 标签 + 大数字。 */
-function FStat({ icon, bg, label, value }: { icon: ReactNode; bg: string; label: string; value: string }) {
+/*
+ * 月度账目（mockup「双流总览」1:1）：Header(衬线标题+月份 pill) → 三 KPI → 双栏对照 → 净额结算条。
+ * 纯展示页——所有数字直接来自 useFinance 现有聚合（selectFinanceReceipts / selectFinancePayouts），
+ * 本页只做双流恒等式（lib/monthlyOverview）与排版。色值/字号/间距照 mockup CSS。
+ * mockup 色对应：green-d=emerald-700(#357a52) · green-deep=brand-700(#2e6a48) · green-bg=emerald-50(#e3f0e6)
+ *               coral-d=#c25a52(无令牌，按图取值) · coral-bg=rose-50(#fbe7e4) · line2=surface-2(#f1f6f1)
+ */
+
+const CARD_SHADOW = '[box-shadow:0_14px_34px_-20px_rgba(40,90,60,.22)]'
+const CORAL_D = 'text-[#c25a52]'
+
+/** KPI 大数：AUD 前缀小字 + 29px 粗体数字（mockup .kpi .val）。 */
+function KpiValue({ amount, className, ccyClassName }: { amount: number; className: string; ccyClassName: string }) {
   return (
-    <div className="flex items-center gap-3.5 rounded-[18px] border border-line bg-white p-4 shadow-xs">
-      <span className="grid size-12 shrink-0 place-items-center rounded-full text-white" style={{ background: bg }}>
-        {icon}
-      </span>
-      <div className="min-w-0">
-        <div className="text-[12.5px] text-muted">{label}</div>
-        <div className="truncate text-[19px] font-bold tabular-nums text-ink">{value}</div>
+    <div className={`mt-[5px] text-[29px] font-bold tracking-[.3px] tabular-nums ${className}`}>
+      <span className={`mr-1 text-[14px] font-semibold ${ccyClassName}`}>AUD</span>
+      {formatAmount(amount)}
+    </div>
+  )
+}
+
+/** 收入栏逐笔行：头像首字 + 付款方客户名 + 签证 tag + 款项 + 绿色金额 + 日期。 */
+function IncomeRow({ item }: { item: ReceiptItem }) {
+  const source = useBackSource()
+  return (
+    <div className="flex items-center justify-between border-t border-surface-2 px-[22px] py-[11px] first:border-t-0">
+      <div className="flex min-w-0 items-center gap-2.5">
+        <span className="grid size-[30px] shrink-0 place-items-center rounded-[9px] bg-mute-bg text-[12px] font-semibold text-mute-tx">
+          {avatarInitial(item.customerName)}
+        </span>
+        <div className="min-w-0">
+          <div className="flex items-center gap-[7px] text-[14px] font-semibold text-ink">
+            <Link to={`/customers/${item.payerId}`} state={source} className="truncate hover:underline">
+              {item.customerName || '（未知客户）'}
+            </Link>
+            {item.visaSubclass && (
+              <span className="shrink-0 rounded-[6px] bg-emerald-50 px-[7px] py-px text-[10.5px] font-semibold text-emerald-700">
+                {item.visaSubclass}
+              </span>
+            )}
+          </div>
+          <div className="mt-[2px] truncate text-[12px] text-faint">{receiptSubtitle(item)}</div>
+        </div>
+      </div>
+      <div className="ml-3 shrink-0 text-right">
+        <div className="text-[15px] font-bold tabular-nums text-emerald-700">{formatAmount(item.amount)}</div>
+        <div className="mt-px text-[11.5px] text-faint">{formatMonthDay(item.paidAt)}</div>
       </div>
     </div>
   )
 }
 
-const STATUS_OPTIONS: { value: '' | FinanceStatusKind; label: string }[] = [
-  { value: '', label: '全部状态' },
-  { value: 'pending', label: '待收' },
-  { value: 'overdue', label: '逾期' },
-  { value: 'settled', label: '已结清' },
-  { value: 'unset', label: '未设应收' },
-]
+/** 支出栏逐笔行：收款方（付主代理=该案客户 / 付介绍人=介绍人）+ 签证 tag + 款项 + 珊瑚金额 + 日期。 */
+function PayoutRow({ item, visa }: { item: PayoutItem; visa?: string }) {
+  const source = useBackSource()
+  const name = payoutDisplayName(item)
+  return (
+    <div className="flex items-center justify-between border-t border-surface-2 px-[22px] py-[11px] first:border-t-0">
+      <div className="flex min-w-0 items-center gap-2.5">
+        <span className="grid size-[30px] shrink-0 place-items-center rounded-[9px] bg-mute-bg text-[12px] font-semibold text-mute-tx">
+          {avatarInitial(name)}
+        </span>
+        <div className="min-w-0">
+          <div className="flex items-center gap-[7px] text-[14px] font-semibold text-ink">
+            {item.direction === 'to_company' ? (
+              <Link to={`/customers/${item.customerId}?case=${item.caseId}`} state={source} className="truncate hover:underline">
+                {name}
+              </Link>
+            ) : (
+              <span className="truncate">{name}</span>
+            )}
+            {visa && (
+              <span className={`shrink-0 rounded-[6px] bg-rose-50 px-[7px] py-px text-[10.5px] font-semibold ${CORAL_D}`}>
+                {visa}
+              </span>
+            )}
+          </div>
+          <div className="mt-[2px] truncate text-[12px] text-faint">{payoutSubtitle(item)}</div>
+        </div>
+      </div>
+      <div className="ml-3 shrink-0 text-right">
+        <div className={`text-[15px] font-bold tabular-nums ${CORAL_D}`}>{formatAmount(item.amount)}</div>
+        <div className="mt-px text-[11.5px] text-faint">{formatMonthDay(item.paidAt)}</div>
+      </div>
+    </div>
+  )
+}
+
+/** 双栏卡头（mockup .ch）：图标 + 名称 + 取数口径小字 + 右上小计。 */
+function ColHeader({
+  icon,
+  iconClass,
+  name,
+  caption,
+  subtotalLabel,
+  subtotal,
+  amountClass,
+}: {
+  icon: string
+  iconClass: string
+  name: string
+  caption: string
+  subtotalLabel: string
+  subtotal: number
+  amountClass: string
+}) {
+  return (
+    <div className="flex items-center justify-between border-b border-line px-[22px] pb-4 pt-[18px]">
+      <div className="flex items-center gap-[11px]">
+        <span className={`grid size-[34px] place-items-center rounded-[10px] text-[17px] ${iconClass}`}>{icon}</span>
+        <div>
+          <div className="text-[16px] font-semibold text-ink">{name}</div>
+          <div className="mt-[2px] text-[11.5px] text-faint">{caption}</div>
+        </div>
+      </div>
+      <div className="text-right">
+        <div className="text-[11px] text-faint">{subtotalLabel}</div>
+        <div className={`mt-px text-[22px] font-bold tabular-nums ${amountClass}`}>{formatAmount(subtotal)}</div>
+      </div>
+    </div>
+  )
+}
+
+/** 卡底浅灰小计条（mockup .colsub）。 */
+function ColSubtotal({ label, amount, amountClass }: { label: string; amount: number; amountClass: string }) {
+  return (
+    <div className="mt-auto flex items-center justify-between bg-surface-2 px-[22px] py-[13px] text-[13px]">
+      <span className="text-muted">{label}</span>
+      <b className={`font-bold tabular-nums ${amountClass}`}>{formatMoney(amount)}</b>
+    </div>
+  )
+}
 
 export function FinancePage() {
-  const [month, setMonth] = useState<string | null>(() => currentMonth())
-  const [showAll, setShowAll] = useState(false)
-  const [search, setSearch] = useState('')
-  const [status, setStatus] = useState<'' | FinanceStatusKind>('')
-  // 月度账目：全部/收入/支出 切换（记收款/加支出/查看全部 已下放到合并流水表内部）
-  const [ledgerView, setLedgerView] = useState<'all' | 'income' | 'expense'>('all')
-  const {
-    isPending,
-    isError,
-    receivables,
-    recentCaseIds,
-    receipts,
-    payouts,
-    caseOptions,
-    referrerById,
-    instByPlan,
-    caseNumberByCaseId,
-  } = useFinance(month)
+  const [month, setMonth] = useState<string>(() => currentMonth())
+  const { isPending, isError, receipts, payouts, prevReceipts, prevPayouts, visaByCaseId } = useFinance(month)
 
-  // 全部富表行（含分期/状态/进度），统计卡用全量
-  const allRows = useMemo(
-    () => buildFinanceTableRows(receivables, instByPlan, caseNumberByCaseId),
-    [receivables, instByPlan, caseNumberByCaseId],
+  const isCurrent = month === currentMonth()
+  const period = isCurrent ? '本月' : '当月'
+
+  // 上月完全无流水 → 无对比基数，省略「较上月」（不编数字）
+  const hasPrev = (prevReceipts?.items.length ?? 0) > 0 || (prevPayouts?.items.length ?? 0) > 0
+  const overview = useMemo(
+    () =>
+      selectMonthlyOverview(
+        receipts ?? { items: [], total: 0 },
+        payouts ?? { items: [], toCompanyTotal: 0, toReferrerTotal: 0 },
+        hasPrev ? prevReceipts : undefined,
+        hasPrev ? prevPayouts : undefined,
+      ),
+    [receipts, payouts, prevReceipts, prevPayouts, hasPrev],
   )
-  const grandTotals = useMemo(() => sumFinanceReceivables(receivables), [receivables])
-  const oweCustomers = useMemo(() => owingCustomerCount(receivables), [receivables])
-
-  // 搜索 + 状态过滤
-  const hasFilter = search.trim() !== '' || status !== ''
-  const filtered = useMemo(() => filterFinanceTableRows(allRows, { search, status }), [allRows, search, status])
-  // 近期案件（前 5 个案件的应收行），有搜索/筛选时直接看全部
-  const recentRows = useMemo(() => {
-    const order = new Map(recentCaseIds.map((id, i) => [id, i]))
-    return filtered
-      .filter((e) => order.has(e.row.caseId))
-      .sort((a, b) => order.get(a.row.caseId)! - order.get(b.row.caseId)!)
-  }, [filtered, recentCaseIds])
-  const shown = showAll || hasFilter ? filtered : recentRows
-  const shownTotals = useMemo(() => sumFinanceReceivables(shown.map((e) => e.row)), [shown])
-  const hiddenCount = filtered.length - recentRows.length
-
-  // 收款明细按案件应收状态着色
-  const colorByCase = useMemo(() => selectCasePaymentColors(receivables), [receivables])
-
-  // 月度三总计
-  const totalExpense = useMemo(
-    () => Math.round((payouts.toCompanyTotal + payouts.toReferrerTotal) * 100) / 100,
-    [payouts.toCompanyTotal, payouts.toReferrerTotal],
-  )
-  const net = Math.round((receipts.total - totalExpense) * 100) / 100
-  const periodLabel = month ? '本月' : ''
+  const groups = useMemo(() => groupPayouts(payouts?.items ?? []), [payouts?.items])
 
   if (isPending) return <LoadingBlock />
   if (isError) return <ErrorBlock error={new Error('财务数据加载失败，请刷新重试')} />
 
-  function exportCsv() {
-    const csv = financeRowsToCsv(shown)
-    const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8' })
-    const url = URL.createObjectURL(blob)
-    const a = document.createElement('a')
-    a.href = url
-    a.download = `近期案件应收_${new Date().toISOString().slice(0, 10)}.csv`
-    a.click()
-    URL.revokeObjectURL(url)
+  const d = overview.delta
+  const delta = d && {
+    up: d.amount >= 0,
+    money: formatMoney(Math.abs(d.amount)),
+    pct: d.pct === null ? '' : `（${d.pct >= 0 ? '+' : '−'}${Math.abs(d.pct)}%）`,
   }
+  const expenseCount = groups.toCompany.length + groups.toReferrer.length
 
   return (
-    <section className="space-y-5">
-      <h1 className="text-2xl font-bold tracking-[-0.02em] text-ink">财务</h1>
-
-      {/* ── 上半部：近期案件应收 ─────────────────────────────────────── */}
-      <div>
-        <h2 className="text-[20px] font-bold tracking-[-0.01em] text-ink">近期案件应收</h2>
-        <p className="mt-1 text-[13px] text-faint">支持分期收款管理 · 快速查看总进度、分期进度与下一期安排</p>
-      </div>
-
-      {/* 4 统计卡 */}
-      <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-        <FStat icon={<BanknoteIcon className="size-6" />} bg="#3b6bff" label="总应收" value={formatMoney(grandTotals.receivable)} />
-        <FStat icon={<WalletIcon className="size-6" />} bg="#10b981" label="已收款" value={formatMoney(grandTotals.paid)} />
-        <FStat icon={<ClockIcon className="size-6" />} bg="#f59e0b" label="待收款" value={formatMoney(grandTotals.unpaid)} />
-        <FStat icon={<UsersIcon className="size-6" />} bg="#8b5cf6" label="欠款客户" value={String(oweCustomers)} />
-      </div>
-
-      {/* 工具条：搜索 + 状态筛选 + 导出（月份筛选在下方「月度账目」） */}
-      <Card className="!p-3.5">
-        <div className="flex flex-wrap items-center gap-3">
-          <div className="flex h-11 min-w-[200px] flex-1 items-center gap-2.5 rounded-xl border border-line-2 bg-white px-3.5 text-faint focus-within:border-brand focus-within:ring-2 focus-within:ring-brand-100">
-            <SearchIcon className="size-[18px] shrink-0" />
-            <input
-              type="search"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              placeholder="搜索客户 / 案件号 / 签证类别"
-              className="h-full w-full bg-transparent text-[15px] text-ink outline-none placeholder:text-faint"
-            />
-          </div>
-          <select
-            value={status}
-            onChange={(e) => setStatus(e.target.value as '' | FinanceStatusKind)}
-            className="h-11 rounded-xl border border-line-2 bg-white px-3.5 text-sm font-medium text-body outline-none focus:border-brand focus:ring-2 focus:ring-brand-100"
-          >
-            {STATUS_OPTIONS.map((o) => (
-              <option key={o.value} value={o.value}>{o.label}</option>
-            ))}
-          </select>
+    <section className="mx-auto max-w-[1180px]">
+      {/* ── Header：衬线标题 + 月份切换 pill ─────────────────────────── */}
+      <div className="mb-[22px] flex flex-wrap items-end justify-between gap-4">
+        <div>
+          <h1 className="font-serif text-[30px] font-semibold tracking-[.5px] text-ink">月度账目</h1>
+          <p className="mt-[7px] text-[14px] text-muted">
+            {period}收支总览 · <b className="font-semibold text-emerald-700">收入 / 支出 双流对照</b> · 币种 AUD
+          </p>
+        </div>
+        <div className={`flex items-center gap-[14px] rounded-[14px] border border-line bg-white px-4 py-[9px] [box-shadow:0_8px_22px_-16px_rgba(40,90,60,.30)]`}>
           <button
             type="button"
-            onClick={exportCsv}
-            disabled={shown.length === 0}
-            className="inline-flex h-11 items-center gap-1.5 rounded-xl border border-line-2 bg-white px-4 text-sm font-semibold text-body hover:bg-surface-2 disabled:opacity-50"
+            aria-label="上个月"
+            onClick={() => setMonth((m) => shiftMonth(m, -1))}
+            className="grid size-[26px] place-items-center rounded-[8px] bg-emerald-50 text-[14px] font-bold text-emerald-700 hover:bg-emerald-100"
           >
-            ↥ 导出
+            ‹
+          </button>
+          <div className="text-[16px] font-semibold text-ink">
+            {monthTitle(month)}
+            {isCurrent && <span className="ml-[6px] text-[11px] font-normal text-faint">本月</span>}
+          </div>
+          <button
+            type="button"
+            aria-label="下个月"
+            onClick={() => setMonth((m) => shiftMonth(m, 1))}
+            className="grid size-[26px] place-items-center rounded-[8px] bg-emerald-50 text-[14px] font-bold text-emerald-700 hover:bg-emerald-100"
+          >
+            ›
           </button>
         </div>
-      </Card>
+      </div>
 
-      {/* 富表 + 合计 + 查看全部 */}
-      <Card pad={false}>
-        <div className="px-[22px] pt-2">
-          <FinanceReceivablesTable rows={shown} totals={shownTotals} />
+      {/* ── KPI 三卡 ─────────────────────────────────────────────── */}
+      <div className="mb-[18px] grid grid-cols-1 gap-4 md:grid-cols-3">
+        {/* 收入（绿）。「开票应收/已收率」无真实月度口径来源 → 整行省略 */}
+        <div className={`rounded-[20px] bg-white p-[20px_22px] ${CARD_SHADOW}`}>
+          <span className="mb-[13px] grid size-10 place-items-center rounded-[12px] bg-emerald-50 text-[19px] text-emerald-700">↘</span>
+          <div className="text-[13px] text-muted">{period}收入 · 客户已收</div>
+          <KpiValue amount={overview.income} className="text-emerald-700" ccyClassName="text-faint" />
         </div>
-        <div className="px-[22px] py-4">
-          {hasFilter ? (
-            <span className="text-[12.5px] text-faint">筛选出 {filtered.length} 行</span>
-          ) : hiddenCount > 0 ? (
-            <button
-              type="button"
-              onClick={() => setShowAll((v) => !v)}
-              className="text-sm font-semibold text-brand hover:underline"
-            >
-              {showAll ? '收起' : `查看全部应收（共 ${filtered.length} 行，还有 ${hiddenCount} 行）`}
-            </button>
-          ) : (
-            <span className="text-[12.5px] text-faint">共 {filtered.length} 行</span>
+        {/* 支出（珊瑚红）：小字 = 真实分组和 */}
+        <div className={`rounded-[20px] bg-white p-[20px_22px] ${CARD_SHADOW}`}>
+          <span className={`mb-[13px] grid size-10 place-items-center rounded-[12px] bg-rose-50 text-[19px] ${CORAL_D}`}>↗</span>
+          <div className="text-[13px] text-muted">{period}支出 · 付主代理 + 付介绍人</div>
+          <KpiValue amount={overview.expense} className={CORAL_D} ccyClassName="text-faint" />
+          <div className="mt-2 text-[12px] tabular-nums text-faint">
+            付主代理 {formatAmount(overview.toCompany)} · 付介绍人 {formatAmount(overview.toReferrer)}
+          </div>
+        </div>
+        {/* 净额（深绿渐变实心）：小字 = 较上月（仅上月有流水时显示） */}
+        <div className={`rounded-[20px] bg-[linear-gradient(135deg,#2e6a48,#357a52)] p-[20px_22px] ${CARD_SHADOW}`}>
+          <span className="mb-[13px] grid size-10 place-items-center rounded-[12px] bg-white/18 text-[19px] text-[#eafff2]">＝</span>
+          <div className="text-[13px] text-[#d4ecdd]">{period}净额</div>
+          <KpiValue amount={overview.net} className="text-white" ccyClassName="text-[#bfe0cb]" />
+          {delta && (
+            <div className="mt-2 text-[12px] tabular-nums text-[#cfe9d8]">
+              较上月 <span className="inline-flex items-center gap-1 font-semibold">{delta.up ? '▲' : '▼'} {delta.money} {delta.pct}</span>
+            </div>
           )}
         </div>
-      </Card>
+      </div>
 
-      {/* ── 下半部：月度账目 ─────────────────────────────────────────── */}
-      <Card pad={false}>
-        {/* 头部：标题 + 月份切换 + 全部/收入/支出 */}
-        <div className="flex flex-wrap items-center justify-between gap-3 px-[22px] pt-[22px]">
-          <div>
-            <h2 className="text-base font-bold text-ink">月度账目</h2>
-            <p className="mt-0.5 text-[12.5px] text-faint">按月查看收入 / 支出明细与净额</p>
+      {/* ── 双栏对照：左收入 / 右支出 ───────────────────────────────── */}
+      <div className="mb-4 grid grid-cols-1 gap-4 md:grid-cols-2">
+        {/* 收入栏 */}
+        <div className={`flex flex-col overflow-hidden rounded-[20px] bg-white ${CARD_SHADOW}`}>
+          <ColHeader
+            icon="＄"
+            iconClass="bg-emerald-50 text-emerald-700"
+            name="收入"
+            caption="客户已收（from_client）"
+            subtotalLabel={`${period}小计`}
+            subtotal={overview.income}
+            amountClass="text-emerald-700"
+          />
+          <div className="pb-[2px] pt-[6px]">
+            {receipts.items.length === 0 ? (
+              <p className="px-[22px] py-10 text-center text-sm text-faint">{period}暂无收入</p>
+            ) : (
+              receipts.items.map((item) => <IncomeRow key={item.paymentId} item={item} />)
+            )}
           </div>
-          <div className="flex flex-wrap items-center gap-2.5">
-            <MonthSelector value={month} onChange={setMonth} />
-            <div className="inline-flex gap-1 rounded-full bg-surface-2 p-1">
-              {(['all', 'income', 'expense'] as const).map((v) => (
-                <button
-                  key={v}
-                  type="button"
-                  onClick={() => setLedgerView(v)}
-                  className={`rounded-full px-3.5 py-1.5 text-[13px] font-semibold transition-colors ${
-                    ledgerView === v ? 'bg-white text-brand shadow-xs' : 'text-muted hover:text-body'
-                  }`}
-                >
-                  {v === 'all' ? '全部' : v === 'income' ? '收入' : '支出'}
-                </button>
-              ))}
-            </div>
-          </div>
-        </div>
-
-        <div className="space-y-6 px-[22px] pt-[18px] pb-[22px]">
-          {/* 3 汇总卡：收入 | 净额(强调) | 支出 */}
-          <div className="grid grid-cols-1 items-stretch gap-3.5 sm:grid-cols-3">
-            <div className="flex items-center gap-3 rounded-[16px] bg-emerald-50 p-4">
-              <span className="grid size-11 shrink-0 place-items-center rounded-full bg-emerald-500 text-white"><WalletIcon className="size-[22px]" /></span>
-              <div className="min-w-0">
-                <p className="text-[12.5px] text-emerald-700">{periodLabel}总收入</p>
-                <p className="truncate text-[20px] font-bold tabular-nums text-emerald-600">{formatMoney(receipts.total)}</p>
-              </div>
-            </div>
-            <div className="rounded-[16px] border border-line-2 bg-white p-4 text-center shadow-xs">
-              <p className="text-[12.5px] text-muted">净额</p>
-              <p className={`mt-0.5 text-[26px] font-bold tracking-[-0.02em] tabular-nums ${net >= 0 ? 'text-ink' : 'text-rose-600'}`}>
-                {formatMoney(net)}
-              </p>
-              <p className="mt-0.5 text-[11.5px] text-faint">
-                收入 <span className="tabular-nums text-emerald-600">{formatMoney(receipts.total)}</span>
-                <span className="mx-1">·</span>
-                支出 <span className="tabular-nums text-amber-600">{formatMoney(totalExpense)}</span>
-              </p>
-            </div>
-            <div className="flex items-center gap-3 rounded-[16px] bg-amber-50 p-4">
-              <span className="grid size-11 shrink-0 place-items-center rounded-full bg-amber-500 text-white"><BanknoteIcon className="size-[22px]" /></span>
-              <div className="min-w-0">
-                <p className="text-[12.5px] text-amber-700">{periodLabel}总支出</p>
-                <p className="truncate text-[20px] font-bold tabular-nums text-amber-600">{formatMoney(totalExpense)}</p>
-              </div>
-            </div>
-          </div>
-
-          {/* 合并流水表「本月交易」：收/支一张表，全部/收入/支出 切换作用其上 */}
-          <MonthlyLedgerTable
-            receipts={receipts}
-            payouts={payouts}
-            colorByCase={colorByCase}
-            caseOptions={caseOptions}
-            referrerById={referrerById}
-            receivables={receivables}
-            view={ledgerView}
+          <ColSubtotal
+            label={`收入小计（${receipts.items.length} 笔）`}
+            amount={overview.income}
+            amountClass="text-emerald-700"
           />
         </div>
-      </Card>
+
+        {/* 支出栏：付主代理 / 付介绍人 两组 */}
+        <div className={`flex flex-col overflow-hidden rounded-[20px] bg-white ${CARD_SHADOW}`}>
+          <ColHeader
+            icon="↗"
+            iconClass={`bg-rose-50 ${CORAL_D}`}
+            name="支出"
+            caption="付主代理 + 付介绍人（to_company / to_referrer）"
+            subtotalLabel={`${period}小计`}
+            subtotal={overview.expense}
+            amountClass={CORAL_D}
+          />
+          <div className="pb-[2px] pt-[6px]">
+            {expenseCount === 0 && <p className="px-[22px] py-10 text-center text-sm text-faint">{period}暂无支出</p>}
+            {groups.toCompany.length > 0 && (
+              <div>
+                <div className="px-[22px] pb-[5px] pt-[11px] text-[11.5px] font-semibold tracking-[.4px] text-faint">
+                  付主代理（to_company）
+                </div>
+                {groups.toCompany.map((item) => (
+                  <PayoutRow key={item.paymentId} item={item} visa={visaByCaseId?.[item.caseId]} />
+                ))}
+              </div>
+            )}
+            {groups.toReferrer.length > 0 && (
+              <div>
+                <div className="px-[22px] pb-[5px] pt-[11px] text-[11.5px] font-semibold tracking-[.4px] text-faint">
+                  付介绍人（to_referrer）
+                </div>
+                {groups.toReferrer.map((item) => (
+                  <PayoutRow key={item.paymentId} item={item} visa={visaByCaseId?.[item.caseId]} />
+                ))}
+              </div>
+            )}
+          </div>
+          <ColSubtotal
+            label={`支出小计（${expenseCount} 笔）`}
+            amount={overview.expense}
+            amountClass={CORAL_D}
+          />
+        </div>
+      </div>
+
+      {/* ── 净额结算条 ──────────────────────────────────────────── */}
+      <div className={`flex flex-wrap items-center justify-between gap-4 rounded-[20px] border-l-[5px] border-brand-700 bg-white p-[20px_26px] ${CARD_SHADOW}`}>
+        <div>
+          <div className="text-[13px] text-muted">{period}净额（双流恒等）</div>
+          <div className="mt-[6px] text-[12.5px] tabular-nums text-faint">
+            <span className="font-semibold text-emerald-700">收入 {formatAmount(overview.income)}</span>
+            <span className="mx-1.5">−</span>
+            <span className={`font-semibold ${CORAL_D}`}>支出 {formatAmount(overview.expense)}</span>
+          </div>
+        </div>
+        <div className="text-right">
+          <div className={`text-[32px] font-bold tracking-[.3px] tabular-nums ${overview.net < 0 ? CORAL_D : 'text-brand-700'}`}>
+            <span className="mr-1 text-[15px] font-semibold text-faint">AUD</span>
+            {formatAmount(overview.net)}
+          </div>
+          {delta && (
+            <div className={`mt-1 text-[12.5px] font-semibold tabular-nums ${delta.up ? 'text-emerald-700' : CORAL_D}`}>
+              {delta.up ? '▲' : '▼'} 较上月 {delta.up ? '+' : '−'}{delta.money}{delta.pct}
+            </div>
+          )}
+        </div>
+      </div>
     </section>
   )
 }

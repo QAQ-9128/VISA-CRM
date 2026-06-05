@@ -61,16 +61,17 @@ export const CASE_STAGE_STYLES: Record<CaseStage, string> = {
   additional_docs: 'bg-orange-100 text-orange-800', // 旧数据兼容
 }
 
-/** 阶段实心十六进制色（图表条/圆点用；与 CASE_STAGE_STYLES 同语义，供非 Tailwind 场景） */
+/** 阶段实心十六进制色（图表条/圆点用；与 CASE_STAGE_STYLES 同语义，供非 Tailwind 场景）。
+ *  主流程六色 = 2026-06 概览 mockup 定稿（薄荷设计；环图/进展链/流转记录共用）。 */
 export const CASE_STAGE_COLOR: Record<CaseStage, string> = {
-  todo: '#94a3b8',
-  drafted: '#f59e0b',
-  nomination_lodged: '#4361ee',
-  nomination_approved: '#06b6d4',
-  visa_lodged: '#7c5cfc',
+  todo: '#9ba59b',
+  drafted: '#e0a23c',
+  nomination_lodged: '#3f7cb5',
+  nomination_approved: '#36b3c2',
+  visa_lodged: '#7c6fd6',
   docs_requested: '#f97316',
   docs_completed: '#14b8a6',
-  granted: '#16a34a',
+  granted: '#4e9a6b',
   refused: '#ef4444',
   appeal: '#a855f7',
   withdrawn: '#71717a',

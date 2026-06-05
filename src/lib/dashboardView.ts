@@ -31,3 +31,8 @@ export function displayCustomerName(name?: string | null, fallback = '未命名'
   const n = name?.trim()
   return n ? n : fallback || '未命名'
 }
+
+/** KPI 角标「N 户欠款」：欠你钱（clientOwes>0）的客户数；仅欠主代理的不算。 */
+export function countOwingCustomers(debts: { clientOwes: number }[]): number {
+  return debts.filter((d) => d.clientOwes > 0).length
+}

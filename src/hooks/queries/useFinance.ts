@@ -20,6 +20,7 @@ import {
 import { installmentSummaryByPlan } from '../../lib/financeRows'
 import { visibleCaseIds } from '../../lib/visibility'
 import { formatVisaType } from '../../lib/visa'
+import { shiftMonth } from '../../lib/month'
 import { queryKeys } from './keys'
 
 function keyById<T extends { id: string }>(rows: T[]): Record<string, T> {
@@ -101,6 +102,20 @@ export function useFinance(month: string | null) {
     [monthPayments, caseById, customerById, referrerById],
   )
 
+  // 上月（month−1）收/支：月度账目 KPI「较上月」用。复用同一套过滤 + selector，零新查询。
+  const prevMonthPayments = useMemo(
+    () => (month ? filterPaymentsByMonth(visiblePayments, shiftMonth(month, -1)) : []),
+    [visiblePayments, month],
+  )
+  const prevReceipts = useMemo(
+    () => selectFinanceReceipts(prevMonthPayments, caseById, customerById),
+    [prevMonthPayments, caseById, customerById],
+  )
+  const prevPayouts = useMemo(
+    () => selectFinancePayouts(prevMonthPayments, caseById, customerById, referrerById),
+    [prevMonthPayments, caseById, customerById, referrerById],
+  )
+
   // 加支出/加收款表单用：可选案件下拉（客户·签证），同样只列在册客户的案件
   const caseOptions = useMemo(
     () =>
@@ -132,6 +147,12 @@ export function useFinance(month: string | null) {
     for (const c of visibleCases) m[c.id] = c.case_number
     return m
   }, [visibleCases])
+  // 月度账目支出行 tag 用：案件 id → 签证类别（收入行自带 visaSubclass，支出行靠它补齐）
+  const visaByCaseId = useMemo(() => {
+    const m: Record<string, string> = {}
+    for (const c of visibleCases) m[c.id] = c.visa_subclass
+    return m
+  }, [visibleCases])
 
   return {
     isPending,
@@ -141,9 +162,12 @@ export function useFinance(month: string | null) {
     recentCaseIds,
     receipts,
     payouts,
+    prevReceipts,
+    prevPayouts,
     caseOptions,
     referrerById,
     instByPlan,
     caseNumberByCaseId,
+    visaByCaseId,
   }
 }

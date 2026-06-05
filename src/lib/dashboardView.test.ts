@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { displayCustomerName, pickGreetingName, showReceiptsTrend } from './dashboardView'
+import { countOwingCustomers, displayCustomerName, pickGreetingName, showReceiptsTrend } from './dashboardView'
 
 describe('pickGreetingName（问候语绝不外显邮箱）', () => {
   it('有真实姓名 → 返回姓名', () => {
@@ -34,6 +34,22 @@ describe('showReceiptsTrend（0 值/无意义不显示趋势 chip）', () => {
   })
   it('持平 → 不显示', () => {
     expect(showReceiptsTrend(5000, mk(0, 'flat'))).toBe(false)
+  })
+})
+
+describe('countOwingCustomers（KPI 角标「N 户欠款」= 欠你钱的客户数）', () => {
+  it('只数 clientOwes > 0 的客户（仅欠主代理不算）', () => {
+    expect(
+      countOwingCustomers([
+        { clientOwes: 190000.09 },
+        { clientOwes: 6600 },
+        { clientOwes: 1 },
+        { clientOwes: 0 }, // 仅欠主代理的行
+      ]),
+    ).toBe(3)
+  })
+  it('空列表 → 0', () => {
+    expect(countOwingCustomers([])).toBe(0)
   })
 })
 

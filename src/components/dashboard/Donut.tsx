@@ -1,4 +1,4 @@
-/** 环形图（手写 SVG，无图表库）。整体 rotate(-90deg) 从 12 点起，圆角端点。 */
+/** 环形图（手写 SVG，无图表库）。整体 rotate(-90deg) 从 12 点起；mockup 定稿为平角段、底环 line2。 */
 export interface DonutDatum {
   value: number
   color: string
@@ -6,8 +6,8 @@ export interface DonutDatum {
 
 export function Donut({
   data,
-  size = 190,
-  thickness = 26,
+  size = 180,
+  thickness = 22,
   center,
   centerSub = '进行中案件',
 }: {
@@ -24,7 +24,7 @@ export function Donut({
   const cx = size / 2
   return (
     <svg width={size} height={size} style={{ flex: 'none', transform: 'rotate(-90deg)' }}>
-      <circle cx={cx} cy={cx} r={r} fill="none" stroke="#e6eaf2" strokeWidth={thickness} />
+      <circle cx={cx} cy={cx} r={r} fill="none" stroke="#f1f6f1" strokeWidth={thickness} />
       {sum > 0 &&
         data.map((d, i) => {
           const len = (d.value / sum) * c
@@ -39,7 +39,6 @@ export function Donut({
               strokeWidth={thickness}
               strokeDasharray={`${len} ${c - len}`}
               strokeDashoffset={-off}
-              strokeLinecap="round"
             />
           )
           off += len
@@ -47,19 +46,19 @@ export function Donut({
         })}
       <text
         x={cx}
-        y={cx - 3}
+        y={cx - 1}
         textAnchor="middle"
         transform={`rotate(90 ${cx} ${cx})`}
-        style={{ fontSize: 34, fontWeight: 700, fill: '#172033', fontVariantNumeric: 'tabular-nums' }}
+        style={{ fontSize: 30, fontWeight: 700, fill: '#1f2620', fontVariantNumeric: 'tabular-nums' }}
       >
         {center ?? sum}
       </text>
       <text
         x={cx}
-        y={cx + 19}
+        y={cx + 17}
         textAnchor="middle"
         transform={`rotate(90 ${cx} ${cx})`}
-        style={{ fontSize: 12, fill: '#9aa4b8' }}
+        style={{ fontSize: 11.5, fill: '#9ba59b' }}
       >
         {centerSub}
       </text>
