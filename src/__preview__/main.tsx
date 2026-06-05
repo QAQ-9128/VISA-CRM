@@ -23,6 +23,7 @@ import { ArchivePage } from '../pages/archive/ArchivePage'
 import { RecycleBin } from '../pages/archive/RecycleBin'
 import { ReferrerListPage } from '../pages/referrers/ReferrerListPage'
 import { CustomerFormPage } from '../pages/customers/CustomerFormPage'
+import { CustomerListPage } from '../pages/customers/CustomerListPage'
 import { AuthContext } from '../providers/auth-context'
 import type { AuthContextValue } from '../providers/auth-context'
 import { queryKeys } from '../hooks/queries/keys'
@@ -182,6 +183,7 @@ const seed = (key: readonly unknown[], data: unknown) => qc.setQueryData(key, da
 // 客户/案件
 seed(queryKeys.customers.detail('P'), alice)
 seed(queryKeys.customers.list({}), [alice, ben])
+seed(queryKeys.customers.list({ search: '' }), [alice, ben]) // 客户列表页（搜索框为空时的键）
 seed(queryKeys.customers.list({ includeArchived: true }), [alice, ben, zoe])
 seed(queryKeys.dashboard.activeCustomers, [alice, ben])
 seed(queryKeys.cases.byCustomer('P'), activeCases)
@@ -258,6 +260,8 @@ const ENTRY: Record<string, string> = {
   recycle: '/storage', // 静态截图点不了 tab → 直接渲染 RecycleBin
   referrers: '/referrers',
   owners: '/referrers?kind=owner', // 介绍人页·归属人视图
+  customers: '/customers',
+  board: '/customers?view=board',
   quick: '/customers/new', // 新建客户页（快速建档卡 + 完整表单并存）
   edit: '/customers/P/edit', // 编辑客户（完整表单，回填 Alice）
 }
@@ -266,6 +270,12 @@ const ENTRY: Record<string, string> = {
 if (params.get('focus') === 'owner') {
   window.setTimeout(() => {
     document.querySelector<HTMLInputElement>('[role="combobox"]')?.focus()
+  }, 600)
+}
+// ?focus=menu → 展开第一个 ⋯ 操作菜单（details）
+if (params.get('focus') === 'menu') {
+  window.setTimeout(() => {
+    document.querySelector('details')?.setAttribute('open', '')
   }, 600)
 }
 
@@ -278,6 +288,7 @@ createRoot(document.getElementById('root')!).render(
             <Route element={<AppLayout />}>
               <Route path="/" element={<DashboardPage />} />
               <Route path="/customers/new" element={<CustomerFormPage />} />
+              <Route path="/customers" element={<CustomerListPage />} />
               <Route path="/customers/:id/edit" element={<CustomerFormPage />} />
               <Route path="/customers/:id" element={<CustomerDetailPage />} />
               <Route path="/finance" element={<FinancePage />} />

@@ -14,6 +14,7 @@ import { Chip, FilterButton, FilterGroup } from '../../components/ui/filters'
 import { PlusIcon, SearchIcon } from '../../components/ui/icons'
 import { StageBadge } from '../../components/cases/StageBadge'
 import { ClientSourceDot } from '../../components/customers/ClientSourceDot'
+import { CustomerActionsMenu } from '../../components/customers/CustomerActionsMenu'
 import { LoadingBlock, ErrorBlock, EmptyState } from '../../components/ui/states'
 import { useCustomerDebts } from '../../hooks/queries/useCustomerDebts'
 import { selectCustomerCases } from '../../lib/family'
@@ -141,6 +142,10 @@ function CustomerRow({
         </div>
         <span className="text-line-2">›</span>
       </Link>
+      {/* 行级操作：归档 / 彻底删除（admin）——在 Link 之外，点击不会跳详情 */}
+      <div className="mr-1 shrink-0">
+        <CustomerActionsMenu customer={c} />
+      </div>
     </li>
   )
 }
@@ -447,11 +452,15 @@ function SourceBoard({
                 {col.customers.map((m) => {
                   const lines = selectCustomerCaseLines(m, casesOf(m), employerNameOf(m))
                   return (
-                    <li key={m.id}>
+                    <li key={m.id} className="relative">
+                      {/* 卡级操作：归档 / 彻底删除（admin）——浮在卡片右上角，不挡整卡点击 */}
+                      <div className="absolute top-1.5 right-1.5 z-10">
+                        <CustomerActionsMenu customer={m} />
+                      </div>
                       <Link
                         to={`/customers/${m.id}`}
                         state={source}
-                        className="block rounded-[12px] border border-line px-3 py-2.5 transition-colors hover:border-brand-100 hover:bg-brand-50/40"
+                        className="block rounded-[12px] border border-line px-3 py-2.5 pr-10 transition-colors hover:border-brand-100 hover:bg-brand-50/40"
                       >
                         <div className="flex items-center gap-1.5">
                           {m.is_starred && <span aria-hidden className="text-[13px] text-amber-500">★</span>}
