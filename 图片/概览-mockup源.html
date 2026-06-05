@@ -1,0 +1,220 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<style>
+:root{
+  --canvas:#e8f0ea; --card:#ffffff;
+  --ink:#1f2620; --ink2:#6e7a70; --ink3:#9ba59b;
+  --line:#e9f0ea; --line2:#f1f6f1;
+  --green:#4e9a6b; --green-bg:#e3f0e6; --green-d:#357a52; --green-deep:#2e6a48;
+  --coral:#df7d76; --coral-bg:#fbe7e4; --coral-d:#c25a52;
+  --neutral-bg:#eef1ee; --neutral-tx:#7e887e;
+  --blue:#3f7cb5; --blue-bg:#e6edf7;
+  --amber:#e0a23c; --cyan:#36b3c2; --purple:#7c6fd6;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{
+  font-family:"Noto Sans CJK SC",sans-serif;color:var(--ink);
+  background:
+    radial-gradient(900px 520px at 88% -8%,#dff0e2 0%,transparent 55%),
+    linear-gradient(150deg,#eaf1ec,#e6efe8 70%,#eef4ec);
+  padding:30px 36px 40px;-webkit-font-smoothing:antialiased;
+}
+.wrap{max-width:1200px;margin:0 auto}
+.serif{font-family:"Noto Serif CJK SC",serif}
+.card{background:var(--card);border-radius:20px;box-shadow:0 14px 34px -20px rgba(40,90,60,.22)}
+
+/* header */
+.head{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:20px}
+.hi{font-size:27px;font-weight:600}
+.hsub{font-size:13.5px;color:var(--ink2);margin-top:6px}
+.hsub b{color:var(--green-d);font-weight:600}
+.hsub .lnk{color:var(--blue);margin-left:10px;font-weight:500}
+.hright{display:flex;align-items:center;gap:12px}
+.search{display:flex;align-items:center;gap:9px;background:var(--card);border:1px solid var(--line);border-radius:13px;padding:11px 16px;width:300px;color:var(--ink3);font-size:13.5px;box-shadow:0 8px 22px -18px rgba(40,90,60,.3)}
+.bell{width:44px;height:44px;border-radius:13px;background:var(--card);border:1px solid var(--line);display:flex;align-items:center;justify-content:center;font-size:17px;box-shadow:0 8px 22px -18px rgba(40,90,60,.3)}
+.newbtn{background:linear-gradient(135deg,#2e6a48,#357a52);color:#fff;border-radius:13px;padding:12px 20px;font-size:14px;font-weight:600;box-shadow:0 10px 24px -12px rgba(46,106,72,.6)}
+
+/* kpi */
+.kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:15px;margin-bottom:16px}
+.kpi{padding:18px 20px;position:relative}
+.kpi .ic{width:38px;height:38px;border-radius:11px;display:flex;align-items:center;justify-content:center;font-size:17px;margin-bottom:12px}
+.kpi .val{font-size:27px;font-weight:700;letter-spacing:.2px}
+.kpi .val .ccy{font-size:13px;color:var(--ink3);font-weight:600;margin-right:3px}
+.kpi .lab{font-size:12.5px;color:var(--ink2);margin-top:4px}
+.kpi.c1 .ic{background:var(--green-bg);color:var(--green-d)} .kpi.c1 .val{color:var(--green-deep)}
+.kpi.c2 .ic{background:var(--blue-bg);color:var(--blue)}
+.kpi.c3 .ic{background:var(--green-bg);color:var(--green-d)} .kpi.c3 .val{color:var(--green-d)}
+.kpi.c4 .ic{background:var(--coral-bg);color:var(--coral-d)} .kpi.c4 .val{color:var(--coral-d)}
+.badge{position:absolute;top:18px;right:18px;font-size:11px;font-weight:600;color:var(--coral-d);background:var(--coral-bg);border-radius:7px;padding:2px 8px}
+
+/* generic card head */
+.ch{display:flex;align-items:center;justify-content:space-between;padding:18px 22px 4px}
+.ch .t{font-size:16px;font-weight:600}
+.ch .t small{font-size:11.5px;color:var(--ink3);font-weight:400;margin-left:9px}
+.ch .more{font-size:12.5px;color:var(--green-d);font-weight:500}
+.cnt{display:inline-flex;align-items:center;justify-content:center;min-width:20px;height:20px;padding:0 6px;border-radius:7px;background:var(--green-bg);color:var(--green-d);font-size:11.5px;font-weight:600;margin-left:8px}
+
+/* hero row */
+.hero{display:grid;grid-template-columns:1.25fr 1fr;gap:15px;margin-bottom:16px}
+.donutwrap{display:flex;align-items:center;gap:26px;padding:8px 22px 22px}
+.donut{position:relative;flex-shrink:0}
+.donut .ctr{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center}
+.donut .ctr .n{font-size:30px;font-weight:700;color:var(--ink)}
+.donut .ctr .l{font-size:11.5px;color:var(--ink3);margin-top:1px}
+.legend{flex:1;display:flex;flex-direction:column;gap:1px}
+.lg{display:flex;align-items:center;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--line2)}
+.lg:last-child{border-bottom:none}
+.lg .l{display:flex;align-items:center;gap:9px;font-size:13.5px;color:var(--ink2)}
+.lg .dot{width:9px;height:9px;border-radius:3px}
+.lg .v{font-size:14px;font-weight:700;color:var(--ink)}
+
+.tlist{padding:4px 0 8px}
+.trow{display:flex;align-items:center;justify-content:space-between;padding:10px 22px;border-top:1px solid var(--line2)}
+.trow:first-child{border-top:none}
+.trow .li{display:flex;align-items:center;gap:11px}
+.ava{width:34px;height:34px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:600;color:#fff;flex-shrink:0}
+.trow .nm{font-size:14px;font-weight:600}
+.trow .sub{font-size:12px;color:var(--ink3);margin-top:1px}
+.pill{font-size:11.5px;font-weight:600;border-radius:8px;padding:3px 11px}
+.pill.todo{background:var(--neutral-bg);color:var(--neutral-tx)}
+
+/* submit table */
+.tbl{margin-bottom:16px;padding-bottom:10px}
+.tbl table{width:100%;border-collapse:collapse}
+.tbl th{font-size:12px;color:var(--ink3);font-weight:500;text-align:left;padding:6px 22px 12px}
+.tbl th.r,.tbl td.r{text-align:right}
+.tbl td{padding:13px 22px;border-top:1px solid var(--line2);font-size:13.5px}
+.tbl tr:first-child td{border-top:1px solid var(--line)}
+.tbl .cust{display:flex;align-items:center;gap:11px;font-weight:600}
+.statp{display:inline-flex;align-items:center;gap:6px;font-size:12.5px;color:var(--blue);font-weight:600}
+.statp .d{width:7px;height:7px;border-radius:50%;background:var(--blue)}
+.bar{height:8px;border-radius:5px;background:var(--line);position:relative;width:240px}
+.bar i{position:absolute;left:0;top:0;bottom:0;border-radius:5px;background:var(--blue)}
+.daysleft{font-size:11.5px;color:var(--ink3);margin-left:10px}
+
+/* bottom two cols */
+.cols{display:grid;grid-template-columns:1fr 1fr;gap:15px}
+.todoinput{display:flex;gap:8px;padding:8px 22px 10px}
+.todoinput .box{flex:1;border:1px solid var(--line);border-radius:11px;padding:11px 14px;font-size:13px;color:var(--ink3)}
+.todoinput .add{background:var(--green-bg);color:var(--green-d);border-radius:11px;padding:11px 18px;font-size:13.5px;font-weight:600}
+.duegrp{margin:2px 22px 6px;background:var(--lime-soft,#eef7d6);border:1px solid #e3eecb;border-radius:11px;padding:9px 13px;font-size:12.5px;color:var(--lime-d,#7d9e36);display:flex;align-items:center;gap:7px}
+.titem{display:flex;align-items:center;gap:11px;padding:10px 22px;border-top:1px solid var(--line2);font-size:13.5px}
+.titem:first-of-type{border-top:none}
+.cbx{width:16px;height:16px;border:1.6px solid var(--ink3);border-radius:5px;flex-shrink:0}
+.titem .tx{flex:1}
+.titem .tag{font-size:10.5px;color:var(--ink3);background:var(--neutral-bg);border-radius:6px;padding:2px 8px}
+.titem .x{color:var(--ink3);font-size:14px}
+
+.owehead{display:flex;align-items:baseline;justify-content:space-between;padding:0 22px 8px}
+.owehead .tot{font-size:12px;color:var(--ink3)}
+.owehead .tot b{color:var(--coral-d)}
+.orow{display:flex;align-items:center;justify-content:space-between;padding:12px 22px;border-top:1px solid var(--line2)}
+.orow .li{display:flex;align-items:center;gap:11px}
+.orow .nm{font-size:14px;font-weight:600;color:var(--blue)}
+.orow .amt{font-size:14px;font-weight:700;color:var(--coral-d)}
+.orow .amt small{color:var(--ink3);font-weight:500;margin-right:4px}
+.ovfoot{padding:12px 22px 4px;font-size:12px;color:var(--ink3);border-top:1px solid var(--line2);margin-top:2px}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <!-- header -->
+  <div class="head">
+    <div>
+      <div class="hi serif">你好 👋</div>
+      <div class="hsub">待办 <b>8</b> 条 · 临近到期 <b>0</b> 个 · 本月已收 <b>AUD 114.00</b></div>
+    </div>
+    <div class="hright">
+      <div class="search">🔍 搜索客户 / 案件 / 参考号</div>
+      <div class="bell">🔔</div>
+      <div class="newbtn">＋ 新建客户</div>
+    </div>
+  </div>
+
+  <!-- kpi -->
+  <div class="kpis">
+    <div class="kpi card c1"><div class="ic">💼</div><div class="val">27</div><div class="lab">进行中案件</div></div>
+    <div class="kpi card c2"><div class="ic">☑</div><div class="val">8</div><div class="lab">待办事项</div></div>
+    <div class="kpi card c3"><div class="ic">💰</div><div class="val"><span class="ccy">AUD</span>114.00</div><div class="lab">本月收款</div></div>
+    <div class="kpi card c4"><span class="badge">3 户欠款</span><div class="ic">⚠</div><div class="val"><span class="ccy">AUD</span>196,601.09</div><div class="lab">客户欠款总额</div></div>
+  </div>
+
+  <!-- hero: case progress -->
+  <div class="hero">
+    <div class="card">
+      <div class="ch"><div class="t">案件阶段分布 <small>在办 27 · 已下签 10</small></div><div class="more">全部案件 ›</div></div>
+      <div class="donutwrap">
+        <div class="donut" style="width:180px;height:180px">
+          <svg viewBox="0 0 180 180" width="180" height="180">
+            <circle cx="90" cy="90" r="70" fill="none" stroke="#f1f6f1" stroke-width="22"/>
+            <circle cx="90" cy="90" r="70" fill="none" stroke="#9ba59b" stroke-width="22" stroke-dasharray="59.44 439.82" transform="rotate(-90 90 90)"/>
+            <circle cx="90" cy="90" r="70" fill="none" stroke="#e0a23c" stroke-width="22" stroke-dasharray="47.55 439.82" transform="rotate(-41.35 90 90)"/>
+            <circle cx="90" cy="90" r="70" fill="none" stroke="#3f7cb5" stroke-width="22" stroke-dasharray="59.44 439.82" transform="rotate(-2.43 90 90)"/>
+            <circle cx="90" cy="90" r="70" fill="none" stroke="#36b3c2" stroke-width="22" stroke-dasharray="23.78 439.82" transform="rotate(46.22 90 90)"/>
+            <circle cx="90" cy="90" r="70" fill="none" stroke="#7c6fd6" stroke-width="22" stroke-dasharray="130.77 439.82" transform="rotate(65.68 90 90)"/>
+            <circle cx="90" cy="90" r="70" fill="none" stroke="#4e9a6b" stroke-width="22" stroke-dasharray="118.87 439.82" transform="rotate(172.70 90 90)"/>
+          </svg>
+          <div class="ctr"><div class="n">27</div><div class="l">在办案件</div></div>
+        </div>
+        <div class="legend">
+          <div class="lg"><div class="l"><span class="dot" style="background:#9ba59b"></span>待办</div><div class="v">5</div></div>
+          <div class="lg"><div class="l"><span class="dot" style="background:#e0a23c"></span>已草拟</div><div class="v">4</div></div>
+          <div class="lg"><div class="l"><span class="dot" style="background:#3f7cb5"></span>提名递交</div><div class="v">5</div></div>
+          <div class="lg"><div class="l"><span class="dot" style="background:#36b3c2"></span>提名获批</div><div class="v">2</div></div>
+          <div class="lg"><div class="l"><span class="dot" style="background:#7c6fd6"></span>签证递交</div><div class="v">11</div></div>
+          <div class="lg"><div class="l"><span class="dot" style="background:#4e9a6b"></span>下签 · 已完成</div><div class="v">10</div></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="ch"><div class="t">待办阶段案件 <span class="cnt">5</span></div><div class="more">全部 ›</div></div>
+      <div class="tlist">
+        <div class="trow"><div class="li"><div class="ava" style="background:#b08bd6">测</div><div><div class="nm">测试2222222</div><div class="sub">494</div></div></div><span class="pill todo">待办</span></div>
+        <div class="trow"><div class="li"><div class="ava" style="background:#d68bbf">测</div><div><div class="nm">测试1111111</div><div class="sub">186</div></div></div><span class="pill todo">待办</span></div>
+        <div class="trow"><div class="li"><div class="ava" style="background:#5aa6d6">王</div><div><div class="nm">王璞</div><div class="sub">482</div></div></div><span class="pill todo">待办</span></div>
+        <div class="trow"><div class="li"><div class="ava" style="background:#5aa6d6">邓</div><div><div class="nm">邓韬（Dylan）</div><div class="sub">482 · Subsequent Entrant</div></div></div><span class="pill todo">待办</span></div>
+        <div class="trow"><div class="li"><div class="ava" style="background:#4fb0c4">孙</div><div><div class="nm">孙佳琪</div><div class="sub">186 · Direct Entry</div></div></div><span class="pill todo">待办</span></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- bottom: todos + owed -->
+  <div class="cols">
+    <div class="card">
+      <div class="ch"><div class="t">待办清单 <span class="cnt">8</span></div></div>
+      <div class="todoinput"><div class="box">写一句待办，回车添加…</div><div class="add">添加</div></div>
+      <div class="duegrp">⏰ 临近到期（签证 / 文件 / TRT）：近 30 天无临近到期</div>
+      <div class="titem"><div class="cbx"></div><div class="tx">2026/6/1 Guoywfan 提名</div><span class="tag">随手记</span><span class="x">✕</span></div>
+      <div class="titem"><div class="cbx"></div><div class="tx">2026/6/1 祥龙 提名</div><span class="tag">随手记</span><span class="x">✕</span></div>
+      <div class="titem"><div class="cbx"></div><div class="tx">蒋青霞 482+186 提名 · 合同未签</div><span class="tag">随手记</span><span class="x">✕</span></div>
+      <div class="titem"><div class="cbx"></div><div class="tx">孙佳琪 + 副申请 材料复审 186DE 提名</div><span class="tag">随手记</span><span class="x">✕</span></div>
+      <div class="titem"><div class="cbx"></div><div class="tx">张献元 李章垠 de facto</div><span class="tag">随手记</span><span class="x">✕</span></div>
+      <div class="titem"><div class="cbx"></div><div class="tx">邓涛 李旻书 defacto</div><span class="tag">随手记</span><span class="x">✕</span></div>
+    </div>
+
+    <div class="card">
+      <div class="ch"><div class="t">欠款总览 <small>按客户</small></div></div>
+      <div class="owehead"><span></span><span class="tot">共欠你 <b>AUD 196,601.09</b> · 欠主代理 AUD 0.00</span></div>
+      <div class="orow"><div class="li"><div class="ava" style="background:#4fb0c4">吕</div><div class="nm">吕列隆</div></div><div class="amt"><small>欠你</small>AUD 190,000.09</div></div>
+      <div class="orow"><div class="li"><div class="ava" style="background:#e0a23c">何</div><div class="nm">何祥龙</div></div><div class="amt"><small>欠你</small>AUD 6,600.00</div></div>
+      <div class="orow"><div class="li"><div class="ava" style="background:#7c6fd6">贾</div><div class="nm">贾乃亮</div></div><div class="amt"><small>欠你</small>AUD 1.00</div></div>
+      <div class="ovfoot">逾期未付分期：无</div>
+    </div>
+  </div>
+
+  <!-- official processing time (kept) -->
+  <div class="card" style="margin-top:16px;padding:18px 24px;display:flex;align-items:center;justify-content:space-between">
+    <div>
+      <div style="font-size:15px;font-weight:600">官方签证处理时间</div>
+      <div style="font-size:12.5px;color:var(--ink2);margin-top:5px">在 <span style="color:var(--blue);font-weight:500">immi.homeaffairs.gov.au</span> 查看全球签证处理时间（新标签打开）</div>
+    </div>
+    <div style="width:34px;height:34px;border-radius:10px;background:var(--green-bg);color:var(--green-d);display:flex;align-items:center;justify-content:center;font-size:16px">↗</div>
+  </div>
+
+</div>
+</body>
+</html>

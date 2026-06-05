@@ -1,0 +1,240 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<style>
+:root{
+  --canvas:#e8f0ea; --card:#ffffff;
+  --ink:#1f2620; --ink2:#6e7a70; --ink3:#9ba59b;
+  --line:#e9f0ea; --line2:#f1f6f1;
+  --lime:#c6e96e; --lime-d:#7d9e36; --lime-soft:#eef7d6;
+  --green:#4e9a6b; --green-bg:#e3f0e6; --green-d:#357a52; --green-deep:#2e6a48;
+  --coral:#df7d76; --coral-bg:#fbe7e4; --coral-d:#c25a52;
+  --neutral-bg:#eef1ee; --neutral-tx:#7e887e;
+  --blue:#3f7cb5; --blue-bg:#e6edf7;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{
+  font-family:"Noto Sans CJK SC",sans-serif;
+  color:var(--ink);
+  background:
+    radial-gradient(900px 520px at 88% -8%,#dff0e2 0%,transparent 55%),
+    linear-gradient(150deg,#eaf1ec,#e6efe8 70%,#eef4ec);
+  padding:38px 40px 46px;
+  -webkit-font-smoothing:antialiased;
+}
+.wrap{max-width:1180px;margin:0 auto}
+.serif{font-family:"Noto Serif CJK SC",serif}
+
+/* header */
+.head{display:flex;align-items:flex-end;justify-content:space-between;margin-bottom:22px}
+.title{font-size:30px;font-weight:600;letter-spacing:.5px}
+.sub{font-size:14px;color:var(--ink2);margin-top:7px}
+.sub b{color:var(--green-d);font-weight:600}
+.monthsel{
+  display:flex;align-items:center;gap:14px;background:var(--card);
+  border:1px solid var(--line);border-radius:14px;padding:9px 16px;
+  box-shadow:0 8px 22px -16px rgba(40,90,60,.30);
+}
+.monthsel .arw{width:26px;height:26px;border-radius:8px;background:var(--green-bg);
+  color:var(--green-d);display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:700}
+.monthsel .m{font-size:16px;font-weight:600}
+.monthsel .cur{font-size:11px;color:var(--ink3);margin-left:2px}
+
+/* kpi band */
+.kpis{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin-bottom:18px}
+.kpi{
+  background:var(--card);border-radius:20px;padding:20px 22px;
+  box-shadow:0 14px 34px -20px rgba(40,90,60,.22);position:relative;overflow:hidden;
+}
+.kpi .ic{width:40px;height:40px;border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:19px;margin-bottom:13px}
+.kpi .lab{font-size:13px;color:var(--ink2)}
+.kpi .val{font-size:29px;font-weight:700;margin-top:5px;letter-spacing:.3px}
+.kpi .val .ccy{font-size:14px;font-weight:600;color:var(--ink3);margin-right:4px}
+.kpi .foot{font-size:12px;color:var(--ink3);margin-top:8px}
+.kpi.income .ic{background:var(--green-bg);color:var(--green-d)}
+.kpi.income .val{color:var(--green-d)}
+.kpi.expense .ic{background:var(--coral-bg);color:var(--coral-d)}
+.kpi.expense .val{color:var(--coral-d)}
+.kpi.net{background:linear-gradient(135deg,#2e6a48,#357a52)}
+.kpi.net .ic{background:rgba(255,255,255,.18);color:#eafff2}
+.kpi.net .lab{color:#d4ecdd}
+.kpi.net .val{color:#fff}
+.kpi.net .val .ccy{color:#bfe0cb}
+.kpi.net .foot{color:#cfe9d8}
+.delta{display:inline-flex;align-items:center;gap:4px;font-weight:600}
+
+/* two columns */
+.cols{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px}
+.col{background:var(--card);border-radius:20px;box-shadow:0 14px 34px -20px rgba(40,90,60,.22);overflow:hidden}
+.col .ch{padding:18px 22px 16px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid var(--line)}
+.col .ch .l{display:flex;align-items:center;gap:11px}
+.col .ch .dot{width:34px;height:34px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:17px}
+.col .ch .nm{font-size:16px;font-weight:600}
+.col .ch .nm small{display:block;font-size:11.5px;color:var(--ink3);font-weight:400;margin-top:2px}
+.col .ch .stt{text-align:right}
+.col .ch .stt .t{font-size:11px;color:var(--ink3)}
+.col .ch .stt .a{font-size:22px;font-weight:700;margin-top:1px}
+.income-col .dot{background:var(--green-bg);color:var(--green-d)}
+.income-col .stt .a{color:var(--green-d)}
+.expense-col .dot{background:var(--coral-bg);color:var(--coral-d)}
+.expense-col .stt .a{color:var(--coral-d)}
+
+.grp{padding:6px 0 2px}
+.grp .gl{font-size:11.5px;color:var(--ink3);font-weight:600;padding:11px 22px 5px;letter-spacing:.4px}
+.row{display:flex;align-items:center;justify-content:space-between;padding:11px 22px;border-top:1px solid var(--line2)}
+.row:first-child{border-top:none}
+.row .li{display:flex;align-items:center;gap:10px;min-width:0}
+.row .ava{width:30px;height:30px;border-radius:9px;background:var(--neutral-bg);color:var(--neutral-tx);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:600;flex-shrink:0}
+.row .who{min-width:0}
+.row .who .n{font-size:14px;font-weight:600;display:flex;align-items:center;gap:7px}
+.row .who .n .tag{font-size:10.5px;font-weight:600;color:var(--green-d);background:var(--green-bg);border-radius:6px;padding:1px 7px}
+.row .who .d{font-size:12px;color:var(--ink3);margin-top:2px}
+.row .amt{text-align:right;flex-shrink:0;margin-left:12px}
+.row .amt .v{font-size:15px;font-weight:700}
+.row .amt .dt{font-size:11.5px;color:var(--ink3);margin-top:1px}
+.income-col .amt .v{color:var(--green-d)}
+.expense-col .amt .v{color:var(--coral-d)}
+.expense-col .who .n .tag{color:var(--coral-d);background:var(--coral-bg)}
+.colsub{display:flex;align-items:center;justify-content:space-between;padding:13px 22px;background:var(--line2);font-size:13px}
+.colsub .t{color:var(--ink2)}
+.colsub .a{font-weight:700}
+.income-col .colsub .a{color:var(--green-d)}
+.expense-col .colsub .a{color:var(--coral-d)}
+
+/* net bar */
+.netbar{
+  background:var(--card);border-radius:20px;box-shadow:0 14px 34px -20px rgba(40,90,60,.22);
+  padding:20px 26px;display:flex;align-items:center;justify-content:space-between;
+  border-left:5px solid var(--green-deep);
+}
+.netbar .l .t{font-size:13px;color:var(--ink2)}
+.netbar .l .f{font-size:12.5px;color:var(--ink3);margin-top:6px}
+.netbar .l .f .g{color:var(--green-d);font-weight:600}
+.netbar .l .f .c{color:var(--coral-d);font-weight:600}
+.netbar .r{text-align:right}
+.netbar .r .v{font-size:32px;font-weight:700;color:var(--green-deep);letter-spacing:.3px}
+.netbar .r .v .ccy{font-size:15px;color:var(--ink3);font-weight:600;margin-right:4px}
+.netbar .r .d{font-size:12.5px;color:var(--green-d);font-weight:600;margin-top:4px}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="head">
+    <div>
+      <div class="title serif">月度账目</div>
+      <div class="sub">本月收支总览 · <b>收入 / 支出 双流对照</b> · 币种 AUD</div>
+    </div>
+    <div class="monthsel">
+      <div class="arw">‹</div>
+      <div class="m">2026年5月 <span class="cur">本月</span></div>
+      <div class="arw">›</div>
+    </div>
+  </div>
+
+  <div class="kpis">
+    <div class="kpi income">
+      <div class="ic">↘</div>
+      <div class="lab">本月收入 · 客户已收</div>
+      <div class="val"><span class="ccy">AUD</span>22,200.00</div>
+      <div class="foot">本月开票应收 AUD 28,000 · 已收率 79%</div>
+    </div>
+    <div class="kpi expense">
+      <div class="ic">↗</div>
+      <div class="lab">本月支出 · 付主代理 + 付介绍人</div>
+      <div class="val"><span class="ccy">AUD</span>6,500.00</div>
+      <div class="foot">付主代理 4,200 · 付介绍人 2,300</div>
+    </div>
+    <div class="kpi net">
+      <div class="ic">＝</div>
+      <div class="lab">本月净额</div>
+      <div class="val"><span class="ccy">AUD</span>15,700.00</div>
+      <div class="foot">较上月 <span class="delta">▲ AUD 1,700 (+12%)</span></div>
+    </div>
+  </div>
+
+  <div class="cols">
+    <!-- 收入 -->
+    <div class="col income-col">
+      <div class="ch">
+        <div class="l">
+          <div class="dot">＄</div>
+          <div class="nm">收入<small>客户已收（from_client）</small></div>
+        </div>
+        <div class="stt"><div class="t">本月小计</div><div class="a">22,200.00</div></div>
+      </div>
+      <div class="grp">
+        <div class="row">
+          <div class="li"><div class="ava">贾</div><div class="who"><div class="n">贾乃亮 <span class="tag">482</span></div><div class="d">律师费 · 首期</div></div></div>
+          <div class="amt"><div class="v">6,500.00</div><div class="dt">5月3日</div></div>
+        </div>
+        <div class="row">
+          <div class="li"><div class="ava">李</div><div class="who"><div class="n">李小璐 <span class="tag">600</span></div><div class="d">申请服务费</div></div></div>
+          <div class="amt"><div class="v">2,200.00</div><div class="dt">5月8日</div></div>
+        </div>
+        <div class="row">
+          <div class="li"><div class="ava">测</div><div class="who"><div class="n">测试1111111 <span class="tag">186</span></div><div class="d">服务费 · 尾款</div></div></div>
+          <div class="amt"><div class="v">4,800.00</div><div class="dt">5月14日</div></div>
+        </div>
+        <div class="row">
+          <div class="li"><div class="ava">V</div><div class="who"><div class="n">Vicente Esteve C. <span class="tag">491</span></div><div class="d">文案费</div></div></div>
+          <div class="amt"><div class="v">3,300.00</div><div class="dt">5月20日</div></div>
+        </div>
+        <div class="row">
+          <div class="li"><div class="ava">何</div><div class="who"><div class="n">何祥龙 <span class="tag">482</span></div><div class="d">提名费</div></div></div>
+          <div class="amt"><div class="v">5,400.00</div><div class="dt">5月26日</div></div>
+        </div>
+      </div>
+      <div class="colsub"><div class="t">收入小计（5 笔）</div><div class="a">AUD 22,200.00</div></div>
+    </div>
+
+    <!-- 支出 -->
+    <div class="col expense-col">
+      <div class="ch">
+        <div class="l">
+          <div class="dot">↗</div>
+          <div class="nm">支出<small>付主代理 + 付介绍人（to_company / to_referrer）</small></div>
+        </div>
+        <div class="stt"><div class="t">本月小计</div><div class="a">6,500.00</div></div>
+      </div>
+      <div class="grp">
+        <div class="gl">付主代理（to_company）</div>
+        <div class="row">
+          <div class="li"><div class="ava">H</div><div class="who"><div class="n">Hashtech Group <span class="tag">482</span></div><div class="d">提名代理费</div></div></div>
+          <div class="amt"><div class="v">3,000.00</div><div class="dt">5月5日</div></div>
+        </div>
+        <div class="row">
+          <div class="li"><div class="ava">O</div><div class="who"><div class="n">Olliemoo Pty Ltd <span class="tag">600</span></div><div class="d">代理服务费</div></div></div>
+          <div class="amt"><div class="v">1,200.00</div><div class="dt">5月10日</div></div>
+        </div>
+      </div>
+      <div class="grp">
+        <div class="gl">付介绍人（to_referrer）</div>
+        <div class="row">
+          <div class="li"><div class="ava">王</div><div class="who"><div class="n">王某 <span class="tag">482</span></div><div class="d">介绍佣金</div></div></div>
+          <div class="amt"><div class="v">800.00</div><div class="dt">5月15日</div></div>
+        </div>
+        <div class="row">
+          <div class="li"><div class="ava">R</div><div class="who"><div class="n">RV Design <span class="tag">186</span></div><div class="d">介绍佣金</div></div></div>
+          <div class="amt"><div class="v">1,500.00</div><div class="dt">5月22日</div></div>
+        </div>
+      </div>
+      <div class="colsub"><div class="t">支出小计（4 笔）</div><div class="a">AUD 6,500.00</div></div>
+    </div>
+  </div>
+
+  <div class="netbar">
+    <div class="l">
+      <div class="t">本月净额（双流恒等）</div>
+      <div class="f"><span class="g">收入 22,200.00</span> − <span class="c">支出 6,500.00</span></div>
+    </div>
+    <div class="r">
+      <div class="v"><span class="ccy">AUD</span>15,700.00</div>
+      <div class="d">▲ 较上月 +AUD 1,700（+12%）</div>
+    </div>
+  </div>
+
+</div>
+</body>
+</html>

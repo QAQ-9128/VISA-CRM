@@ -1,0 +1,227 @@
+/* ============================================================================
+   签证 CRM — 产品外壳与页面组件(在 crm.css 令牌之上)
+   ============================================================================ */
+
+/* ── 路由内容容器 ───────────────────────────────────────────────────── */
+.route{margin:0 auto;width:100%}
+.route-wide{max-width:1280px}
+.route-md{max-width:1040px}
+.route-sm{max-width:920px}
+.page-head{display:flex;align-items:flex-start;justify-content:space-between;gap:18px;margin-bottom:22px;flex-wrap:wrap}
+.page-title{font-size:24px;font-weight:700;color:var(--ink);letter-spacing:-.02em;margin:0}
+.page-sub{font-size:13.5px;color:var(--muted);margin:6px 0 0}
+.page-actions{display:flex;align-items:center;gap:10px}
+
+/* 返回链接 / 面包屑 */
+.back{display:inline-flex;align-items:center;gap:6px;font-size:13.5px;font-weight:600;color:var(--muted);cursor:pointer;margin-bottom:14px}
+.back:hover{color:var(--brand)}
+
+/* 段控 tabs */
+.tabs{display:inline-flex;gap:4px;background:var(--surface-2);border-radius:var(--r-full);padding:4px}
+.tabs .t{padding:8px 16px;border-radius:var(--r-full);font-size:13.5px;font-weight:600;color:var(--muted);cursor:pointer;border:0;background:transparent;transition:all .15s}
+.tabs .t.on{background:var(--surface);color:var(--brand);box-shadow:var(--sh-xs)}
+
+/* 横幅 */
+.banner{display:flex;align-items:flex-start;gap:12px;border-radius:var(--r-lg);padding:14px 18px;font-size:14px;font-weight:500}
+.banner-warn{background:linear-gradient(100deg,#fff7e8,#fffdf6);border:1px solid var(--amber-100);color:#92510a}
+.banner-warn .bic{width:34px;height:34px;border-radius:11px;background:var(--amber-100);color:#c87f06;display:flex;align-items:center;justify-content:center;flex:none}
+
+/* ── 搜索条(页面级) ─────────────────────────────────────────────────── */
+.searchbar{display:flex;align-items:center;gap:10px;background:var(--surface);border:1px solid var(--line-2);border-radius:var(--r-full);
+  padding:0 18px;height:48px;color:var(--faint);box-shadow:var(--sh-xs);width:100%}
+.searchbar input{border:0;outline:0;background:transparent;font:inherit;font-size:14.5px;color:var(--body);width:100%}
+
+/* ── 客户列表:家庭分组 ─────────────────────────────────────────────── */
+.fam{background:var(--surface);border-radius:var(--r-card);box-shadow:var(--sh);overflow:hidden}
+.crow{display:flex;align-items:center;gap:14px;padding:16px 20px;border-top:1px solid var(--line);cursor:pointer;transition:background .15s}
+.crow:first-child{border-top:0}
+.crow:hover{background:var(--surface-2)}
+.crow.sub{padding-left:30px;background:linear-gradient(90deg,var(--surface-2) 0 4px,transparent 4px)}
+.crow .conn{font-family:var(--font);color:var(--slate-300);font-size:15px;align-self:flex-start;margin-top:12px;user-select:none}
+.star{width:30px;height:30px;border-radius:9px;display:flex;align-items:center;justify-content:center;cursor:pointer;color:var(--slate-300);flex:none;background:transparent;border:0}
+.star.on{color:var(--star,#f59e0b)}
+.star:hover{background:var(--surface-2)}
+.cname{font-size:15px;font-weight:600;color:var(--ink)}
+.crow.sub .cname{font-size:14px;font-weight:500}
+.cname.owe{color:var(--rose)} .cname.paid{color:var(--emerald)}
+.src-dot{width:9px;height:9px;border-radius:99px;flex:none}
+.src-black{background:#0f172a} .src-green{background:#16a34a} .src-yellow{background:#eab308}
+.tag-ind{font-size:10px;font-weight:700;background:var(--brand-50);color:var(--brand);border-radius:999px;padding:2px 7px}
+.caseline{display:flex;flex-wrap:wrap;align-items:center;gap:7px;font-size:12.5px;color:var(--muted);margin-top:5px}
+.caseline .sep{color:var(--slate-300)}
+.rel{font-size:11.5px;color:var(--faint)}
+
+/* ── 案件详情:阶段步进 ─────────────────────────────────────────────── */
+.stepper{display:flex;gap:6px;margin-top:4px}
+.step{flex:1;height:6px;border-radius:99px;background:var(--line-2)}
+.step.done{background:var(--brand)} .step.cur{background:var(--brand);box-shadow:var(--sh-brand)}
+.step-labels{display:flex;justify-content:space-between;margin-top:10px;font-size:11.5px;color:var(--faint)}
+.stagebig{display:flex;align-items:center;gap:12px;margin:14px 0 4px}
+.stagebig .sv{font-size:22px;font-weight:700;color:var(--ink)}
+
+/* 阶段时间线 */
+.timeline{position:relative;padding-left:6px}
+.tl-row{display:flex;gap:14px;padding-bottom:18px;position:relative}
+.tl-row:last-child{padding-bottom:0}
+.tl-rail{position:absolute;left:7px;top:18px;bottom:-4px;width:2px;background:var(--line-2)}
+.tl-row:last-child .tl-rail{display:none}
+.tl-dot{width:16px;height:16px;border-radius:99px;border:3px solid var(--surface);flex:none;z-index:1;box-shadow:0 0 0 1px var(--line-2)}
+.tl-dot.done{background:var(--brand);box-shadow:0 0 0 1px var(--brand)}
+.tl-dot.cur{background:var(--brand);box-shadow:0 0 0 4px var(--brand-50),0 0 0 5px var(--brand)}
+.tl-dot.idle{background:var(--line-2)}
+.tl-body .tn{font-size:14px;font-weight:600;color:var(--ink)}
+.tl-body .td{font-size:12px;color:var(--faint);margin-top:1px}
+
+/* 递交卡 */
+.lodge{display:flex;flex-direction:column;gap:6px;padding:16px;border:1px solid var(--line);border-radius:var(--r-lg);background:var(--surface-2)}
+.lodge-top{display:flex;align-items:center;justify-content:space-between;gap:10px}
+
+/* ── 双流账目 ───────────────────────────────────────────────────────── */
+.flow{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+.flowcard{border-radius:var(--r-lg);padding:18px;border:1px solid var(--line)}
+.flowcard .fl{font-size:12.5px;font-weight:600;color:var(--muted)}
+.flowcard .fv{font-size:26px;font-weight:700;letter-spacing:-.02em;margin-top:6px;font-variant-numeric:tabular-nums}
+.flowcard .fmeta{font-size:12px;color:var(--faint);margin-top:6px}
+.flow-in{background:var(--emerald-50)} .flow-in .fv{color:#0f9d6e}
+.flow-out{background:var(--amber-50)} .flow-out .fv{color:#c87f06}
+.txn{display:flex;align-items:center;gap:12px;padding:12px 0;border-top:1px solid var(--line)}
+.txn:first-child{border-top:0}
+
+/* ── 文档行 ─────────────────────────────────────────────────────────── */
+.doc{display:flex;align-items:center;gap:12px;padding:12px 0;border-top:1px solid var(--line)}
+.doc:first-child{border-top:0}
+
+/* ── 记录(待办/跟进) ─────────────────────────────────────────────── */
+.rec{display:flex;gap:12px;padding:12px 0;border-top:1px solid var(--line)}
+.rec:first-child{border-top:0}
+.rec .rmk{width:34px;height:34px;border-radius:11px;background:var(--surface-2);display:flex;align-items:center;justify-content:center;font-size:16px;flex:none}
+.check{width:20px;height:20px;border-radius:6px;border:2px solid var(--slate-300);flex:none;cursor:pointer;display:flex;align-items:center;justify-content:center}
+.check.on{background:var(--brand);border-color:var(--brand);color:#fff}
+
+/* ── 财务:月度总计条 ───────────────────────────────────────────────── */
+.totbar{display:grid;grid-template-columns:repeat(3,1fr);gap:14px}
+.tot{background:var(--surface-2);border-radius:var(--r-lg);padding:16px 18px;text-align:center}
+.tot .tl{font-size:12.5px;color:var(--muted)}
+.tot .tv{font-size:22px;font-weight:700;margin-top:6px;font-variant-numeric:tabular-nums}
+
+/* 工具 */
+.divline{height:1px;background:var(--line);margin:0}
+.muted{color:var(--muted)} .faint{color:var(--faint)}
+.empty{padding:34px 0;text-align:center;color:var(--faint);font-size:14px}
+
+@media(max-width:900px){
+  .flow{grid-template-columns:1fr}
+  .totbar{grid-template-columns:1fr}
+}
+
+/* ── 递交进度表(保留全列 · 冻结左列 · 提名/签证分色)──────────────── */
+.ltwrap{overflow-x:auto;border-radius:var(--r-card)}
+.ltbl{width:100%;border-collapse:separate;border-spacing:0;font-size:14px;min-width:1240px;background:var(--surface)}
+.ltbl thead th{background:var(--surface-2);font-size:11px;font-weight:700;letter-spacing:.04em;color:var(--muted);
+  text-transform:uppercase;padding:11px 14px;white-space:nowrap;text-align:left;border-bottom:1px solid var(--line-2)}
+.ltbl thead tr:first-child th{border-bottom:1px solid var(--line)}
+.ltbl thead .grp{text-align:center;color:var(--brand);background:#e7eefc}
+.ltbl thead .grp.v{color:var(--indigo);background:#efeafe}
+.ltbl .tn{background:#f1f5ff} .ltbl .tv{background:#f6f3fe}
+.ltbl thead th.tn{background:#e7eefc} .ltbl thead th.tv{background:#efeafe}
+.ltbl .g-split{border-left:2px solid var(--line-2)}
+.ltbl tbody td{padding:13px 14px;border-bottom:1px solid var(--line);vertical-align:middle;white-space:nowrap}
+.ltbl tbody tr:last-child td{border-bottom:0}
+.ltbl tbody tr:hover td{background:var(--surface-2)}
+.ltbl .c-id{width:112px}
+.ltbl .c-main{width:162px}
+.ltbl tbody tr.todo .c-id,.ltbl tbody tr.todo .c-main,.ltbl tbody tr.todo td{background:#fffdf6}
+.ltbl tbody tr.todo:hover .c-id,.ltbl tbody tr.todo:hover .c-main,.ltbl tbody tr.todo:hover td{background:#fff8e9}
+.ltbl .idlink{font-family:var(--font-mono,ui-monospace,monospace);font-size:13px;font-weight:700;color:var(--brand);font-variant-numeric:tabular-nums;cursor:pointer}
+.ltbl .who{display:flex;align-items:center;gap:10px;min-width:0}
+.ltbl .who .nm{font-size:14px;font-weight:600;color:var(--ink);overflow:hidden;text-overflow:ellipsis}
+.ltbl .subc{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--body)}
+.ltbl .vt b{font-size:14px;font-weight:700;color:var(--ink)} .ltbl .vt span{display:block;font-size:11.5px;color:var(--faint);margin-top:1px}
+.ltbl .dt{font-size:13px;color:var(--body);font-variant-numeric:tabular-nums}
+.ltbl .ago{min-width:112px}
+.ltbl .ago .at{font-size:13px;font-weight:700;font-variant-numeric:tabular-nums}
+.ltbl .ago .ab{height:6px;border-radius:99px;background:var(--line-2);overflow:hidden;margin-top:6px}
+.ltbl .ago .ab>span{display:block;height:100%;border-radius:99px}
+.ltbl .done{font-size:12.5px;color:var(--muted);font-weight:600}
+.ltbl .none{color:var(--slate-300)}
+.ltbl .waitchip{display:inline-flex;align-items:center;gap:5px;font-size:12px;font-weight:600;color:#c87f06;background:var(--amber-50);border-radius:999px;padding:3px 10px}
+.ltbl .waitchip::before{content:"";width:6px;height:6px;border-radius:99px;background:#f59e0b}
+
+/* ── 客户看板(销售渠道)──────────────────────────────────────────── */
+.board{display:flex;gap:16px;overflow-x:auto;padding:2px 2px 10px;align-items:flex-start}
+.col{flex:0 0 296px;border-radius:var(--r-lg);padding:12px 12px 16px;display:flex;flex-direction:column;gap:10px}
+.col-hd{display:flex;align-items:center;gap:8px;font-size:13.5px;font-weight:700;color:var(--ink);padding:4px 4px 2px}
+.col-hd .cdot{width:9px;height:9px;border-radius:99px;flex:none}
+.col-hd .cct{margin-left:auto;color:var(--faint);font-weight:700;font-size:12.5px;background:var(--surface);border-radius:999px;padding:1px 9px}
+.kcard{background:var(--surface);border-radius:15px;box-shadow:var(--sh-sm);padding:14px;cursor:pointer;
+  transition:box-shadow .15s,transform .12s;border:1px solid var(--line)}
+.kcard:hover{box-shadow:var(--sh);transform:translateY(-1px)}
+.kcard .kh{display:flex;align-items:center;gap:10px;min-width:0}
+.kcard .kn{font-size:14.5px;font-weight:600;color:var(--ink);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ktag{display:inline-block;font-size:12px;font-weight:600;color:var(--brand);background:var(--brand-50);border-radius:8px;padding:3px 9px;margin-top:11px}
+.kcard .ksub{font-size:12.5px;color:var(--muted);margin-top:9px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.kcard .kf{display:flex;align-items:center;gap:7px;margin-top:11px;padding-top:11px;border-top:1px solid var(--line)}
+.kcard .ksrc{font-size:11.5px;color:var(--faint)}
+.kcard .kowe{margin-left:auto;font-size:12px;font-weight:700;color:var(--rose)}
+.kcard .kpaid{margin-left:auto;font-size:11.5px;font-weight:600;color:var(--emerald)}
+.toolbar-icons{display:flex;gap:8px;align-items:center}
+.mtag{font-size:10.5px;font-weight:700;color:var(--muted);background:var(--surface-2);border:1px solid var(--line-2);border-radius:999px;padding:1px 7px}
+.phase-tag{display:inline-flex;align-items:center;gap:3px;font-size:11px;font-weight:700;color:#7c4ddb;background:var(--violet-50);border-radius:999px;padding:2px 9px;cursor:pointer}
+.phase-tag.static{cursor:default}
+/* 案件详情:下划线 tab */
+.utabs{display:flex;gap:4px;border-bottom:1px solid var(--line-2);margin-bottom:22px}
+.utab{padding:11px 16px;font-size:14.5px;font-weight:600;color:var(--muted);cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-1px;transition:color .15s}
+.utab:hover{color:var(--body)}
+.utab.on{color:var(--brand);border-bottom-color:var(--brand)}
+/* 水平阶段步进 */
+.hstep{display:flex;align-items:flex-start;margin-top:14px}
+.hstep .hnode{display:flex;flex-direction:column;align-items:center;gap:9px;flex:none;width:84px}
+.hstep .hdot{width:18px;height:18px;border-radius:99px;border:3px solid var(--surface);box-shadow:0 0 0 2px var(--line-2);background:var(--line-2)}
+.hstep .hdot.on{background:var(--brand);box-shadow:0 0 0 2px var(--brand)}
+.hstep .hdot.cur{background:var(--brand);box-shadow:0 0 0 4px var(--brand-50),0 0 0 5px var(--brand)}
+.hstep .hseg{flex:1;height:2px;background:var(--line-2);margin-top:8px}
+.hstep .hseg.on{background:var(--brand)}
+.hstep .hnl{font-size:12.5px;font-weight:600;color:var(--muted);text-align:center}
+.hstep .hnl.on{color:var(--brand)}
+/* 文件拖放区 */
+.dropz{border:2px dashed var(--line-2);border-radius:16px;padding:30px;text-align:center;background:var(--surface-2)}
+/* 财务统计卡(彩色圆标)*/
+.fstat{display:flex;align-items:center;gap:14px;background:var(--surface);border:1px solid var(--line);border-radius:18px;padding:16px 18px;box-shadow:var(--sh-sm)}
+.fstat .fic{width:48px;height:48px;border-radius:999px;display:flex;align-items:center;justify-content:center;color:#fff;flex:none}
+.fstat .fl{font-size:13px;color:var(--muted)}
+.fstat .fv{font-size:22px;font-weight:700;letter-spacing:-.01em;margin-top:3px;font-variant-numeric:tabular-nums}
+/* 分期圆点 */
+.dots{display:inline-flex;gap:5px;align-items:center}
+.dots i{width:10px;height:10px;border-radius:99px;background:var(--line-2)}
+.dots i.on{background:var(--emerald)}
+/* 财务工具条 */
+.fbar{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.fsel{display:inline-flex;align-items:center;gap:8px;height:44px;padding:0 14px;border:1px solid var(--line-2);border-radius:12px;background:var(--surface);font-size:14px;font-weight:500;color:var(--ink);cursor:pointer}
+.fpage{display:flex;align-items:center;gap:6px}
+.fpage .pg{min-width:30px;height:30px;border-radius:8px;border:1px solid var(--line-2);background:var(--surface);font-size:13px;font-weight:600;color:var(--muted);display:flex;align-items:center;justify-content:center;cursor:pointer}
+.fpage .pg.on{background:var(--brand);color:#fff;border-color:var(--brand)}
+
+/* ── 表单 ───────────────────────────────────────────────────────────── */
+.form{display:flex;flex-direction:column;gap:22px}
+.field{display:flex;flex-direction:column;gap:8px}
+.flabel{font-size:13.5px;font-weight:600;color:var(--body)}
+.flabel .req{color:var(--rose);margin-left:3px}
+.fhint{font-size:12px;color:var(--faint)}
+.finput,.fselect,.ftext{width:100%;height:48px;border:1px solid var(--line-2);background:var(--surface);border-radius:14px;
+  padding:0 14px;font:inherit;font-size:15px;color:var(--ink);outline:none;transition:border .15s,box-shadow .15s}
+.ftext{height:auto;padding:13px 14px;line-height:1.5;resize:vertical;min-height:104px}
+.finput::placeholder,.ftext::placeholder{color:var(--faint)}
+.finput:focus,.fselect:focus,.ftext:focus{border-color:var(--brand);box-shadow:0 0 0 3px var(--brand-100)}
+.fselect{appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='20' height='20' fill='none' stroke='%239aa4b8' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m5 8 5 5 5-5'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 13px center;padding-right:40px;cursor:pointer}
+.frow{display:flex;gap:10px;align-items:flex-start}
+.frow .field{flex:1}
+.fgrid2{display:grid;grid-template-columns:1fr 1fr;gap:18px}
+.fset{border:1px solid var(--line-2);border-radius:var(--r-lg);padding:18px;background:var(--surface-2)}
+.fset .legend{font-size:13px;font-weight:700;color:var(--ink);margin-bottom:12px}
+.fcheck{display:flex;align-items:center;gap:10px;cursor:pointer;font-size:14px;color:var(--body);user-select:none}
+.fbox{width:20px;height:20px;border-radius:6px;border:2px solid var(--slate-300);display:flex;align-items:center;justify-content:center;color:#fff;transition:all .15s;flex:none}
+.fbox.on{background:var(--brand);border-color:var(--brand)}
+.fform-foot{display:flex;justify-content:flex-end;gap:12px;padding-top:6px}
+.btn[disabled]{background:var(--brand-100);color:#fff;box-shadow:none;cursor:not-allowed}
+.opt-dot{display:inline-block}
+@media(max-width:640px){ .fgrid2{grid-template-columns:1fr} }
