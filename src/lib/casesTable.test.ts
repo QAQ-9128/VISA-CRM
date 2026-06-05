@@ -156,6 +156,48 @@ describe('selectCaseRows', () => {
     expect(rows[0].nomDaysSince).toBe(9)
   })
 
+  it('获批标记：下签案件 nomApproved+visaGranted 全真；距今数值与改前一致（计算不动）', () => {
+    const cases = [mkCase({ id: 'c1', customer_id: 'cu1', current_stage: 'granted', sync_tracking: true })]
+    const history = [
+      lodgedH('c1', 'nomination', '2026-01-01'),
+      lodgedH('c1', 'visa', '2026-01-01'),
+      mkHistory({ case_id: 'c1', to_stage: 'granted', effective_at: '2026-01-10T00:00:00Z' }),
+    ]
+    const r = selectCaseRows(cases, [], [], [mkCustomer({ id: 'cu1', full_name: '李' })], TODAY, history)[0]
+    expect(r.nomApproved).toBe(true)
+    expect(r.visaGranted).toBe(true)
+    expect(r.nomDaysSince).toBe(9) // 计算口径不变（冻结到决定日）
+  })
+
+  it('获批标记：仅提名获批 → nomApproved true / visaGranted false；递交中 → 双 false', () => {
+    const cu = [mkCustomer({ id: 'cu1', full_name: '李' })]
+    const approved = selectCaseRows(
+      [mkCase({ id: 'c1', customer_id: 'cu1', current_stage: 'nomination_approved' })],
+      [], [], cu, TODAY,
+      [lodgedH('c1', 'nomination', '2026-01-01')],
+    )[0]
+    expect(approved.nomApproved).toBe(true)
+    expect(approved.visaGranted).toBe(false)
+    const pending = selectCaseRows(
+      [mkCase({ id: 'c1', customer_id: 'cu1', current_stage: 'nomination_lodged' })],
+      [], [], cu, TODAY,
+      [lodgedH('c1', 'nomination', '2026-01-01')],
+    )[0]
+    expect(pending.nomApproved).toBe(false)
+    expect(pending.visaGranted).toBe(false)
+  })
+
+  it('获批标记：纯签证案件（从无提名）下签 → visaGranted true 但 nomApproved false（无提名不冒充获批）', () => {
+    const r = selectCaseRows(
+      [mkCase({ id: 'c1', customer_id: 'cu1', current_stage: 'granted', visa_subclass: '600' })],
+      [], [], [mkCustomer({ id: 'cu1', full_name: '李' })], TODAY,
+      [lodgedH('c1', 'visa', '2026-01-01'), mkHistory({ case_id: 'c1', to_stage: 'granted', effective_at: '2026-02-01T00:00:00Z' })],
+    )[0]
+    expect(r.visaGranted).toBe(true)
+    expect(r.nomApproved).toBe(false)
+    expect(r.nomDaysSince).toBeNull()
+  })
+
   it('未决：距今 = 递交日 → 今天（继续增长）', () => {
     const cases = [mkCase({ id: 'c1', customer_id: 'cu1', current_stage: 'visa_lodged', sync_tracking: true })]
     const history = [lodgedH('c1', 'visa', '2026-01-01')]

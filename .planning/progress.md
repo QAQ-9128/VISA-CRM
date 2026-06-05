@@ -1,5 +1,11 @@
 # Progress Log
 
+## Session 2026-06-05 · 案件进度获批显示 + 距今统一绿
+- [x] RED→GREEN：lib/approval（提名获批/签证获批判定，绑定阶段枚举）+ CaseRow.nomApproved/visaGranted + WaitCell/MilestoneCard 获批标签
+- [x] 距今/已过时间统一 emerald-700(#357a52)，删 amber/rose/灰分级；「—」用 text-faint
+- [x] 纯签证案件下签不冒充「提名获批」（提名证据门控：有提名递交日或历史出现提名获批）
+- [x] 83 文件 723 测试全绿；tsc/lint 干净；build 505ms
+
 ## Session 2026-06-05 · 概览重做（精简 5 块）
 - [x] RED：stageColors 六色断言 + countOwingCustomers + DashboardPage.test.tsx 11 测试（14 失败确认）
 - [x] GREEN：domain 六阶段色 / dashboardView.countOwingCustomers / Donut(mockup 几何) / Avatar radius / ChecklistCard 重排(notice 插槽) / DashboardPage 重写 5 块

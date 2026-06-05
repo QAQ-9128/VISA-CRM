@@ -13,8 +13,8 @@ import { useArchiveCase, useCaseStageHistory, useDeleteCase } from '../../../hoo
 import { caseGroupCode, caseParticipantIds } from '../../../lib/caseGroups'
 import { useLodgements } from '../../../hooks/queries/useLodgements'
 import { getLodgementLodgedDate } from '../../../lib/lodgementStatus'
-import { computeLodgementProgress } from '../../../lib/lodgementProgress'
-import { formatElapsed } from '../../../lib/casesTable'
+import { isNominationApproved, isVisaGranted } from '../../../lib/approval'
+import { MilestoneCard } from './MilestoneCard'
 import { shouldShowTrtReminder, monthsSinceGrant } from '../../../lib/trt'
 import { formatVisaType } from '../../../lib/visa'
 import type { Case, Customer } from '../../../types/models'
@@ -26,35 +26,6 @@ function InfoRow({ label, children, valueClass }: { label: string; children?: Re
     <div className="flex items-center justify-between gap-3 border-b border-line py-2.5 last:border-0">
       <span className="shrink-0 text-[12.5px] font-semibold text-muted">{label}</span>
       <span className={`min-w-0 truncate text-right text-[14px] font-semibold ${valueClass ?? 'text-ink'}`}>{children || '—'}</span>
-    </div>
-  )
-}
-
-/** 里程碑卡：提名/签证递交日期 + 已过 + 剩余天数（真实派生，无日期留空）。 */
-function MilestoneCard({
-  title,
-  date,
-  dhaDays,
-}: {
-  title: string
-  date: string | null
-  dhaDays: number | null
-}) {
-  const progress = computeLodgementProgress(date, dhaDays)
-  return (
-    <div className="rounded-[14px] border border-line-2 bg-surface-2/50 p-3">
-      <div className="text-[12.5px] font-bold text-muted">{title}</div>
-      <div className="mt-1 text-[16px] font-bold tabular-nums text-ink">{date ?? '—'}</div>
-      {date && (
-        <div className="mt-1 space-y-0.5 text-[12px] font-medium">
-          <div className="text-faint">已过 {formatElapsed(date)}</div>
-          {progress && (
-            <div className={progress.isOverdue ? 'font-semibold text-rose-600' : 'text-emerald-600'}>
-              {progress.isOverdue ? `已超期 ${Math.abs(progress.daysRemaining)} 天` : `剩 ${progress.daysRemaining} 天`}
-            </div>
-          )}
-        </div>
-      )}
     </div>
   )
 }
@@ -256,8 +227,18 @@ export function RelatedCasesCard({
                   )}
                 </div>
                 <div className="grid grid-cols-2 gap-3">
-                  <MilestoneCard title="提名递交" date={nomDate} dhaDays={dhaOf('nomination')} />
-                  <MilestoneCard title="签证递交" date={visaDate} dhaDays={dhaOf('visa')} />
+                  <MilestoneCard
+                    title="提名递交"
+                    date={nomDate}
+                    dhaDays={dhaOf('nomination')}
+                    approvedLabel={isNominationApproved(selectedCase.current_stage, hist) ? '提名获批' : null}
+                  />
+                  <MilestoneCard
+                    title="签证递交"
+                    date={visaDate}
+                    dhaDays={dhaOf('visa')}
+                    approvedLabel={isVisaGranted(selectedCase.current_stage) ? '签证获批' : null}
+                  />
                 </div>
               </div>
 

@@ -4,7 +4,6 @@ import { Link, useNavigate } from 'react-router-dom'
 import { useBackSource } from '../../hooks/useBackSource'
 import { clusterRowsByGroup, groupPositions, sortCaseRows } from '../../lib/casesTable'
 import type { CaseRow, CaseSortKey } from '../../lib/casesTable'
-import { computeWaitBar } from '../../lib/waitBar'
 import { selectCaseTodoPreviews } from '../../lib/tasks'
 import { StageBadge } from './StageBadge'
 import { Avatar } from '../ui/Avatar'
@@ -14,13 +13,6 @@ import type { RecordRow } from '../../types/models'
 
 const fmtElapsed = (e: { months: number; days: number }) =>
   e.months <= 0 ? `${e.days} 天` : `${e.months} 个月 ${e.days} 天`
-
-/** 距今文字色调（绿<3月 / 琥珀3–6月 / 红≥6月）；不再画进度条，只显示时间。 */
-const WAIT_TEXT: Record<ReturnType<typeof computeWaitBar>['tone'], string> = {
-  ok: 'text-emerald-500',
-  soon: 'text-amber-500',
-  over: 'text-rose-500',
-}
 
 const truncate = (s: string, n = 30) => (s.length > n ? s.slice(0, n) + '…' : s)
 /** 参与人显示最长 5 个字，超出截断（title 提示全名）。 */
@@ -111,21 +103,21 @@ export function LodgementProgressTable({ rows, tasks }: { rows: CaseRow[]; tasks
   )
 }
 
-/** 「距今」单元格：只显示时长文字（不画进度条）；终态(下签/拒签)灰字；未递交占位 —。 */
+/**
+ * 「距今」单元格：获批 → 绿色获批标签（待审时长已无意义）；未获批 → 时长文字统一绿（#357a52）；
+ * 未递交 → 中性灰「—」。不再按时长分级橙/红，终态(拒签)冻结值也为绿。
+ */
 function WaitCell({
-  daysSince,
   elapsed,
-  frozen,
+  approvedLabel,
 }: {
-  daysSince: number | null
   elapsed: { months: number; days: number } | null
-  frozen: boolean
+  /** 已获批时的替代标签（「提名获批」/「签证获批」）；未获批传 null */
+  approvedLabel: string | null
 }) {
-  if (daysSince == null || !elapsed) return <span className="text-slate-300">—</span>
-  const label = fmtElapsed(elapsed)
-  if (frozen) return <span className="text-[13px] font-semibold text-faint">{label}</span>
-  const { tone } = computeWaitBar(daysSince)
-  return <span className={`text-[13.5px] font-bold tabular-nums ${WAIT_TEXT[tone]}`}>{label}</span>
+  if (approvedLabel) return <span className="text-[13px] font-bold text-emerald-700">{approvedLabel}</span>
+  if (!elapsed) return <span className="text-faint">—</span>
+  return <span className="text-[13.5px] font-bold tabular-nums text-emerald-700">{fmtElapsed(elapsed)}</span>
 }
 
 /** 组小节头行：浅底细行 = 组码 chip + 件数；一案一组（同参与人集合的案件共用一个组头）。 */
@@ -245,7 +237,7 @@ function CaseRowView({ row, tasks }: { row: CaseRow; tasks: RecordRow[] }) {
         )}
       </td>
       <td className={`${td} ${nomBg}`}>
-        {todo ? null : <WaitCell daysSince={row.nomDaysSince} elapsed={row.nomElapsed} frozen={row.frozen} />}
+        {todo ? null : <WaitCell elapsed={row.nomElapsed} approvedLabel={row.nomApproved ? '提名获批' : null} />}
       </td>
 
       {/* 签证组（浅紫） */}
@@ -253,7 +245,7 @@ function CaseRowView({ row, tasks }: { row: CaseRow; tasks: RecordRow[] }) {
         {row.visaLodgedDate || <span className="text-slate-300">—</span>}
       </td>
       <td className={`${td} ${visaBg}`}>
-        <WaitCell daysSince={row.visaDaysSince} elapsed={row.visaElapsed} frozen={row.frozen} />
+        <WaitCell elapsed={row.visaElapsed} approvedLabel={row.visaGranted ? '签证获批' : null} />
       </td>
 
       {/* 待办 */}

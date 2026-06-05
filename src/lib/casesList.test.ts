@@ -35,6 +35,8 @@ function caseRow(over: Partial<CaseRow> & Pick<CaseRow, 'caseId'>): CaseRow {
     visaDaysSince: null,
     visaElapsed: null,
     frozen: false,
+    nomApproved: false,
+    visaGranted: false,
     nomDhaDays: 120,
     visaDhaDays: null,
     updatedAt: '2025-05-01',

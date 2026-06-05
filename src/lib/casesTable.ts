@@ -1,6 +1,7 @@
 import { utcDayDiff } from './dateDiff'
 import { formatVisaType } from './visa'
 import { getLodgementLodgedDate } from './lodgementStatus'
+import { isNominationApproved, isVisaGranted } from './approval'
 import { caseGroupCode } from './caseGroups'
 import { CASE_STAGES } from '../types/domain'
 import type { CaseStage } from '../types/domain'
@@ -154,8 +155,12 @@ export interface CaseRow {
   /** 签证递交至今（未递交签证为 null） */
   visaDaysSince: number | null
   visaElapsed: { months: number; days: number } | null
-  /** 案件是否已决（下签/拒签）→ 等待天数已冻结，显示灰色 */
+  /** 案件是否已决（下签/拒签）→ 等待天数已冻结 */
   frozen: boolean
+  /** 提名已获批（且本案确有提名）→ 距今列显示绿色「提名获批」替代时长 */
+  nomApproved: boolean
+  /** 签证已获批（下签）→ 距今列显示绿色「签证获批」替代时长 */
+  visaGranted: boolean
   /** 提名 / 签证各自的 DHA 处理天数（用于「超期」红色提示），无则 null */
   nomDhaDays: number | null
   visaDhaDays: number | null
@@ -255,6 +260,12 @@ export function selectCaseRows(
       visaDaysSince,
       visaElapsed,
       frozen: isTerminal(c.current_stage),
+      // 获批标记（纯展示）：提名获批需「本案确有提名」证据（有提名递交日或历史出现提名获批），
+      // 防止纯签证案件（如 600）下签后提名列冒充「提名获批」
+      nomApproved:
+        (nom != null || caseHist.some((h) => h.to_stage === 'nomination_approved')) &&
+        isNominationApproved(c.current_stage, caseHist),
+      visaGranted: isVisaGranted(c.current_stage),
       nomDhaDays: nomL?.dha_processing_days ?? null,
       visaDhaDays: visaL?.dha_processing_days ?? null,
       updatedAt: c.updated_at,
