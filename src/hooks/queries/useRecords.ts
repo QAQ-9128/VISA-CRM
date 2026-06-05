@@ -3,7 +3,6 @@ import {
   createRecord,
   deleteRecord,
   getOpenRecords,
-  getOpenTaskRecords,
   listRecordsByCase,
   listRecordsByCustomer,
   updateRecord,
@@ -28,11 +27,6 @@ export function useRecordsByCase(caseId: string | undefined) {
   })
 }
 
-/** 全部未完成待办记录（概览用）。 */
-export function useOpenTaskRecords() {
-  return useQuery({ queryKey: queryKeys.records.openTasks, queryFn: getOpenTaskRecords })
-}
-
 /** 全部未完成记录（待办 + 跟进，不限类型）——递交进度表「待办」列用。 */
 export function useOpenRecords() {
   return useQuery({ queryKey: queryKeys.records.open, queryFn: getOpenRecords })
@@ -50,9 +44,11 @@ export function useCreateRecord() {
         assigned_to: input.type === 'task' ? input.assigned_to ?? user?.id ?? null : input.assigned_to ?? null,
       }),
     onSuccess: () => qc.invalidateQueries({ queryKey: queryKeys.records.all }),
+    meta: { success: '已添加', errorPrefix: '添加失败' },
   })
 }
 
+// useUpdateRecord 兼作「勾选完成」高频操作 → 成功保持安静，失败仍有全局红 toast
 export function useUpdateRecord() {
   const qc = useQueryClient()
   return useMutation({
@@ -66,5 +62,6 @@ export function useDeleteRecord() {
   return useMutation({
     mutationFn: (id: string) => deleteRecord(id),
     onSuccess: () => qc.invalidateQueries({ queryKey: queryKeys.records.all }),
+    meta: { success: '已删除', errorPrefix: '删除失败' },
   })
 }

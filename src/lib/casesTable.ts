@@ -101,24 +101,6 @@ export function calculateWaitDays(
   return { lodged: true, frozen, totalDays, months, days, label: formatWaitDays(totalDays) }
 }
 
-/** 案件客户 + 同家庭组成员，案件客户在前，其余主申优先再按名字，"&" 连接。 */
-export function joinFamilyNames(customer: Customer, customers: Customer[]): string {
-  const primaryId = customer.primary_applicant_id ?? customer.id
-  const others = customers
-    .filter(
-      (c) =>
-        c.id !== customer.id &&
-        !c.is_archived &&
-        (c.id === primaryId || c.primary_applicant_id === primaryId),
-    )
-    .sort((a, b) => {
-      const ap = a.primary_applicant_id ? 1 : 0
-      const bp = b.primary_applicant_id ? 1 : 0
-      return ap - bp || a.full_name.localeCompare(b.full_name)
-    })
-  return [customer.full_name, ...others.map((c) => c.full_name)].join(' & ')
-}
-
 export type CaseRowRole = 'merged' | 'primary' | 'secondary'
 
 export interface CaseRow {
@@ -234,12 +216,20 @@ export function selectCaseRows(
     const nomElapsed = nomDaysSince != null ? splitWaitDays(nomDaysSince) : null
     const visaDaysSince = visa ? utcDayDiff(visa, endRef) : null
     const visaElapsed = visaDaysSince != null ? splitWaitDays(visaDaysSince) : null
-    const primaryName = customerById[c.customer_id]?.full_name ?? ''
     const subIds = subsByCase.get(c.id) ?? []
-    // 只保留能解析出名字的副申（与 subNames 顺序对应）
-    const namedSubs = subIds
-      .map((id) => ({ id, name: customerById[id]?.full_name ?? '' }))
-      .filter((s) => s.name !== '')
+    // 在册参与人重排（customerById 来自未归档客户）：案件客户在册则居首；
+    // 案件客户归档 → 首位在册参与人顶上（显示与链接都切到没被归档的人），归档者不再显示
+    const activeParticipants = [
+      ...(customerById[c.customer_id]
+        ? [{ id: c.customer_id, name: customerById[c.customer_id]?.full_name ?? '' }]
+        : []),
+      ...subIds
+        .map((id) => ({ id, name: customerById[id]?.full_name ?? '' }))
+        .filter((s) => s.name !== ''),
+    ]
+    const primary = activeParticipants[0] ?? null
+    const primaryName = primary?.name ?? ''
+    const namedSubs = activeParticipants.slice(1)
     const subNames = namedSubs.map((s) => s.name)
     const visaText = formatVisaType(c.visa_subclass, c.visa_stream) // 含子类别，如 482/Core Skills
 
@@ -271,13 +261,14 @@ export function selectCaseRows(
       updatedAt: c.updated_at,
     }
 
-    // 进度追踪始终同步：一案一行，主申 + 副申同列（sync_tracking 仅影响财务核算，不影响此表）
+    // 进度追踪始终同步：一案一行，参与人同列（sync_tracking 仅影响财务核算，不影响此表）
     rows.push({
       ...base,
       rowKey: c.id,
       role: 'merged',
       primaryName,
-      primaryCustomerId: c.customer_id,
+      // 链接目标 = 首位在册参与人；全员归档（仅靠案件本身可见时）退回案件客户
+      primaryCustomerId: primary?.id ?? c.customer_id,
       secondaryName: subNames.join('、'),
       secondaryCustomerIds: namedSubs.map((s) => s.id),
       visaLabel: visaText,

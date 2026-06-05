@@ -46,7 +46,7 @@ const oldLinkedCase = {
 } as unknown as Case
 
 describe('CaseForm（新增案件 · 一案一组）', () => {
-  it('有 Group 区 + 组码由参与人集合实时派生 + 案件级担保字段；无主/副申措辞', async () => {
+  it('有 Group 区（组码只读）+ 案件级担保字段；无主/副申措辞', async () => {
     renderForm()
     expect(await screen.findByText('Group（本案的组）')).toBeInTheDocument()
     // 初始 = 仅案件客户 → 单人组码（新建未保存以 '' 占位，保存后按案件 id 定）
@@ -59,48 +59,58 @@ describe('CaseForm（新增案件 · 一案一组）', () => {
     expect(screen.queryByText(/副申/)).not.toBeInTheDocument()
   })
 
-  it('「本案参与人」区：标题改名、无「账单成员/费用按客户拆分」、无平铺 checkbox；owner 固定首位不可移出', async () => {
+  it('新建模式：「本案参与人」区可编辑——下拉添加、可移出、组码实时更新', async () => {
     renderForm()
     await screen.findByText('Group（本案的组）')
     expect(screen.getByText('本案参与人')).toBeInTheDocument()
-    expect(screen.getByText('选择本案参与人')).toBeInTheDocument()
-    expect(screen.queryByText(/账单成员/)).not.toBeInTheDocument()
-    expect(screen.queryByText(/费用按客户拆分/)).not.toBeInTheDocument()
-    // 平铺全客户 checkbox 列表已删（默认无 482 → 表单无任何 checkbox）
-    expect(screen.queryAllByRole('checkbox')).toHaveLength(0)
-    // owner 固定首位：标「案件客户 · 整案主进度」，无「移出」按钮
     expect(screen.getByText('案件客户 · 整案主进度')).toBeInTheDocument()
-    expect(screen.queryByRole('button', { name: '移出' })).not.toBeInTheDocument()
-    // 浅灰账目提示
-    expect(screen.getByText('账目自动按参与人分开计算并汇总')).toBeInTheDocument()
-  })
-
-  it('下拉添加参与人：列全部客户（排除 owner/已添加）、可筛选；选中进列表、可移出；组码实时更新', async () => {
-    renderForm()
-    await screen.findByText('Group（本案的组）')
     fireEvent.click(screen.getByRole('button', { name: '+ 添加本案参与人' }))
 
-    // 候选不限"本组"：列出全部在册客户（排除 owner 甲）
+    // 候选列出全部在册客户（排除 owner 甲），带关系备注
     const option = screen.getByRole('option', { name: /乙/ })
-    expect(option).toHaveTextContent('配偶') // 关系备注带上
-    expect(screen.queryByRole('option', { name: /甲/ })).not.toBeInTheDocument() // owner 不在候选
+    expect(option).toHaveTextContent('配偶')
+    expect(screen.queryByRole('option', { name: /甲/ })).not.toBeInTheDocument()
 
-    // 筛选
-    fireEvent.change(screen.getByLabelText('筛选本案参与人'), { target: { value: '不存在' } })
-    expect(screen.getByText('没有匹配的客户')).toBeInTheDocument()
-    fireEvent.change(screen.getByLabelText('筛选本案参与人'), { target: { value: '乙' } })
-
-    // 选中 → 进已选列表（chip 行 + 移出），并从候选消失；组码切双人码
-    fireEvent.click(screen.getByRole('option', { name: /乙/ }))
+    // 选中 → chip 行 + 移出；组码切双人码
+    fireEvent.click(option)
     expect(screen.getByRole('button', { name: '移出' })).toBeInTheDocument()
-    expect(screen.queryByRole('option', { name: /乙/ })).not.toBeInTheDocument()
     expect(screen.getByText(caseGroupCode(['P', 'S'], ''))).toBeInTheDocument()
     expect(screen.getByText(/共 2 人/)).toBeInTheDocument()
 
     // 移出 → 回到单人组
     fireEvent.click(screen.getByRole('button', { name: '移出' }))
-    expect(screen.queryByRole('button', { name: '移出' })).not.toBeInTheDocument()
     expect(screen.getByText(caseGroupCode(['P'], ''))).toBeInTheDocument()
+  })
+
+  it('编辑模式：「本案参与人」编辑区隐藏（增删在客户页相关案件卡）；组码按现有集合只读展示', async () => {
+    const onSubmit = vi.fn()
+    const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+    qc.setQueryData(queryKeys.customers.list({}), [P, S])
+    qc.setQueryData(queryKeys.employers.list, [])
+    render(
+      <QueryClientProvider client={qc}>
+        <AuthContext.Provider value={authValue}>
+          <MemoryRouter>
+            <CaseForm
+              customerId="P"
+              customerLabel="甲"
+              initial={oldLinkedCase}
+              initialApplicantIds={['S']}
+              onSubmit={onSubmit}
+              onCancel={() => {}}
+            />
+          </MemoryRouter>
+        </AuthContext.Provider>
+      </QueryClientProvider>,
+    )
+    await screen.findByText('Group（本案的组）')
+    expect(screen.queryByText('本案参与人')).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: '+ 添加本案参与人' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: '移出' })).not.toBeInTheDocument()
+    expect(screen.getByText(/参与人在客户页「相关案件」卡里增删/)).toBeInTheDocument()
+    // 组码按现有参与人集合（P+S）只读展示
+    expect(screen.getByText(caseGroupCode(['P', 'S'], 'caOld'))).toBeInTheDocument()
+    expect(screen.getByText(/共 2 人/)).toBeInTheDocument()
   })
 
   it('「与其他案件的关系」整块已删：无任何相关文案（案件自包含，案与案无关系）', async () => {
@@ -122,6 +132,27 @@ describe('CaseForm（新增案件 · 一案一组）', () => {
     const values = onSubmit.mock.calls[0][0]
     expect('parent_case_id' in values).toBe(false)
     expect('parent_sync_progress' in values).toBe(false)
+  })
+
+  it('「保存并记账」（重录快捷路径）：next=fees；未选签证类别时禁用', async () => {
+    const { onSubmit } = renderForm()
+    await screen.findByText('Group（本案的组）')
+    const btn = screen.getByRole('button', { name: '保存并记账' })
+    expect(btn).toBeDisabled()
+    fireEvent.change(screen.getByLabelText('签证类别'), { target: { value: '482' } })
+    expect(btn).not.toBeDisabled()
+    fireEvent.click(btn)
+    expect(onSubmit).toHaveBeenCalledTimes(1)
+    expect(onSubmit.mock.calls[0][2]).toBe('fees')
+  })
+
+  it('普通「保存」：next=detail，applicantIds 随表单勾选', async () => {
+    const { onSubmit } = renderForm()
+    await screen.findByText('Group（本案的组）')
+    fireEvent.change(screen.getByLabelText('签证类别'), { target: { value: '482' } })
+    fireEvent.click(screen.getByRole('button', { name: '保存' }))
+    expect(onSubmit.mock.calls[0][1]).toEqual([]) // 未勾选参与人
+    expect(onSubmit.mock.calls[0][2]).toBe('detail')
   })
 
   it('加载 parent_case_id 非空的旧案件：正常渲染、可保存；提交不写 parent 字段（旧值留库不报错）', async () => {

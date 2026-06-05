@@ -2,7 +2,9 @@ import { useMemo } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { archiveDocument, listAllDocuments } from '../../api/documents'
 import { updatePayment } from '../../api/payments'
-import { getActiveCases, getActiveCustomers, getAllPayments } from '../../api/dashboard'
+import { getAllPayments } from '../../api/dashboard'
+import { listCases } from '../../api/cases'
+import { listCustomers } from '../../api/customers'
 import { selectArchiveFiles } from '../../lib/archive'
 import type { ArchiveFile } from '../../lib/archive'
 import { useProfiles } from './useProfiles'
@@ -31,14 +33,15 @@ export function useArchiveFiles() {
     queryFn: getAllPayments,
     refetchOnMount: 'always',
   })
+  // 名字解析含归档（客户/案件归档后，其历史文件的「关联到」仍要显示出处，不能变（未知客户））
   const cases = useQuery({
-    queryKey: queryKeys.dashboard.activeCases,
-    queryFn: getActiveCases,
+    queryKey: [...queryKeys.cases.list, { includeArchived: true }],
+    queryFn: () => listCases({ includeArchived: true }),
     refetchOnMount: 'always',
   })
   const customers = useQuery({
-    queryKey: queryKeys.dashboard.activeCustomers,
-    queryFn: getActiveCustomers,
+    queryKey: queryKeys.customers.list({ includeArchived: true }),
+    queryFn: () => listCustomers({ includeArchived: true }),
     refetchOnMount: 'always',
   })
   const profiles = useProfiles()
@@ -61,7 +64,14 @@ export function useArchiveFiles() {
     [documents.data, payments.data, caseById, customerById, profileById],
   )
 
-  return { isPending, isError, files, customers: customers.data ?? [] }
+  // 客户筛选下拉只列在册客户：归档客户的文件已从列表隐藏（selectArchiveFiles），
+  // 下拉再列出来既无意义又把归档物泄漏到回收站之外。
+  const activeCustomers = useMemo(
+    () => (customers.data ?? []).filter((c) => !c.is_archived),
+    [customers.data],
+  )
+
+  return { isPending, isError, files, customers: activeCustomers }
 }
 
 /**
@@ -86,5 +96,6 @@ export function useDeleteArchiveFile() {
       // 删的文件可能带到期日 → 概览「即将到期」同步（dashboard 命名空间，documents 前缀盖不到）
       qc.invalidateQueries({ queryKey: queryKeys.dashboard.expiringDocs })
     },
+    meta: { success: '已删除', errorPrefix: '删除失败' },
   })
 }

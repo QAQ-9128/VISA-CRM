@@ -1,5 +1,6 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import { render, screen, fireEvent, within } from '@testing-library/react'
+import { todayYmd } from '../../lib/dateRules'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { AuthContext } from '../../providers/auth-context'
 import type { AuthContextValue } from '../../providers/auth-context'
@@ -124,6 +125,23 @@ describe('PayablePanel 每行操作 + 状态派生', () => {
     expect(screen.getByText('编辑主代理应付')).toBeInTheDocument()
     expect(screen.getByText('应付主代理总额')).toBeInTheDocument()
     expect(screen.queryByText('应付介绍人总额')).not.toBeInTheDocument()
+  })
+
+  // 机器在 UTC+ 时区：本地清晨时 toISOString() 的 UTC 日期还是「昨天」甚至上个月。
+  // 录款默认日期必须取本地日（todayYmd），否则早晨录款默认落错日/跨错月，污染月度账目。
+  it('记付款的默认日期 = 本地日历日（UTC 日期与本地不同的清晨时刻不取 UTC）', () => {
+    vi.useFakeTimers()
+    try {
+      // 该时刻 UTC=2026-06-04 22:00，东八区/澳东本地已是 2026-06-05 清晨
+      vi.setSystemTime(new Date('2026-06-04T22:00:00Z'))
+      renderPanel(plan({ company_total: 800 }), acct({ companyOwes: 800 }))
+      const row = within(screen.getByTestId('payable-to_company'))
+      fireEvent.click(row.getByText('记付款'))
+      const input = row.getByLabelText('日期') as HTMLInputElement
+      expect(input.value).toBe(todayYmd()) // 本地日，而非 toISOString 的 UTC 日
+    } finally {
+      vi.useRealTimers()
+    }
   })
 
   it('顶部不再有单独的「编辑应付」入口（操作下放到每行）', () => {

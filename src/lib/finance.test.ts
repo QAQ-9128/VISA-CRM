@@ -255,6 +255,22 @@ describe('selectFinanceReceipts', () => {
     expect(r.items.find((i) => i.paymentId === 'p2')?.feeCategory).toBeNull()
     expect(r.total).toBe(500)
   })
+
+  // 0 元行是视觉噪音（合计本就 +0）：无发票的 0 元付款不进明细；
+  // 带发票的 0 元付款保留——它承载着发票，藏掉就没法从账目查看/编辑。负数（冲红）照常保留。
+  it('金额为 0 且无发票 → 不进明细（合计/笔数不受影响）；0 元但带发票 → 保留', () => {
+    const caseById = { c1: mkCase({ id: 'c1', customer_id: 'cu1' }) }
+    const customerById = { cu1: mkCustomer({ id: 'cu1' }) }
+    const payments = [
+      mkPayment({ id: 'real', case_id: 'c1', direction: 'from_client', amount: 300, paid_at: '2026-06-02' }),
+      mkPayment({ id: 'zero', case_id: 'c1', direction: 'from_client', amount: 0, paid_at: '2026-06-01' }), // 隐藏
+      mkPayment({ id: 'zeroInv', case_id: 'c1', direction: 'from_client', amount: 0, paid_at: '2026-06-03', invoice_path: 'cu1/c1/x.pdf', invoice_name: 'x.pdf' }), // 保留
+      mkPayment({ id: 'neg', case_id: 'c1', direction: 'from_client', amount: -50, paid_at: '2026-06-04' }), // 冲红保留
+    ]
+    const r = selectFinanceReceipts(payments, caseById, customerById)
+    expect(r.items.map((i) => i.paymentId)).toEqual(['neg', 'zeroInv', 'real'])
+    expect(r.total).toBe(300)
+  })
 })
 
 describe('selectFinanceReceipts — 实际付款方(from_client_customer_id)', () => {
@@ -332,6 +348,18 @@ describe('selectFinancePayouts', () => {
       mkPayment({ id: 'p2', case_id: 'c1', direction: 'to_company', amount: 200 }),
     ]
     const r = selectFinancePayouts(payments, caseById, customerById, {})
+    expect(r.toCompanyTotal).toBe(200)
+  })
+
+  it('金额为 0 且无发票 → 不进支出明细；合计不受影响', () => {
+    const caseById = { c1: mkCase({ id: 'c1', customer_id: 'cu1' }) }
+    const customerById = { cu1: mkCustomer({ id: 'cu1' }) }
+    const payments = [
+      mkPayment({ id: 'zero', case_id: 'c1', direction: 'to_company', amount: 0 }),
+      mkPayment({ id: 'real', case_id: 'c1', direction: 'to_company', amount: 200 }),
+    ]
+    const r = selectFinancePayouts(payments, caseById, customerById, {})
+    expect(r.items.map((i) => i.paymentId)).toEqual(['real'])
     expect(r.toCompanyTotal).toBe(200)
   })
 

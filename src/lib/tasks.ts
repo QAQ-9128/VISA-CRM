@@ -55,30 +55,3 @@ export function selectCaseTodoPreviews(tasks: RecordRow[], caseId: string, limit
     .slice(0, limit)
 }
 
-/**
- * 「我的待办」：未完成、且（分配给我 或 我创建的）全部待办——不再限「有截止日且临近」，
- * 也不再仅看 assigned_to（避免新建/迁移待办因 assigned_to 没对上而被筛掉），确保概览一眼可见。
- * 排序：有截止日的在前、按截止日升序（逾期/临近自然靠前）；无截止日的排后、按创建时间倒序。
- * 传入 activeCustomerById（未归档客户表）时，归档/已删客户名下的待办会被排除。
- */
-export function selectMyOpenTasks(
-  tasks: RecordRow[],
-  userId: string | undefined,
-  activeCustomerById?: Record<string, unknown>,
-): RecordRow[] {
-  if (!userId) return []
-  return tasks
-    .filter(
-      (t) =>
-        t.type === 'task' &&
-        !t.is_done &&
-        (t.assigned_to === userId || t.created_by === userId) &&
-        (activeCustomerById == null || !t.customer_id || !!activeCustomerById[t.customer_id]),
-    )
-    .sort((a, b) => {
-      if (a.due_date && b.due_date) return a.due_date.localeCompare(b.due_date)
-      if (a.due_date) return -1
-      if (b.due_date) return 1
-      return (b.created_at ?? '').localeCompare(a.created_at ?? '')
-    })
-}

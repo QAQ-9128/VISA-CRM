@@ -24,6 +24,14 @@ describe('formatAmount（无币种，分数/比例用，对齐 receivableCells.f
   it('负数（超付等）', () => {
     expect(formatAmount(-50)).toBe('-50.00')
   })
+  it('会被四舍五入成 0 的极小负值 → 归整为 0，不显示负零 "-0.00"', () => {
+    expect(formatAmount(-0.001)).toBe('0.00')
+    expect(formatAmount(-0.0049)).toBe('0.00')
+    expect(formatAmount(-0)).toBe('0.00')
+    expect(formatMoney(-0.001)).toBe('AUD 0.00')
+    // 真实负金额不受影响
+    expect(formatMoney(-0.01)).toBe('AUD -0.01')
+  })
   it('字符串/空/非法 → 数值化，空→0', () => {
     expect(formatAmount('1200')).toBe('1,200.00')
     expect(formatAmount(null)).toBe('0.00')

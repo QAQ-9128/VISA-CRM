@@ -1,6 +1,6 @@
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { CaseForm } from '../../components/cases/CaseForm'
-import type { CaseFormValues } from '../../components/cases/CaseForm'
+import type { CaseFormNext, CaseFormValues } from '../../components/cases/CaseForm'
 import { useCase, useCreateCase, useUpdateCase } from '../../hooks/queries/useCases'
 import { useCustomer } from '../../hooks/queries/useCustomers'
 import { useCaseApplicants, useSetCaseApplicants } from '../../hooks/queries/useCaseApplicants'
@@ -20,6 +20,7 @@ export function CaseFormPage() {
   const customerId = editing ? existing.data?.customer_id : params.get('customer') ?? undefined
   const customer = useCustomer(customerId)
 
+  // 编辑模式参与人只读（组码展示用，增删在客户页「相关案件」卡）；新建模式建案后写一次参与人
   const existingApplicants = useCaseApplicants(id)
   const createM = useCreateCase()
   const updateM = useUpdateCase()
@@ -47,22 +48,26 @@ export function CaseFormPage() {
     )
   }
 
-  // 保存完成后写参与人即跳客户详情并选中该案（案件详情页已删）。
-  function finishSave(saved: Case, applicantIds: string[]) {
-    setApplicantsM.mutate(
-      { caseId: saved.id, customerIds: applicantIds },
-      {
-        // 保存后 replace：表单页不留在历史里 → 客户页再「返回」直接回到进表单前的界面
-        onSuccess: () => navigate(`/customers/${saved.customer_id}?case=${saved.id}`, { replace: true }),
-      },
-    )
+  // 保存后跳客户详情并选中该案（案件详情页已删）。next='fees' → 带 goto=fees 自动滚到费用卡。
+  // 保存后 replace：表单页不留在历史里 → 客户页再「返回」直接回到进表单前的界面。
+  function goAfterSave(saved: Case, next: CaseFormNext) {
+    const dest = `/customers/${saved.customer_id}?case=${saved.id}${next === 'fees' ? '&goto=fees' : ''}`
+    navigate(dest, { replace: true })
   }
 
-  function handleSubmit(values: CaseFormValues, applicantIds: string[]) {
+  function handleSubmit(values: CaseFormValues, applicantIds: string[], next: CaseFormNext) {
     if (editing && id) {
-      updateM.mutate({ id, patch: values }, { onSuccess: (updated) => finishSave(updated, applicantIds) })
+      // 编辑：只改案件字段，绝不写 case_applicants（参与人在客户页管理，避免覆盖式清空）
+      updateM.mutate({ id, patch: values }, { onSuccess: (updated) => goAfterSave(updated, next) })
     } else {
-      createM.mutate(values, { onSuccess: (created) => finishSave(created, applicantIds) })
+      // 新建：建案后写一次表单里选好的参与人，再跳转
+      createM.mutate(values, {
+        onSuccess: (created) =>
+          setApplicantsM.mutate(
+            { caseId: created.id, customerIds: applicantIds },
+            { onSuccess: () => goAfterSave(created, next) },
+          ),
+      })
     }
   }
 

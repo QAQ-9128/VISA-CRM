@@ -17,7 +17,7 @@ import {
   useAllPlanItems,
 } from '../../hooks/queries/usePayments'
 import { computeAccounting } from '../../lib/accounting'
-import { selectPaymentItemRows, paymentItemsCsv } from '../../lib/paymentTab'
+import { selectPaymentItemRows, sumPaymentItemRows, paymentItemsCsv } from '../../lib/paymentTab'
 import { installmentSummaryByPlan, receivableRowStatus } from '../../lib/financeRows'
 import type { FinanceStatusKind } from '../../lib/financeRows'
 import { formatMoney } from '../../lib/money'
@@ -116,9 +116,11 @@ export function PaymentTab({
   const items = (allItemsQuery.data ?? []).filter((i) => plan && i.plan_id === plan.id)
 
   const rows = selectPaymentItemRows(items, payments)
-  const totalDue = rows.reduce((s, r) => s + r.due, 0)
-  const totalPaid = rows.reduce((s, r) => s + r.paid, 0)
-  const totalUnpaid = Math.max(0, Math.round((totalDue - totalPaid) * 100) / 100)
+  // 合计复用 CSV 同款 sumPaymentItemRows（同口径，避免两套手算）
+  const totals = sumPaymentItemRows(rows)
+  const totalDue = totals.due
+  const totalPaid = totals.paid
+  const totalUnpaid = totals.unpaid
   const acct = computeAccounting(plan, payments)
   const payableOwed = Math.max(0, acct.companyOwes) + Math.max(0, acct.referrerOwes)
 

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { countOwingCustomers, displayCustomerName, pickGreetingName, showReceiptsTrend } from './dashboardView'
+import { countOwingCustomers, displayCustomerName, pickGreetingName } from './dashboardView'
 
 describe('pickGreetingName（问候语绝不外显邮箱）', () => {
   it('有真实姓名 → 返回姓名', () => {
@@ -17,23 +17,6 @@ describe('pickGreetingName（问候语绝不外显邮箱）', () => {
   it('full_name 实为邮箱（含 @）→ 视为无名，返回 null', () => {
     expect(pickGreetingName('1535759562@qq.com')).toBeNull()
     expect(pickGreetingName('  amy@example.com ')).toBeNull()
-  })
-})
-
-describe('showReceiptsTrend（0 值/无意义不显示趋势 chip）', () => {
-  const mk = (pct: number | null, dir: 'up' | 'down' | 'flat'): { pct: number | null; dir: 'up' | 'down' | 'flat' } => ({ pct, dir })
-  it('当前值 > 0 且有真实涨跌 → 显示', () => {
-    expect(showReceiptsTrend(48600, mk(8.2, 'up'))).toBe(true)
-    expect(showReceiptsTrend(100, mk(20, 'down'))).toBe(true)
-  })
-  it('当前值为 0 → 不显示（杜绝 AUD 0.00 的「↓100%」）', () => {
-    expect(showReceiptsTrend(0, mk(100, 'down'))).toBe(false)
-  })
-  it('上月为 0（pct=null）→ 不显示', () => {
-    expect(showReceiptsTrend(5000, mk(null, 'up'))).toBe(false)
-  })
-  it('持平 → 不显示', () => {
-    expect(showReceiptsTrend(5000, mk(0, 'flat'))).toBe(false)
   })
 })
 

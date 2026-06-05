@@ -1,4 +1,4 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+﻿import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import type { QueryClient } from '@tanstack/react-query'
 import {
   createInstallment,
@@ -60,6 +60,7 @@ export function useCreatePlanItem() {
   return useMutation({
     mutationFn: (input: PaymentPlanItemInsert) => createPlanItem(input),
     onSuccess: () => invalidatePlanItems(qc),
+    meta: { success: '款项已添加', errorPrefix: '添加款项失败' },
   })
 }
 
@@ -68,6 +69,7 @@ export function useUpdatePlanItem() {
   return useMutation({
     mutationFn: ({ id, patch }: { id: string; patch: PaymentPlanItemUpdate }) => updatePlanItem(id, patch),
     onSuccess: () => invalidatePlanItems(qc),
+    meta: { success: '款项已保存', errorPrefix: '保存款项失败' },
   })
 }
 
@@ -80,6 +82,7 @@ export function useDeletePlanItem() {
       await deletePlanItem(id)
     },
     onSuccess: () => invalidatePlanItems(qc),
+    meta: { success: '款项已删除', errorPrefix: '删除款项失败' },
   })
 }
 
@@ -97,6 +100,7 @@ export function useCreatePaymentPlan(caseId: string) {
   return useMutation({
     mutationFn: (input: PaymentPlanInsert) => createPaymentPlan(input),
     onSuccess: () => invalidatePlans(qc, caseId),
+    meta: { success: '应收已设置', errorPrefix: '设置应收失败' },
   })
 }
 
@@ -106,6 +110,7 @@ export function useUpdatePaymentPlan(caseId: string) {
     mutationFn: ({ id, patch }: { id: string; patch: PaymentPlanUpdate }) =>
       updatePaymentPlan(id, patch),
     onSuccess: () => invalidatePlans(qc, caseId),
+    meta: { success: '应收已更新', errorPrefix: '更新应收失败' },
   })
 }
 
@@ -133,6 +138,7 @@ export function useCreateInstallment(planId: string) {
   return useMutation({
     mutationFn: (input: InstallmentInsert) => createInstallment(input),
     onSuccess: () => invalidateInstallments(qc, planId),
+    meta: { success: '分期已添加', errorPrefix: '添加分期失败' },
   })
 }
 
@@ -142,6 +148,7 @@ export function useUpdateInstallment(planId: string) {
     mutationFn: ({ id, patch }: { id: string; patch: InstallmentUpdate }) =>
       updateInstallment(id, patch),
     onSuccess: () => invalidateInstallments(qc, planId),
+    meta: { success: '分期已保存', errorPrefix: '保存分期失败' },
   })
 }
 
@@ -150,6 +157,7 @@ export function useDeleteInstallment(planId: string) {
   return useMutation({
     mutationFn: (id: string) => deleteInstallment(id),
     onSuccess: () => invalidateInstallments(qc, planId),
+    meta: { success: '分期已删除', errorPrefix: '删除分期失败' },
   })
 }
 
@@ -168,6 +176,7 @@ export function useCreatePayment(caseId: string) {
   return useMutation({
     mutationFn: (input: PaymentInsert) => createPayment({ ...input, recorded_by: user?.id ?? null }),
     onSuccess: () => invalidatePayments(qc, caseId),
+    meta: { success: '已记账', errorPrefix: '记账失败' },
   })
 }
 
@@ -176,6 +185,7 @@ export function useUpdatePayment(caseId: string) {
   return useMutation({
     mutationFn: ({ id, patch }: { id: string; patch: PaymentUpdate }) => updatePayment(id, patch),
     onSuccess: () => invalidatePayments(qc, caseId),
+    meta: { success: '付款记录已保存', errorPrefix: '保存失败' },
   })
 }
 
@@ -184,6 +194,7 @@ export function useDeletePayment(caseId: string) {
   return useMutation({
     mutationFn: (id: string) => deletePayment(id),
     onSuccess: () => invalidatePayments(qc, caseId),
+    meta: { success: '付款记录已删除', errorPrefix: '删除失败' },
   })
 }
 
@@ -204,5 +215,6 @@ export function useSetPaymentInvoice(caseId: string) {
       return updatePayment(paymentId, { invoice_path: up.storage_path, invoice_name: up.file_name })
     },
     onSuccess: () => invalidatePayments(qc, caseId),
+    meta: { success: '发票已上传', errorPrefix: '上传发票失败' },
   })
 }

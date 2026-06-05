@@ -18,7 +18,10 @@ export async function listCustomers(opts: ListCustomersOptions = {}): Promise<Cu
 
   const term = opts.search?.trim()
   if (term) {
-    const like = `%${term}%`
+    // PostgREST 的 .or() 串里逗号/括号是语法保留字符：模式值必须双引号包裹，
+    // 内部的 \ 与 " 转义，否则搜「Smith, John」「a(b」会破坏过滤语法（结果错误或 400）。
+    const escaped = term.replace(/\\/g, '\\\\').replace(/"/g, '\\"')
+    const like = `"%${escaped}%"`
     query = query.or(`full_name.ilike.${like},phone.ilike.${like},email.ilike.${like}`)
   }
 
@@ -109,8 +112,27 @@ export async function updateCustomer(id: string, patch: CustomerUpdate): Promise
   return data
 }
 
-/** 归档 = 软删除（置 is_archived=true），不真删，保留数据与外键关系。 */
+/**
+ * 归档 = 软删除（置 is_archived=true），不真删，保留数据与外键关系。
+ * 案件连带规则（2026-06-05 用户最终拍板）：**TA 参与的所有案件一并归档**
+ * （作为案件客户 ∪ 作为参与人，不区分单人/多人；回收站里客户与案件分别可恢复）。
+ * 想保住某个案件 → 先在相关案件卡把 TA 移出参与人再归档。
+ */
 export async function archiveCustomer(id: string): Promise<void> {
+  // ① TA 参与的全部案件（作为案件客户 ∪ 作为参与人）
+  const owned = await supabase.from('cases').select('id').eq('customer_id', id).eq('is_archived', false)
+  if (owned.error) throw owned.error
+  const part = await supabase.from('case_applicants').select('case_id').eq('customer_id', id)
+  if (part.error) throw part.error
+  const caseIds = [...new Set([...(owned.data ?? []).map((c) => c.id), ...(part.data ?? []).map((a) => a.case_id)])]
+
+  // ② 一把全归档
+  if (caseIds.length > 0) {
+    const up = await supabase.from('cases').update({ is_archived: true }).in('id', caseIds)
+    if (up.error) throw up.error
+  }
+
+  // ③ 客户本体软删
   const { error } = await supabase
     .from('customers')
     .update({ is_archived: true })
@@ -119,14 +141,44 @@ export async function archiveCustomer(id: string): Promise<void> {
 }
 
 /**
- * 彻底删除（硬删，不可恢复）：真 DELETE。外键级联会连同其名下案件→递交/阶段历史/账目、
- * 文件、记录、待办等一并删除；其副申请人的 primary_applicant_id 置空。RLS 仅 admin 可执行。
+ * 彻底删除客户（硬删，不可恢复）。2026-06-05 用户定版：删人不删多人案件——
+ *  1) TA 名下（作为案件客户）的**多人案件**：过户给另一名参与人（cases.customer_id 改写，
+ *     该参与人随之移出 case_applicants——案件客户不在参与表），案件与账目完整保留；
+ *  2) TA 名下**单人案件**：只有 TA 一人 → 随客户外键级联整案删除（含递交/历史/账目）；
+ *  3) TA 参与的他人案件：case_applicants 级联删 → 自动移出参与人，案件不受影响；
+ *  4) 最后真删客户（其文件/记录级联删；payments 的 applicant/付款方引用置空）。
+ * RLS 仅 admin 可执行。
  */
 export async function deleteCustomer(id: string): Promise<void> {
-  const { error } = await supabase.from('customers').delete().eq('id', id)
+  // ① 名下案件
+  const owned = await supabase.from('cases').select('id').eq('customer_id', id)
+  if (owned.error) throw owned.error
+  for (const c of owned.data ?? []) {
+    // ② 找一名其他参与人作为新案件客户
+    const subs = await supabase
+      .from('case_applicants')
+      .select('customer_id')
+      .eq('case_id', c.id)
+      .neq('customer_id', id)
+    if (subs.error) throw subs.error
+    const heir = subs.data?.[0]?.customer_id
+    if (!heir) continue // 单人案件：留给级联随客户一起删
+    // ③ 过户 + ④ 新案件客户移出参与表
+    const up = await supabase.from('cases').update({ customer_id: heir }).eq('id', c.id)
+    if (up.error) throw up.error
+    const rm = await supabase.from('case_applicants').delete().eq('case_id', c.id).eq('customer_id', heir)
+    if (rm.error) throw rm.error
+  }
+  // ⑤ 真删客户。DELETE 被 RLS 挡掉时是「命中 0 行、不报错」——必须 select 校验行数并显式抛错，
+  //    否则上面的过户/移出参与人已写入，会留下"客户没删成但案件归属被改"的脏数据且无任何提示。
+  const { data, error } = await supabase.from('customers').delete().eq('id', id).select('id')
   if (error) throw error
+  if (!data || data.length === 0) {
+    throw new Error('删除被拒绝：未删除任何数据（彻底删除需要管理员权限）')
+  }
 }
 
+/** 取消归档（回收站恢复）。只动客户本体——案件本就未受归档影响。 */
 export async function unarchiveCustomer(id: string): Promise<void> {
   const { error } = await supabase
     .from('customers')

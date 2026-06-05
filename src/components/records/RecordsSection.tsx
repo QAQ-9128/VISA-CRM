@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+﻿import { useMemo, useState } from 'react'
 import type { FormEvent, ReactNode } from 'react'
 import {
   useCreateRecord,
@@ -18,6 +18,8 @@ import {
 } from '../../lib/records'
 import type { RecordTypeFilter } from '../../lib/records'
 import { formatDueCountdown, isTaskOverdue } from '../../lib/tasks'
+import { todayYmd, isFutureYmd, isPastYmd } from '../../lib/dateRules'
+import { toastError } from '../../store/ui'
 import { FOLLOW_UP_EMOJIS, DEFAULT_FOLLOW_UP_EMOJI } from '../../types/domain'
 import { Card, CardHead } from '../ui/Card'
 import { Button } from '../ui/Button'
@@ -36,9 +38,7 @@ interface WhoOption {
 // 待办在标记下拉里的取值（emoji 之外的特殊项）。emoji 集合一律沿用 FOLLOW_UP_EMOJIS，不改动。
 const TASK_VALUE = '__task__'
 
-function alertErr(e: unknown) {
-  window.alert('操作失败：' + (e instanceof Error ? e.message : String(e)))
-}
+// 操作失败的反馈由 queryClient 全局 MutationCache 统一弹红 toast，不再各处 window.alert。
 
 /** 标记下拉：待办 + 全部 emoji（与原实现完全一致，emoji 不变）。切换 = UPDATE 同一行 type。 */
 function MarkerSelect({ value, disabled, onPick }: { value: string; disabled?: boolean; onPick: (v: string) => void }) {
@@ -119,12 +119,21 @@ function InlineDate({
   display,
   danger,
   placeholder = '选择日期',
+  min,
+  max,
+  rangeError,
   onSave,
 }: {
   value: string
   display: string
   danger?: boolean
   placeholder?: string
+  /** 最早可选日期（待办截止日传今天 → 禁过去） */
+  min?: string
+  /** 最晚可选日期（跟进记录日传今天 → 禁未来） */
+  max?: string
+  /** 超出 min/max 时的提示文案 */
+  rangeError?: string
   onSave: (v: string) => void
 }) {
   const [editing, setEditing] = useState(false)
@@ -133,10 +142,19 @@ function InlineDate({
       <input
         type="date"
         autoFocus
+        min={min}
+        max={max}
         defaultValue={value}
         onChange={(e) => {
           setEditing(false)
-          if (e.target.value !== value) onSave(e.target.value)
+          const v = e.target.value
+          if (v === value) return
+          // min/max 属性挡选择器，这里兜底拦手输
+          if (v && ((min && v < min) || (max && v > max))) {
+            toastError(rangeError ?? '日期超出可选范围')
+            return
+          }
+          onSave(v)
         }}
         onBlur={() => setEditing(false)}
         className="w-[9rem] rounded border border-brand/50 px-1.5 py-1 text-sm outline-none"
@@ -192,7 +210,7 @@ function TimelineEntry({
   const busy = update.isPending
 
   const patch = (p: Parameters<typeof update.mutate>[0]['patch']) =>
-    update.mutate({ id: rec.id, patch: p }, { onError: alertErr })
+    update.mutate({ id: rec.id, patch: p })
 
   return (
     <li className="relative flex gap-3.5 pb-5 last:pb-0">
@@ -238,7 +256,7 @@ function TimelineEntry({
               type="button"
               aria-label="删除"
               title="删除"
-              onClick={() => del.mutate(rec.id, { onError: alertErr })}
+              onClick={() => del.mutate(rec.id)}
               className="text-faint opacity-100 transition hover:text-rose-600 sm:opacity-0 sm:group-hover:opacity-100"
             >
               <TrashIcon className="size-4" />
@@ -264,6 +282,8 @@ function TimelineEntry({
                 display={rec.due_date ?? ''}
                 danger={overdue}
                 placeholder="设截止日"
+                min={todayYmd()}
+                rangeError="截止日不能是过去的日期"
                 onSave={(v) => patch({ due_date: v || null })}
               />
               {!rec.is_done && rec.due_date && (
@@ -276,6 +296,8 @@ function TimelineEntry({
             <InlineDate
               value={rec.created_at.slice(0, 10)}
               display={recordDate(rec).slice(0, 10)}
+              max={todayYmd()}
+              rangeError="记录日期不能是未来"
               onSave={(v) => v && patch({ created_at: v })}
             />
           )}
@@ -301,7 +323,16 @@ function QuickAddCard({ scope }: { scope: Scope }) {
     e.preventDefault()
     const c = content.trim()
     if (!c || create.isPending) return
-    const opts = { onSuccess: reset, onError: alertErr }
+    // 待办截止禁过去 / 跟进记录日禁未来（min/max 属性挡选择器，这里兜底拦手输）
+    if (isTask && isPastYmd(date)) {
+      toastError('截止日期不能是过去的日期')
+      return
+    }
+    if (!isTask && isFutureYmd(date)) {
+      toastError('记录日期不能是未来')
+      return
+    }
+    const opts = { onSuccess: reset }
     if (isTask) {
       create.mutate(
         { customer_id: scope.customerId, case_id: scope.caseId ?? null, type: 'task', content: c, due_date: date || null },
@@ -352,9 +383,13 @@ function QuickAddCard({ scope }: { scope: Scope }) {
           />
         </label>
         <label className="space-y-1.5">
-          <span className="block text-[13px] font-semibold text-body">{isTask ? '截止日期' : '记录日期'}</span>
+          <span className="block text-[13px] font-semibold text-body">
+            {isTask ? '截止日期（不能选过去）' : '记录日期（不能选未来）'}
+          </span>
           <input
             type="date"
+            min={isTask ? todayYmd() : undefined}
+            max={isTask ? undefined : todayYmd()}
             value={date}
             onChange={(e) => setDate(e.target.value)}
             className="h-11 w-full rounded-[12px] border border-line-2 bg-white px-3 text-[15px] text-ink outline-none focus:border-brand"

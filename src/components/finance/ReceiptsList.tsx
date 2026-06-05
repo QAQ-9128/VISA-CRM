@@ -1,4 +1,4 @@
-import { useState } from 'react'
+﻿import { useState } from 'react'
 import type { ChangeEvent } from 'react'
 import { Link } from 'react-router-dom'
 import { Button } from '../ui/Button'
@@ -16,6 +16,7 @@ import { CUSTOMER_PAYMENT_TEXT_CLASS } from '../../lib/finance'
 import { useBackSource } from '../../hooks/useBackSource'
 import { PAYMENT_METHOD_LABELS } from '../../types/domain'
 import type { ReceiptItem, CustomerPaymentColor } from '../../lib/finance'
+import { toastError } from '../../store/ui'
 
 function ReceiptItemRow({
   item,
@@ -60,7 +61,7 @@ function ReceiptItemRow({
       const url = await getDocumentSignedUrl(item.invoicePath)
       window.open(url, '_blank', 'noopener')
     } catch {
-      window.alert('打开发票失败，请重试')
+      toastError('打开发票失败，请重试')
     }
   }
 

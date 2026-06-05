@@ -1,6 +1,7 @@
 import { Outlet } from 'react-router-dom'
 import { Sidebar } from '../components/layout/Sidebar'
 import { BottomTabBar } from '../components/layout/BottomTabBar'
+import { Toaster } from '../components/ui/Toaster'
 import { ShieldIcon } from '../components/ui/icons'
 
 /**
@@ -24,6 +25,7 @@ export function AppLayout() {
         </main>
         <BottomTabBar />
       </div>
+      <Toaster />
     </div>
   )
 }

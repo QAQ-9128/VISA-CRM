@@ -24,6 +24,7 @@ import {
   matchesCustomerFilter,
   matchesVisaFilter,
   customerFilterCount,
+  caseNumberMatchedCustomerIds,
   EMPTY_CUSTOMER_FILTER,
   type CustomerFilter,
   type SourceFilterValue,
@@ -162,6 +163,8 @@ export function CustomerListPage() {
   const [showFilters, setShowFilters] = useState(false)
   const [filter, setFilter] = useState<CustomerFilter>(EMPTY_CUSTOMER_FILTER)
   const customers = useCustomers({ search })
+  // 案件号搜索补充：服务端只搜姓名/电话/邮箱，全量客户用于把"案件号命中"的客户并进来
+  const allCustomers = useCustomers({})
   const cases = useCases()
   const applicants = useAllCaseApplicants()
   const employers = useEmployers()
@@ -183,11 +186,22 @@ export function CustomerListPage() {
     return m
   }, [cases.data, applicants.data])
 
+  // 服务端搜索（姓名/电话/邮箱）∪ 案件号命中（客户端派生）→ 搜"那个 482 的案子"也能找到人
+  const searchedCustomers = useMemo(() => {
+    const base = customers.data ?? []
+    if (!search.trim()) return base
+    const extraIds = caseNumberMatchedCustomerIds(search, cases.data ?? [], applicants.data ?? [])
+    if (extraIds.size === 0) return base
+    const have = new Set(base.map((c) => c.id))
+    const extras = (allCustomers.data ?? []).filter((c) => extraIds.has(c.id) && !have.has(c.id))
+    return [...base, ...extras]
+  }, [customers.data, allCustomers.data, cases.data, applicants.data, search])
+
   // 平铺客户（一案一组后客户列表不再按组出卡）：命中筛选的客户，星标在前
   const visibleCustomers = useMemo(() => {
-    const list = (customers.data ?? []).filter((c) => customerMatches(c, filter, subclassesByCustomerId))
+    const list = searchedCustomers.filter((c) => customerMatches(c, filter, subclassesByCustomerId))
     return [...list].sort((a, b) => Number(b.is_starred) - Number(a.is_starred))
-  }, [customers.data, filter, subclassesByCustomerId])
+  }, [searchedCustomers, filter, subclassesByCustomerId])
   // 看板：按来源分列（黑=公司派 / 绿=自己 / 黄=擦屁股 + 未分类兜底），沿用同一份筛选结果
   const boardColumns = useMemo(() => selectSourceBoardColumns(visibleCustomers), [visibleCustomers])
 
@@ -256,7 +270,7 @@ export function CustomerListPage() {
             type="search"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="搜索姓名 / 电话 / 邮箱"
+            placeholder="搜索姓名 / 电话 / 邮箱 / 案件号"
             className="h-full w-full bg-transparent text-[15px] text-ink outline-none placeholder:text-faint"
           />
         </div>

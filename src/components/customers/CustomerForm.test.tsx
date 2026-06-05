@@ -86,13 +86,25 @@ describe('CustomerForm（改进版 UI 行为）', () => {
     expect(save).not.toBeDisabled()
   })
 
-  it('填姓名 + 保存 → onSubmit 收到含 full_name 的 values + joinCaseId=null', () => {
+  it('填姓名 + 保存 → onSubmit 收到含 full_name 的 values + joinCaseId=null + next=detail', () => {
     const { onSubmit } = renderForm()
     fireEvent.change(screen.getByLabelText(/姓名/), { target: { value: '李雷' } })
     fireEvent.click(screen.getByRole('button', { name: '保存' }))
     expect(onSubmit).toHaveBeenCalledTimes(1)
     expect(onSubmit.mock.calls[0][0]).toMatchObject({ full_name: '李雷' })
     expect(onSubmit.mock.calls[0][1]).toBeNull()
+    expect(onSubmit.mock.calls[0][2]).toBe('detail')
+  })
+
+  it('「保存并新建案件」（重录快捷路径）：next=new-case；姓名为空时禁用', () => {
+    const { onSubmit } = renderForm()
+    const btn = screen.getByRole('button', { name: '保存并新建案件' })
+    expect(btn).toBeDisabled()
+    fireEvent.change(screen.getByLabelText(/姓名/), { target: { value: '李雷' } })
+    expect(btn).not.toBeDisabled()
+    fireEvent.click(btn)
+    expect(onSubmit).toHaveBeenCalledTimes(1)
+    expect(onSubmit.mock.calls[0][2]).toBe('new-case')
   })
 
   it('Esc → onCancel；点取消 → onCancel', () => {

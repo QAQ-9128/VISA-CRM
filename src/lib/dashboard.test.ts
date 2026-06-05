@@ -3,29 +3,21 @@ import {
   computeDebtTotals,
   selectCustomerDebts,
   selectCustomerDebtSummary,
-  selectCustomersWithOpenTasks,
   selectOverdueInstallments,
   selectTodoCases,
-  sortPriorityCustomers,
   countActiveCases,
   caseStageDistribution,
   sumClientReceiptsInMonth,
-  monthOverMonth,
-  monthlyClientReceipts,
   selectExpiringDocs,
-  selectLodgementProgressRows,
 } from './dashboard'
 import type {
   Case,
   CaseDocument,
-  CaseStageHistory,
   Customer,
   Installment,
-  Lodgement,
   Payment,
   PaymentPlan,
   PaymentPlanItem,
-  RecordRow,
 } from '../types/models'
 
 const TODAY = new Date(2026, 0, 15)
@@ -34,14 +26,42 @@ const TODAY = new Date(2026, 0, 15)
 const mkCase = (o: Partial<Case>): Case => ({ id: 'c1', case_number: '00000001', customer_id: 'cu1', visa_subclass: '482', visa_stream: null, current_stage: 'visa_lodged', currency: 'AUD', sync_tracking: true, trt_reminder_enabled: false, parent_case_id: null, parent_sync_progress: false, destination_country: 'Australia', sponsor_position: null, sponsor_employer_id: null, assigned_to: null, created_by: null, is_archived: false, created_at: '', updated_at: '', ...o })
 const mkCustomer = (o: Partial<Customer>): Customer => ({ id: 'cu1', full_name: '张三', is_starred: false, client_source: null, primary_applicant_id: null, relationship_to_primary: null, birth_date: null, gender: null, passport_no: null, nationality: null, phone: null, email: null, wechat: null, address: null, sponsor_employer_id: null, sponsor_position: null, referrer_id: null, notes: null, assigned_to: null, created_by: null, is_archived: false, created_at: '', updated_at: '', ...o })
 
-describe('selectTodoCases（待办案件：current_stage=todo、未归档，按 created_at 倒序）', () => {
+describe('selectTodoCases（待办案件：current_stage=todo、未归档，按 created_at 倒序；含在册参与人）', () => {
   const customers = { cu1: mkCustomer({ id: 'cu1', full_name: '孙佳琪' }), cu2: mkCustomer({ id: 'cu2', full_name: '李娜' }) }
 
-  it('单条待办案件 → 客户名 · 签证类型', () => {
+  it('单条待办案件 → 客户名 · 签证类型，参与人 = 案件客户', () => {
     const cases = [mkCase({ id: 'c1', customer_id: 'cu1', current_stage: 'todo', visa_subclass: '482', visa_stream: 'Core Skills' })]
     const r = selectTodoCases(cases, customers)
     expect(r).toHaveLength(1)
-    expect(r[0]).toEqual({ caseId: 'c1', customerId: 'cu1', customerName: '孙佳琪', visaLabel: '482/Core Skills' })
+    expect(r[0]).toEqual({
+      caseId: 'c1',
+      customerId: 'cu1',
+      customerName: '孙佳琪',
+      participants: [{ id: 'cu1', name: '孙佳琪' }],
+      visaLabel: '482/Core Skills',
+    })
+  })
+
+  it('多参与人：participants 列全（案件客户在前）；归档/被删的参与人自动消失', () => {
+    const cases = [mkCase({ id: 'c1', customer_id: 'cu1', current_stage: 'todo' })]
+    const applicants = [
+      { case_id: 'c1', customer_id: 'cu2' },
+      { case_id: 'c1', customer_id: 'goneOrArchived' }, // 不在在册映射 → 不显示
+    ]
+    const r = selectTodoCases(cases, customers, applicants)
+    expect(r[0].participants).toEqual([
+      { id: 'cu1', name: '孙佳琪' },
+      { id: 'cu2', name: '李娜' },
+    ])
+  })
+
+  it('案件客户已归档 → 链接目标（customerId/customerName）退到首位在册参与人', () => {
+    const cases = [mkCase({ id: 'c1', customer_id: 'archivedOwner', current_stage: 'todo' })]
+    const applicants = [{ case_id: 'c1', customer_id: 'cu2' }]
+    const r = selectTodoCases(cases, customers, applicants)
+    expect(r[0].customerId).toBe('cu2')
+    expect(r[0].customerName).toBe('李娜')
+    expect(r[0].participants).toEqual([{ id: 'cu2', name: '李娜' }])
   })
   it('多条待办按 created_at 倒序（最新在上）', () => {
     const cases = [
@@ -80,24 +100,6 @@ describe('selectTodoCases（待办案件：current_stage=todo、未归档，按 
   })
 })
 
-describe('selectCustomersWithOpenTasks', () => {
-  const mkTask = (o: Partial<RecordRow>): RecordRow => ({ id: 't', customer_id: 'cu1', case_id: null, type: 'task', content: '待办', due_date: null, is_done: false, done_at: null, assigned_to: null, channel: null, emoji_marker: null, created_by: null, created_at: '', updated_at: '', ...o })
-  it('按客户去重计数未完成待办；无客户/不在册客户不计；按数量降序', () => {
-    const customers = { cu1: mkCustomer({ id: 'cu1', full_name: '甲' }), cu2: mkCustomer({ id: 'cu2', full_name: '乙' }) }
-    const tasks = [
-      mkTask({ id: 't1', customer_id: 'cu1' }),
-      mkTask({ id: 't2', customer_id: 'cu1' }),
-      mkTask({ id: 't3', customer_id: 'cu2' }),
-      mkTask({ id: 't4', customer_id: null as unknown as string }), // 无客户 → 不计
-      mkTask({ id: 't5', customer_id: 'gone' }), // 不在 active map → 不计
-    ]
-    const r = selectCustomersWithOpenTasks(tasks, customers)
-    expect(r.map((x) => x.customerId)).toEqual(['cu1', 'cu2'])
-    expect(r[0]).toMatchObject({ customerName: '甲', openCount: 2 })
-    expect(r[1]).toMatchObject({ customerName: '乙', openCount: 1 })
-  })
-})
-
 describe('selectOverdueInstallments', () => {
   it('未付且 due < 今天', () => {
     const plans = { p1: { id: 'p1', case_id: 'c1' } as PaymentPlan }
@@ -114,20 +116,6 @@ describe('selectOverdueInstallments', () => {
     expect(r[0].daysOverdue).toBe(14)
     expect(r[0].caseId).toBe('c1')
     expect(r[0].customerName).toBe('王五')
-  })
-})
-
-describe('sortPriorityCustomers', () => {
-  it('只取星标客户，按姓名排序（不再依赖等级/来源）', () => {
-    const list = [
-      mkCustomer({ id: 'z', full_name: 'Z', is_starred: true, client_source: 'green' }),
-      mkCustomer({ id: 'a', full_name: 'A', is_starred: true, client_source: null }),
-      mkCustomer({ id: 'm', full_name: 'M', is_starred: true, client_source: 'red' }),
-      mkCustomer({ id: 'unstar', full_name: 'AAA', is_starred: false }),
-    ]
-    const r = sortPriorityCustomers(list)
-    // 未星标的 AAA 被排除；其余按姓名 A→M→Z（来源不影响排序）
-    expect(r.map((c) => c.id)).toEqual(['a', 'm', 'z'])
   })
 })
 
@@ -347,45 +335,6 @@ describe('sumClientReceiptsInMonth（某月 from_client 收款合计）', () => 
   })
 })
 
-describe('monthOverMonth（月环比：方向 + 百分比，保留一位小数）', () => {
-  it('上升', () => {
-    expect(monthOverMonth(120, 100)).toEqual({ pct: 20, dir: 'up' })
-  })
-  it('下降', () => {
-    expect(monthOverMonth(80, 100)).toEqual({ pct: 20, dir: 'down' })
-  })
-  it('持平', () => {
-    expect(monthOverMonth(100, 100)).toEqual({ pct: 0, dir: 'flat' })
-  })
-  it('上月为 0、本月有值 → 无百分比、方向 up', () => {
-    expect(monthOverMonth(50, 0)).toEqual({ pct: null, dir: 'up' })
-  })
-  it('上月为 0、本月也 0 → 无百分比、方向 flat', () => {
-    expect(monthOverMonth(0, 0)).toEqual({ pct: null, dir: 'flat' })
-  })
-})
-
-describe('monthlyClientReceipts（近 N 月 from_client 收款序列）', () => {
-  const mk = (paid_at: string | null, amount: number, direction: Payment['direction'] = 'from_client'): Payment => ({
-    id: 'p', case_id: 'c1', applicant_id: null, direction, installment_id: null, plan_item_id: null,
-    from_client_customer_id: null, amount, currency: 'AUD', method: 'transfer', paid_at, note: null,
-    fee_category: null, invoice_path: null, invoice_name: null, recorded_by: null, created_at: '',
-  })
-  it('返回 6 个月、末月为当月且标 hi、按月汇总客户付款', () => {
-    const payments = [
-      mk('2026-01-10', 1000),
-      mk('2025-12-20', 500),
-      mk('2026-01-15', 9999, 'to_company'), // 非客户付款不计
-    ]
-    const r = monthlyClientReceipts(payments, 2026, 0, 6) // 截至 2026-01
-    expect(r).toHaveLength(6)
-    expect(r.map((x) => x.label)).toEqual(['8月', '9月', '10月', '11月', '12月', '1月'])
-    expect(r[5]).toEqual({ label: '1月', value: 1000, hi: true })
-    expect(r[4]).toMatchObject({ label: '12月', value: 500, hi: false })
-    expect(r[0]).toMatchObject({ value: 0 })
-  })
-})
-
 describe('selectExpiringDocs（文档到期：仅 ≤30 天或已过期，按紧急度排序）', () => {
   const mk = (o: Partial<CaseDocument>): CaseDocument => ({
     id: 'd', customer_id: 'cu1', case_id: null, doc_type: 'passport', title: null, storage_path: null,
@@ -402,53 +351,23 @@ describe('selectExpiringDocs（文档到期：仅 ≤30 天或已过期，按紧
       mk({ id: 'none', customer_id: 'cu1', expiry_date: null }), // 无到期 → 排除
       mk({ id: 'gone', customer_id: 'zzz', doc_type: 'medical', expiry_date: '2026-01-20' }), // 客户不在册 → 排除
     ]
-    const r = selectExpiringDocs(docs, customers, TODAY) // TODAY=2026-01-15
+    const r = selectExpiringDocs(docs, customers, {}, TODAY) // TODAY=2026-01-15
     expect(r.map((x) => x.id)).toEqual(['over', 'med', 'pp']) // 按 daysRemaining 升序：-5, 6, 18
     expect(r[0]).toMatchObject({ customerName: '王强', label: '无犯罪', tone: 'rose' }) // 逾期 → rose
     expect(r[1]).toMatchObject({ customerName: '陈静', label: '体检', tone: 'rose', ic: 'clock' }) // ≤7 天 → rose, 体检→clock
     expect(r[2]).toMatchObject({ tone: 'amber', ic: 'passport' }) // 18 天 → amber
   })
+
+  // 归档物只在回收站可见：案件归档后其名下文件的到期提醒不应再在概览露出（与档案库口径一致）
+  it('挂在已归档案件上的文件 → 隐藏；无案件的客户文件与在册案件的文件不受影响', () => {
+    const caseById = { c1: mkCase({ id: 'c1', customer_id: 'cu1' }) } // 在册案件只有 c1
+    const docs = [
+      mk({ id: 'on-active', customer_id: 'cu1', case_id: 'c1', expiry_date: '2026-01-21' }),
+      mk({ id: 'on-archived', customer_id: 'cu1', case_id: 'cX', expiry_date: '2026-01-21' }), // cX 已归档 → 不在映射
+      mk({ id: 'general', customer_id: 'cu1', case_id: null, expiry_date: '2026-01-21' }), // 纯客户文件
+    ]
+    const r = selectExpiringDocs(docs, customers, caseById, TODAY)
+    expect(r.map((x) => x.id).sort()).toEqual(['general', 'on-active'])
+  })
 })
 
-describe('selectLodgementProgressRows（递交进度行：派生递交日期/状态 + 进度）', () => {
-  const mkLg = (o: Partial<Lodgement>): Lodgement => ({
-    id: 'l', case_id: 'c1', type: 'nomination', lodged_date: null, reference_number: null,
-    dha_processing_days: 120, dha_processing_updated_at: null, outcome: 'pending', outcome_date: null,
-    note: null, created_by: null, created_at: '', updated_at: '', ...o,
-  })
-  const mkH = (o: Partial<CaseStageHistory>): CaseStageHistory => ({
-    id: 'h', case_id: 'c1', from_stage: null, to_stage: 'nomination_lodged', note: null, changed_by: null,
-    changed_at: '2025-12-01T00:00:00Z', effective_at: '2025-12-01T00:00:00Z', ...o,
-  })
-  const cases = {
-    c1: mkCase({ id: 'c1', customer_id: 'cu1', visa_subclass: '482', current_stage: 'nomination_lodged' }),
-    c2: mkCase({ id: 'c2', customer_id: 'cu2', visa_subclass: '186', current_stage: 'granted' }),
-  }
-  const customers = { cu1: mkCustomer({ id: 'cu1', full_name: '张伟' }), cu2: mkCustomer({ id: 'cu2', full_name: '王强' }) }
-
-  it('未递交（无对应阶段历史）→ 跳过；已递交 → 计算进度与状态', () => {
-    const lodgements = [
-      mkLg({ id: 'l1', case_id: 'c1', type: 'nomination', dha_processing_days: 120 }),
-      mkLg({ id: 'l2', case_id: 'c2', type: 'visa', dha_processing_days: 150 }),
-      mkLg({ id: 'l3', case_id: 'c1', type: 'visa', dha_processing_days: 150 }), // c1 未到签证递交 → 无 lodged date → 跳过
-    ]
-    const history = [
-      mkH({ case_id: 'c1', to_stage: 'nomination_lodged', effective_at: '2025-12-01T00:00:00Z' }),
-      mkH({ case_id: 'c2', to_stage: 'visa_lodged', effective_at: '2025-10-01T00:00:00Z' }),
-    ]
-    const r = selectLodgementProgressRows(lodgements, history, cases, customers, TODAY)
-    expect(r.map((x) => x.id)).toEqual(['l1', 'l2']) // l3 无递交日期被跳过；按递交日期倒序 l1(12月)→l2(10月)
-    expect(r[0]).toMatchObject({ name: '张伟', visa: '482 提名', date: '2025-12-01', statusLabel: '处理中', statusTone: 'blue' })
-    expect(r[1]).toMatchObject({ name: '王强', visa: '186 签证', statusLabel: '已批', statusTone: 'emerald', remainingText: '已完成' })
-    expect(r[0].barColor).toBe('#3b6bff')
-  })
-
-  it('已超期且未批 → 状态「已超期」rose、剩余文案「超 N 天」', () => {
-    const lodgements = [mkLg({ id: 'lx', case_id: 'c1', type: 'nomination', dha_processing_days: 30 })]
-    const history = [mkH({ case_id: 'c1', to_stage: 'nomination_lodged', effective_at: '2025-11-01T00:00:00Z' })]
-    const r = selectLodgementProgressRows(lodgements, history, cases, customers, TODAY)
-    expect(r[0]).toMatchObject({ statusLabel: '已超期', statusTone: 'rose' })
-    expect(r[0].barColor).toBe('#f43f5e')
-    expect(r[0].remainingText).toMatch(/^超 \d+ 天$/)
-  })
-})

@@ -8,7 +8,10 @@ const toSafe = (amount: AmountLike): number => {
 /** 纯金额（无币种）：`1,200.00`。给「已付 / 应收」分数、比例等不带币种的场景用。
  *  口径与 formatMoney 一致（千分位 + 固定 2 位小数），仅少了币种前缀。 */
 export function formatAmount(amount: AmountLike): string {
-  return toSafe(amount).toLocaleString('en-AU', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+  const n = toSafe(amount)
+  // 会被四舍五入成 0 的极小值先归整为 0：避免 -0.001 显示成刺眼的负零 "-0.00"
+  const v = Math.abs(n) < 0.005 ? 0 : n
+  return v.toLocaleString('en-AU', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 }
 
 /** 金额展示：`AUD 1,200.00`。兼容 numeric 返回的字符串。 */

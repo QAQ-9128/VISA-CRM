@@ -9,27 +9,20 @@ import {
   getUnpaidInstallments,
 } from '../../api/dashboard'
 import { getAllPlanItems } from '../../api/payments'
-import { listAllLodgements } from '../../api/lodgements'
 import {
   caseStageDistribution,
   computeDebtTotals,
   countActiveCases,
-  monthlyClientReceipts,
-  monthOverMonth,
   selectCustomerDebts,
   selectExpiringDocs,
-  selectLodgementProgressRows,
   selectOverdueInstallments,
   selectTodoCases,
-  sortPriorityCustomers,
   sumClientReceiptsInMonth,
 } from '../../lib/dashboard'
-import { getOpenTaskRecords } from '../../api/records'
+import { listAllCaseApplicants } from '../../api/caseApplicants'
 import { listAllStageHistory } from '../../api/cases'
-import { selectMyOpenTasks } from '../../lib/tasks'
 import { selectTrtReminders } from '../../lib/trt'
 import { visibleCaseIds } from '../../lib/visibility'
-import { useAuth } from '../useAuth'
 import { queryKeys } from './keys'
 
 function keyById<T extends { id: string }>(rows: T[]): Record<string, T> {
@@ -40,7 +33,6 @@ function keyById<T extends { id: string }>(rows: T[]): Record<string, T> {
 
 /** 概览首页所需的全部预警，由若干查询组合 + 纯选择器派生。 */
 export function useDashboard() {
-  const { user } = useAuth()
   const unpaidInstallments = useQuery({
     queryKey: queryKeys.dashboard.unpaidInstallments,
     queryFn: getUnpaidInstallments,
@@ -56,12 +48,12 @@ export function useDashboard() {
   const plans = useQuery({ queryKey: queryKeys.dashboard.plans, queryFn: getAllPaymentPlans })
   const payments = useQuery({ queryKey: queryKeys.dashboard.payments, queryFn: getAllPayments })
   const planItems = useQuery({ queryKey: queryKeys.dashboard.planItems, queryFn: getAllPlanItems })
-  const openTasks = useQuery({ queryKey: queryKeys.records.openTasks, queryFn: getOpenTaskRecords })
   const stageHistory = useQuery({ queryKey: queryKeys.cases.stageHistoryAll, queryFn: listAllStageHistory })
-  const lodgements = useQuery({ queryKey: queryKeys.lodgements.lodged, queryFn: listAllLodgements })
   const expiringDocs = useQuery({ queryKey: queryKeys.dashboard.expiringDocs, queryFn: getExpiringDocuments })
+  // 参与人：案件可见性（任一参与人在册即可见）用；与财务页共享缓存键
+  const caseApplicants = useQuery({ queryKey: queryKeys.caseApplicants.all, queryFn: listAllCaseApplicants })
 
-  const all = [unpaidInstallments, activeCases, activeCustomers, plans, payments, planItems, openTasks, stageHistory, lodgements, expiringDocs]
+  const all = [unpaidInstallments, activeCases, activeCustomers, plans, payments, planItems, stageHistory, expiringDocs, caseApplicants]
   const isPending = all.some((q) => q.isPending)
   const isError = all.some((q) => q.isError)
 
@@ -69,14 +61,23 @@ export function useDashboard() {
   const customerById = useMemo(() => keyById(activeCustomers.data ?? []), [activeCustomers.data])
   const planById = useMemo(() => keyById(plans.data ?? []), [plans.data])
 
-  // 归档客户的案件从各卡片隐藏：只保留主申在册的案件
+  // 全员归档的案件从各卡片隐藏（任一参与人在册即可见，与递交进度/财务同口径）
   const visibleIds = useMemo(
-    () => visibleCaseIds(activeCases.data ?? [], customerById),
-    [activeCases.data, customerById],
+    () => visibleCaseIds(activeCases.data ?? [], customerById, caseApplicants.data ?? []),
+    [activeCases.data, customerById, caseApplicants.data],
+  )
+  const visibleCases = useMemo(
+    () => (activeCases.data ?? []).filter((c) => visibleIds.has(c.id)),
+    [activeCases.data, visibleIds],
   )
   const visiblePlans = useMemo(
     () => (plans.data ?? []).filter((p) => visibleIds.has(p.case_id)),
     [plans.data, visibleIds],
+  )
+  // 归档案件的款不计入概览 KPI（与 /finance 的 visiblePayments 同口径，两页数字一致）
+  const visiblePayments = useMemo(
+    () => (payments.data ?? []).filter((p) => visibleIds.has(p.case_id)),
+    [payments.data, visibleIds],
   )
   const visibleUnpaid = useMemo(
     () =>
@@ -91,89 +92,56 @@ export function useDashboard() {
     () => selectOverdueInstallments(visibleUnpaid, planById, caseById, customerById),
     [visibleUnpaid, planById, caseById, customerById],
   )
-  const priorityCustomers = useMemo(
-    () => sortPriorityCustomers(activeCustomers.data ?? []),
-    [activeCustomers.data],
-  )
+  // 对称传 visiblePayments（与 visiblePlans 同口径）：结果与传全量等价——selector 内部按
+  // p.case_id === plan.case_id 关联，不可见案件的付款本就挂不上可见 plan；显式过滤消除隐式依赖。
   const debtTotals = useMemo(
-    () => computeDebtTotals(visiblePlans, payments.data ?? [], planItems.data ?? []),
-    [visiblePlans, payments.data, planItems.data],
+    () => computeDebtTotals(visiblePlans, visiblePayments, planItems.data ?? []),
+    [visiblePlans, visiblePayments, planItems.data],
   )
   const customerDebts = useMemo(
-    () => selectCustomerDebts(visiblePlans, payments.data ?? [], caseById, customerById, planItems.data ?? []),
-    [visiblePlans, payments.data, caseById, customerById, planItems.data],
+    () => selectCustomerDebts(visiblePlans, visiblePayments, caseById, customerById, planItems.data ?? []),
+    [visiblePlans, visiblePayments, caseById, customerById, planItems.data],
   )
-  const myOpenTasks = useMemo(
-    () => selectMyOpenTasks(openTasks.data ?? [], user?.id, customerById),
-    [openTasks.data, user?.id, customerById],
-  )
-  // 待办案件：current_stage='todo' 且未归档，按 created_at 倒序
+  // 待办案件：current_stage='todo' 且未归档，按 created_at 倒序；带在册参与人（名字各自可点）
   const todoCases = useMemo(
-    () => selectTodoCases(activeCases.data ?? [], customerById),
-    [activeCases.data, customerById],
+    () => selectTodoCases(visibleCases, customerById, caseApplicants.data ?? []),
+    [visibleCases, customerById, caseApplicants.data],
   )
-  // 转 186 TRT 提醒：只看在册客户的案件（用 customerById 过滤已在上游 activeCustomers 保证）
+  // 转 186 TRT 提醒：只看可见案件
   const trtReminders = useMemo(
-    () => selectTrtReminders(activeCases.data ?? [], stageHistory.data ?? [], customerById),
-    [activeCases.data, stageHistory.data, customerById],
+    () => selectTrtReminders(visibleCases, stageHistory.data ?? [], customerById),
+    [visibleCases, stageHistory.data, customerById],
   )
 
-  // ── 概览统计卡（全真实数据）─────────────────────────────
-  const activeCaseCount = useMemo(() => countActiveCases(activeCases.data ?? []), [activeCases.data])
-  const activeCustomerCount = (activeCustomers.data ?? []).length
-  const stageDistribution = useMemo(
-    () => caseStageDistribution(activeCases.data ?? []),
-    [activeCases.data],
-  )
-  // 本月收款 + 月环比 + 近 6 月序列（按 paid_at 落月，from_client 方向）
-  const { thisMonthReceipts, receiptsMoM, revenueSeries } = useMemo(() => {
+  // ── 概览统计卡（全真实数据；计数/分布与递交进度同一可见性口径）──────
+  const activeCaseCount = useMemo(() => countActiveCases(visibleCases), [visibleCases])
+  const stageDistribution = useMemo(() => caseStageDistribution(visibleCases), [visibleCases])
+  // 本月收款（按 paid_at 落月，from_client 方向；归档案件已被 visiblePayments 过滤）
+  const thisMonthReceipts = useMemo(() => {
     const now = new Date()
-    const y = now.getFullYear()
-    const m = now.getMonth()
-    const prevY = m === 0 ? y - 1 : y
-    const prevM = m === 0 ? 11 : m - 1
-    const list = payments.data ?? []
-    const cur = sumClientReceiptsInMonth(list, y, m)
-    const prev = sumClientReceiptsInMonth(list, prevY, prevM)
-    return {
-      thisMonthReceipts: cur,
-      receiptsMoM: monthOverMonth(cur, prev),
-      revenueSeries: monthlyClientReceipts(list, y, m, 6),
-    }
-  }, [payments.data])
+    return sumClientReceiptsInMonth(visiblePayments, now.getFullYear(), now.getMonth())
+  }, [visiblePayments])
 
-  // 即将到期（文档 ≤30 天/已过期）
+  // 即将到期（文档 ≤30 天/已过期）；caseById 来自在册案件 → 归档案件名下的文件一并隐藏
   const expiringDocItems = useMemo(
-    () => selectExpiringDocs(expiringDocs.data ?? [], customerById),
-    [expiringDocs.data, customerById],
-  )
-  // 递交进度行（递交日期/状态从 stage_history 派生）
-  const lodgementRows = useMemo(
-    () => selectLodgementProgressRows(lodgements.data ?? [], stageHistory.data ?? [], caseById, customerById),
-    [lodgements.data, stageHistory.data, caseById, customerById],
+    () => selectExpiringDocs(expiringDocs.data ?? [], customerById, caseById),
+    [expiringDocs.data, customerById, caseById],
   )
 
   return {
     isPending,
     isError,
     overdueInstallments,
-    priorityCustomers,
     debtTotals,
     customerDebts,
-    myOpenTasks,
     todoCases,
     trtReminders,
     // 统计卡 / 阶段分布（全真实数据派生）
     activeCaseCount,
-    activeCustomerCount,
     stageDistribution,
     thisMonthReceipts,
-    receiptsMoM,
-    revenueSeries,
-    // Layout A 新模块
     expiringDocItems,
-    lodgementRows,
-    // 供「我的待办」按 customer_id 显示并链接客户名
+    // 供卡片按 customer_id 显示并链接客户名
     customerById,
   }
 }

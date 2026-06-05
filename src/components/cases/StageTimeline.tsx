@@ -5,6 +5,8 @@ import {
   useUpdateStageHistory,
 } from '../../hooks/queries/useCases'
 import { replaceDateKeepTime } from '../../lib/stageHistory'
+import { todayYmd, isFutureYmd } from '../../lib/dateRules'
+import { toastError } from '../../store/ui'
 import { StageBadge } from './StageBadge'
 import { TrashIcon } from '../ui/icons'
 import { CASE_STAGE_COLOR, CASE_STAGE_LABELS } from '../../types/domain'
@@ -49,10 +51,18 @@ function HistoryRow({
           <input
             type="date"
             autoFocus
+            max={todayYmd()}
             defaultValue={h.effective_at.slice(0, 10)}
             onChange={(e) => {
               setEditing(false)
-              if (e.target.value) onSaveDate(e.target.value)
+              const v = e.target.value
+              if (!v) return
+              // 阶段记录的是已发生的事 → 禁未来日期
+              if (isFutureYmd(v)) {
+                toastError('实际发生日期不能是未来')
+                return
+              }
+              onSaveDate(v)
             }}
             onBlur={() => setEditing(false)}
             className="mt-0.5 w-[9rem] rounded border border-brand/50 px-1.5 py-0.5 text-xs outline-none"

@@ -3,6 +3,8 @@ import type { QueryClient } from '@tanstack/react-query'
 import {
   archiveDocument,
   createDocument,
+  deleteDocument,
+  deleteStorageObject,
   listDocumentsByCase,
   listDocumentsByCustomer,
   updateDocument,
@@ -63,14 +65,21 @@ export function useAddDocument() {
         storage_path = up.storage_path
         file_name = up.file_name
       }
-      return createDocument({
-        ...fields,
-        storage_path,
-        file_name,
-        uploaded_by: user?.id ?? null,
-      })
+      try {
+        return await createDocument({
+          ...fields,
+          storage_path,
+          file_name,
+          uploaded_by: user?.id ?? null,
+        })
+      } catch (e) {
+        // 补偿：文件已进 Storage 但元数据落库失败 → 删掉刚传的对象，避免无法访问的孤儿文件
+        if (storage_path) await deleteStorageObject(storage_path).catch(() => {})
+        throw e
+      }
     },
     onSuccess: () => invalidateDocuments(qc),
+    meta: { success: '文件已保存', errorPrefix: '保存文件失败' },
   })
 }
 
@@ -79,6 +88,7 @@ export function useUpdateDocument() {
   return useMutation({
     mutationFn: ({ id, patch }: { id: string; patch: DocumentUpdate }) => updateDocument(id, patch),
     onSuccess: () => invalidateDocuments(qc),
+    meta: { success: '文件已更新', errorPrefix: '更新文件失败' },
   })
 }
 
@@ -87,5 +97,21 @@ export function useArchiveDocument() {
   return useMutation({
     mutationFn: (id: string) => archiveDocument(id),
     onSuccess: () => invalidateDocuments(qc),
+    meta: { success: '文件已归档（可在档案库恢复）', errorPrefix: '归档失败' },
+  })
+}
+
+/** 彻底删除文件（回收站终点）：删行 + 清 Storage 实体。 */
+export function useDeleteDocument() {
+  const qc = useQueryClient()
+  const { isAdmin } = useAuth()
+  return useMutation({
+    // 纵深防御：彻底删除是 admin 专属（RLS 同样限制），入口拦下避免被静默挡掉无提示
+    mutationFn: async ({ id, storagePath }: { id: string; storagePath: string | null }) => {
+      if (!isAdmin) throw new Error('仅管理员可彻底删除')
+      await deleteDocument(id, storagePath)
+    },
+    onSuccess: () => invalidateDocuments(qc),
+    meta: { success: '文件已彻底删除', errorPrefix: '删除失败' },
   })
 }

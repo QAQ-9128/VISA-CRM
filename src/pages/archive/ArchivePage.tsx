@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+﻿import { useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useArchiveFiles, useDeleteArchiveFile } from '../../hooks/queries/useArchive'
 import {
@@ -14,16 +14,16 @@ import { Badge } from '../../components/ui/Badge'
 import { Select } from '../../components/ui/Select'
 import { TextField } from '../../components/ui/TextField'
 import { LoadingBlock, ErrorBlock } from '../../components/ui/states'
-import { DOC_TYPES, DOC_TYPE_LABELS } from '../../types/domain'
+import { RecycleBin } from './RecycleBin'
+import { useAuth } from '../../hooks/useAuth'
+import { toastError } from '../../store/ui'
 
+// 类型只区分「发票 / 其他」：细分 doc_type 对档案库没用（2026-06 用户反馈），
+// 列里只给发票打标，其余不显示类型徽章。
 const TYPE_OPTIONS = [
   { value: 'all', label: '全部类型' },
-  { value: 'invoice', label: '发票' },
-  ...DOC_TYPES.map((t) => ({ value: t, label: DOC_TYPE_LABELS[t] })),
+  { value: 'invoice', label: '仅发票' },
 ]
-
-const typeBadgeClass = (typeKey: string) =>
-  typeKey === 'invoice' ? 'bg-emerald-100 text-emerald-800' : 'bg-sky-100 text-sky-800'
 
 const day = (iso: string | null) => (iso ? iso.slice(0, 10) : '—')
 
@@ -35,7 +35,7 @@ function DownloadButton({ path }: { path: string }) {
       const url = await getDocumentSignedUrl(path)
       window.open(url, '_blank', 'noopener')
     } catch (e) {
-      window.alert('打开失败：' + (e instanceof Error ? e.message : '未知错误'))
+      toastError('打开失败：' + (e instanceof Error ? e.message : '未知错误'))
     } finally {
       setLoading(false)
     }
@@ -74,7 +74,11 @@ function LinkedTo({ file }: { file: ArchiveFile }) {
 export function ArchivePage() {
   const { isPending, isError, files, customers } = useArchiveFiles()
   const del = useDeleteArchiveFile()
+  // 回收站（含彻底删除）是 admin 专属：staff 连入口都不显示，与 RLS 的 admin-only DELETE 对齐
+  const { isAdmin } = useAuth()
 
+  // 文件 = 全部上传文件；回收站 = 已归档的客户/案件/文件/雇主/介绍人（可恢复）
+  const [view, setView] = useState<'files' | 'recycle'>('files')
   const [search, setSearch] = useState('')
   const [typeKey, setTypeKey] = useState('all')
   const [customerId, setCustomerId] = useState('all')
@@ -117,11 +121,38 @@ export function ArchivePage() {
       <div className="flex flex-wrap items-end justify-between gap-2">
         <div>
           <h1 className="text-2xl font-bold tracking-[-0.02em] text-ink">档案库</h1>
-          <p className="mt-0.5 text-sm text-muted">所有上传文件（发票 + 客户/案件文件）统一查看与下载</p>
+          <p className="mt-0.5 text-sm text-muted">
+            {view === 'files' ? '所有上传文件（发票 + 客户/案件文件）统一查看与下载' : '已归档的客户 / 案件 / 文件 / 雇主 / 介绍人，可一键恢复'}
+          </p>
         </div>
-        <span className="text-sm text-faint">共 {rows.length} 个文件</span>
+        {view === 'files' && <span className="text-sm text-faint">共 {rows.length} 个文件</span>}
       </div>
 
+      {/* 文件 / 回收站 切换 */}
+      <div className="inline-flex gap-1 rounded-full bg-surface-2 p-1">
+        {(
+          [
+            { v: 'files' as const, label: '文件' },
+            ...(isAdmin ? [{ v: 'recycle' as const, label: '回收站' }] : []),
+          ]
+        ).map(({ v, label }) => (
+          <button
+            key={v}
+            type="button"
+            onClick={() => setView(v)}
+            className={`min-h-9 rounded-full px-4 text-[13.5px] font-semibold transition-colors ${
+              view === v ? 'bg-white text-brand-700 shadow-xs' : 'text-muted hover:text-body'
+            }`}
+          >
+            {label}
+          </button>
+        ))}
+      </div>
+
+      {view === 'recycle' && isAdmin ? (
+        <RecycleBin />
+      ) : (
+        <>
       {/* 筛选 / 搜索 */}
       <div className="grid grid-cols-1 gap-3 rounded-card bg-white p-[18px] shadow-soft sm:grid-cols-2 lg:grid-cols-5">
         <div className="sm:col-span-2 lg:col-span-1">
@@ -176,7 +207,11 @@ export function ArchivePage() {
                       {f.fileName}
                     </td>
                     <td className="px-3 py-3">
-                      <Badge className={typeBadgeClass(f.typeKey)}>{f.typeLabel}</Badge>
+                      {f.typeKey === 'invoice' ? (
+                        <Badge className="bg-emerald-100 text-emerald-800">发票</Badge>
+                      ) : (
+                        <span className="text-faint">—</span>
+                      )}
                     </td>
                     <td className="px-3 py-3">
                       <LinkedTo file={f} />
@@ -203,7 +238,7 @@ export function ArchivePage() {
                   <span className="min-w-0 flex-1 truncate text-sm font-semibold text-ink" title={f.fileName}>
                     {f.fileName}
                   </span>
-                  <Badge className={typeBadgeClass(f.typeKey)}>{f.typeLabel}</Badge>
+                  {f.typeKey === 'invoice' && <Badge className="bg-emerald-100 text-emerald-800">发票</Badge>}
                 </div>
                 <div className="mt-1.5">
                   <LinkedTo file={f} />
@@ -221,6 +256,8 @@ export function ArchivePage() {
               </li>
             ))}
           </ul>
+        </>
+      )}
         </>
       )}
     </section>

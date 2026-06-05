@@ -85,6 +85,32 @@ describe('selectMonthlyOverview · 恒等式与对账', () => {
     expect(o.net).toBe(oldNet)
   })
 
+  // 护栏：负数付款（冲红/退款）在合计口径里「夹 0 不计入」（明细仍保留负数行）——
+  // 若未来有人把负数计入合计，此测试会拦下，避免净额含义悄悄改变。
+  it('负数付款：不计入收入/支出合计（夹 0），净额恒等式仍自洽', () => {
+    const cases = { c1: mkCase({}) }
+    const customers = { cu1: mkCustomer({ referrer_id: 'r1' }) }
+    const referrers = { r1: mkReferrer({}) }
+    const pays = [
+      mkPayment({ id: 'a', direction: 'from_client', amount: 1000, paid_at: '2026-05-03' }),
+      mkPayment({ id: 'neg-in', direction: 'from_client', amount: -200, paid_at: '2026-05-04' }), // 冲红收入
+      mkPayment({ id: 'c', direction: 'to_company', amount: 300, paid_at: '2026-05-05' }),
+      mkPayment({ id: 'neg-out', direction: 'to_company', amount: -50, paid_at: '2026-05-06' }), // 冲红支出
+    ]
+    const r = selectFinanceReceipts(pays, cases, customers)
+    const p = selectFinancePayouts(pays, cases, customers, referrers)
+    // 明细保留负数行（可见、可追溯）
+    expect(r.items.map((i) => i.amount)).toContain(-200)
+    expect(p.items.map((i) => i.amount)).toContain(-50)
+    // 合计夹 0：负数不抵减
+    expect(r.total).toBe(1000)
+    expect(p.toCompanyTotal).toBe(300)
+    // 净额 = income − expense 恒等式仍成立
+    const o = selectMonthlyOverview(r, p)
+    expect(o.net).toBe(700)
+    expect(o.net).toBe(Math.round((o.income - o.expense) * 100) / 100)
+  })
+
   it('空月：全 0，无 delta 时为 null（UI 省略该行）', () => {
     const o = selectMonthlyOverview(receipts(0), payouts(0, 0))
     expect(o).toMatchObject({ income: 0, toCompany: 0, toReferrer: 0, expense: 0, net: 0, delta: null })

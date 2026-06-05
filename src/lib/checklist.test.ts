@@ -36,9 +36,9 @@ describe('checklistSource（待办来源标签）', () => {
   const caseById = { ca1: { id: 'ca1', customer_id: 'cu1', visa_subclass: '482', visa_stream: 'Core Skills' } }
   const customerById = { cu1: { id: 'cu1', full_name: '张伟' } }
 
-  it('关联案件 → 客户名 · 签证，链到案件', () => {
+  it('关联案件 → 客户名 · 签证，链到客户详情并带 case 参数（案件详情路由已删）', () => {
     const s = checklistSource({ customer_id: null, case_id: 'ca1' }, caseById, customerById)
-    expect(s).toEqual({ kind: 'case', to: '/cases/ca1', label: '张伟 · 482/Core Skills' })
+    expect(s).toEqual({ kind: 'case', to: '/customers/cu1?case=ca1', label: '张伟 · 482/Core Skills' })
   })
   it('关联客户 → 客户名，链到客户', () => {
     const s = checklistSource({ customer_id: 'cu1', case_id: null }, caseById, customerById)

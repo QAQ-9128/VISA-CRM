@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+﻿import { useMemo, useState } from 'react'
 import type { ChangeEvent } from 'react'
 import { Link } from 'react-router-dom'
 import { Button } from '../ui/Button'
@@ -34,6 +34,7 @@ import type {
 import type { ReceivableRow } from '../../lib/finance'
 import type { Referrer } from '../../types/models'
 import { PAYMENT_METHOD_LABELS, PAYMENT_DIRECTION_LABELS } from '../../types/domain'
+import { toastError } from '../../store/ui'
 
 const td = 'px-3 py-2.5 align-middle'
 
@@ -78,7 +79,7 @@ function ReceiptRow({ item, color }: { item: ReceiptItem; color: CustomerPayment
     try {
       window.open(await getDocumentSignedUrl(item.invoicePath), '_blank', 'noopener')
     } catch {
-      window.alert('打开发票失败，请重试')
+      toastError('打开发票失败，请重试')
     }
   }
 

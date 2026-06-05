@@ -6,6 +6,8 @@ import { useRecordsByCase, useCreateRecord, useUpdateRecord, useDeleteRecord } f
 import { useDocumentsByCase } from '../../hooks/queries/useDocuments'
 import { selectCaseTodos } from '../../lib/caseTodos'
 import { sortRecords } from '../../lib/records'
+import { todayYmd, isPastYmd } from '../../lib/dateRules'
+import { toastError } from '../../store/ui'
 import { FOLLOW_UP_EMOJIS, DEFAULT_FOLLOW_UP_EMOJI } from '../../types/domain'
 import type { Case } from '../../types/models'
 
@@ -30,6 +32,11 @@ function AddCaseRecordForm({ caseId, customerId, onDone }: { caseId: string; cus
   function save(e: React.FormEvent) {
     e.preventDefault()
     if (!canSave) return
+    // 待办截止日是计划 → 禁过去日期（min 属性 + 此处兜底拦手输）
+    if (type === 'task' && isPastYmd(dueDate)) {
+      toastError('截止日不能是过去的日期')
+      return
+    }
     create.mutate(
       {
         customer_id: customerId,
@@ -91,7 +98,7 @@ function AddCaseRecordForm({ caseId, customerId, onDone }: { caseId: string; cus
         placeholder={type === 'task' ? '如：递交签证申请' : '如：已电话沟通补件清单'}
       />
       {type === 'task' && (
-        <TextField label="截止日（可选）" type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)} />
+        <TextField label="截止日（可选，不能选过去）" type="date" min={todayYmd()} value={dueDate} onChange={(e) => setDueDate(e.target.value)} />
       )}
 
       {create.isError && <p className="text-sm text-[var(--color-coral)]">保存失败，请重试。</p>}

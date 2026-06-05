@@ -5,27 +5,22 @@ import { getCustomerPaymentColor } from './finance'
 import type { CustomerPaymentColor } from './finance'
 import { utcDayDiff } from './dateDiff'
 import { computeExpiryStatus } from './expiry'
-import { computeLodgementProgress } from './lodgementProgress'
-import { getLodgementLodgedDate, getLodgementStatus } from './lodgementStatus'
 import {
   CASE_STAGES,
   CASE_STAGE_COLOR,
   CASE_STAGE_LABELS,
   DOC_TYPE_LABELS,
-  LODGEMENT_TYPE_LABELS,
 } from '../types/domain'
 import type { CaseStage } from '../types/domain'
 import type {
   Case,
+  CaseApplicant,
   CaseDocument,
-  CaseStageHistory,
   Customer,
   Installment,
-  Lodgement,
   Payment,
   PaymentPlan,
   PaymentPlanItem,
-  RecordRow,
 } from '../types/models'
 
 type CaseMap = Record<string, Case>
@@ -81,45 +76,6 @@ export function sumClientReceiptsInMonth(
   return Math.round(sum * 100) / 100
 }
 
-// ── 月环比：方向 + 百分比（上月为 0 时无可比百分比）────────────────
-export interface MonthOverMonth {
-  /** 变化百分比（保留一位小数）；上月为 0 时为 null（无法计算环比） */
-  pct: number | null
-  dir: 'up' | 'down' | 'flat'
-}
-
-export function monthOverMonth(current: number, previous: number): MonthOverMonth {
-  if (previous === 0) return { pct: null, dir: current > 0 ? 'up' : 'flat' }
-  const change = (current - previous) / previous
-  if (Math.abs(change) < 0.0005) return { pct: 0, dir: 'flat' }
-  return { pct: Math.round(Math.abs(change) * 1000) / 10, dir: change > 0 ? 'up' : 'down' }
-}
-
-// ── 近 N 月客户收款序列（月度收款条形图用）──────────────────────
-export interface RevenueBar {
-  label: string
-  value: number
-  /** 末月（当月）高亮 */
-  hi: boolean
-}
-
-/** 截至 (year, monthIndex0) 往前数 count 个月，每月 from_client 收款合计。 */
-export function monthlyClientReceipts(
-  payments: Pick<Payment, 'direction' | 'amount' | 'paid_at'>[],
-  year: number,
-  monthIndex0: number,
-  count = 6,
-): RevenueBar[] {
-  const out: RevenueBar[] = []
-  for (let i = count - 1; i >= 0; i--) {
-    const d = new Date(Date.UTC(year, monthIndex0 - i, 1))
-    const y = d.getUTCFullYear()
-    const m = d.getUTCMonth()
-    out.push({ label: `${m + 1}月`, value: sumClientReceiptsInMonth(payments, y, m), hi: i === 0 })
-  }
-  return out
-}
-
 // ── 即将到期：文档到期 ≤30 天或已过期（合并 TRT 在前端组装）──────────
 export interface ExpiringDocItem {
   id: string
@@ -143,6 +99,7 @@ const DOC_ICON: Partial<Record<CaseDocument['doc_type'], ExpiringDocItem['ic']>>
 export function selectExpiringDocs(
   documents: CaseDocument[],
   customerById: CustomerMap,
+  caseById: CaseMap,
   today: Date = new Date(),
   soonThresholdDays = 30,
 ): ExpiringDocItem[] {
@@ -151,6 +108,7 @@ export function selectExpiringDocs(
     if (d.is_archived) continue
     const customer = customerById[d.customer_id]
     if (!customer) continue // 归档/不存在的客户不列入
+    if (d.case_id && !caseById[d.case_id]) continue // 所挂案件已归档 → 隐藏（与档案库口径一致）
     const info = computeExpiryStatus(d.expiry_date, today, soonThresholdDays)
     if (!info || info.status === 'ok') continue
     items.push({
@@ -167,135 +125,52 @@ export function selectExpiringDocs(
   return items.sort((a, b) => a.daysRemaining - b.daysRemaining)
 }
 
-// ── 递交进度行（递交进度表用）：递交日期/状态从 case_stage_history 派生 ──────
-export interface LodgementProgressRow {
+// ── 待办案件：current_stage = 'todo' 且未归档，按 created_at 倒序 ──────────
+export interface TodoCaseParticipant {
   id: string
   name: string
-  /** 签证类型 + 提名/签证，如「482 提名」 */
-  visa: string
-  /** 派生递交日期 YYYY-MM-DD */
-  date: string
-  statusLabel: string
-  statusTone: 'blue' | 'emerald' | 'rose'
-  percentElapsed: number
-  /** 进度条颜色（十六进制） */
-  barColor: string
-  elapsedDays: number
-  /** 右侧剩余/超期/完成文案 */
-  remainingText: string
 }
 
-export function selectLodgementProgressRows(
-  lodgements: Lodgement[],
-  stageHistory: CaseStageHistory[],
-  caseById: CaseMap,
-  customerById: CustomerMap,
-  today: Date = new Date(),
-): LodgementProgressRow[] {
-  const historyByCase = new Map<string, CaseStageHistory[]>()
-  for (const h of stageHistory) {
-    const list = historyByCase.get(h.case_id) ?? []
-    list.push(h)
-    historyByCase.set(h.case_id, list)
-  }
-
-  const rows: LodgementProgressRow[] = []
-  for (const lg of lodgements) {
-    const c = caseById[lg.case_id]
-    if (!c) continue
-    const history = historyByCase.get(lg.case_id) ?? []
-    const lodgedDate = getLodgementLodgedDate(history, lg.type)
-    if (!lodgedDate) continue // 未递交 → 不进进度表
-    const progress = computeLodgementProgress(lodgedDate, lg.dha_processing_days, today)
-    if (!progress) continue // 无 DHA 处理天数 → 无法算进度
-    const status = getLodgementStatus(c.current_stage, lg.type, history)
-
-    let statusLabel: string
-    let statusTone: LodgementProgressRow['statusTone']
-    let barColor: string
-    let remainingText: string
-    if (status === 'approved') {
-      statusLabel = '已批'
-      statusTone = 'emerald'
-      barColor = '#10b981'
-      remainingText = '已完成'
-    } else if (status === 'refused' || progress.isOverdue) {
-      statusLabel = status === 'refused' ? '已拒' : '已超期'
-      statusTone = 'rose'
-      barColor = '#f43f5e'
-      remainingText = progress.isOverdue ? `超 ${-progress.daysRemaining} 天` : `剩 ${progress.daysRemaining} 天`
-    } else {
-      statusLabel = '处理中'
-      statusTone = 'blue'
-      barColor = progress.percentElapsed > 80 ? '#f59e0b' : '#3b6bff'
-      remainingText = `剩 ${progress.daysRemaining} 天`
-    }
-
-    rows.push({
-      id: lg.id,
-      name: customerById[c.customer_id]?.full_name ?? '',
-      visa: `${c.visa_subclass} ${LODGEMENT_TYPE_LABELS[lg.type]}`,
-      date: lodgedDate,
-      statusLabel,
-      statusTone,
-      percentElapsed: progress.percentElapsed,
-      barColor,
-      elapsedDays: progress.daysElapsed,
-      remainingText,
-    })
-  }
-  return rows.sort((a, b) => b.date.localeCompare(a.date) || a.id.localeCompare(b.id))
-}
-
-// ── 待办客户清单：有未完成待办的客户（按客户去重 + 计数）──────────
-export interface CustomerOpenTasks {
-  customerId: string
-  customerName: string
-  openCount: number
-}
-
-export function selectCustomersWithOpenTasks(
-  openTasks: RecordRow[],
-  customerById: CustomerMap,
-): CustomerOpenTasks[] {
-  const byCustomer = new Map<string, CustomerOpenTasks>()
-  for (const t of openTasks) {
-    if (t.type !== 'task' || t.is_done || !t.customer_id) continue
-    const customer = customerById[t.customer_id]
-    if (!customer) continue // 不在册（归档/不存在）的客户不列入
-    const entry =
-      byCustomer.get(t.customer_id) ?? {
-        customerId: t.customer_id,
-        customerName: customer.full_name,
-        openCount: 0,
-      }
-    entry.openCount += 1
-    byCustomer.set(t.customer_id, entry)
-  }
-  return [...byCustomer.values()].sort(
-    (a, b) => b.openCount - a.openCount || a.customerName.localeCompare(b.customerName),
-  )
-}
-
-// ── 待办案件：current_stage = 'todo' 且未归档，按 created_at 倒序 ──────────
 export interface TodoCaseItem {
   caseId: string
+  /** 行点击/案件链接目标 = 首位在册参与人（案件客户在册则为案件客户） */
   customerId: string
   customerName: string
+  /** 全部在册参与人（案件客户在前）；归档/被删的参与人不在在册映射里 → 自动消失 */
+  participants: TodoCaseParticipant[]
   /** 签证类型（含子类别，如 482/Core Skills） */
   visaLabel: string
 }
 
-export function selectTodoCases(cases: Case[], customerById: CustomerMap): TodoCaseItem[] {
+export function selectTodoCases(
+  cases: Case[],
+  customerById: CustomerMap,
+  applicants: Pick<CaseApplicant, 'case_id' | 'customer_id'>[] = [],
+): TodoCaseItem[] {
+  const subsByCase = new Map<string, string[]>()
+  for (const a of applicants) {
+    const list = subsByCase.get(a.case_id) ?? []
+    list.push(a.customer_id)
+    subsByCase.set(a.case_id, list)
+  }
   return cases
     .filter((c) => c.current_stage === 'todo' && !c.is_archived)
     .sort((a, b) => b.created_at.localeCompare(a.created_at) || a.id.localeCompare(b.id))
-    .map((c) => ({
-      caseId: c.id,
-      customerId: c.customer_id,
-      customerName: customerById[c.customer_id]?.full_name ?? '',
-      visaLabel: formatVisaType(c.visa_subclass, c.visa_stream),
-    }))
+    .map((c) => {
+      const ids = [...new Set([c.customer_id, ...(subsByCase.get(c.id) ?? [])])]
+      // 在册参与人（customerById 来自未归档客户列表 → 归档/被删的人自然滤掉）
+      const participants = ids
+        .filter((id) => customerById[id])
+        .map((id) => ({ id, name: customerById[id]?.full_name ?? '' }))
+      const first = participants[0]
+      return {
+        caseId: c.id,
+        customerId: first?.id ?? c.customer_id,
+        customerName: first?.name ?? '',
+        participants,
+        visaLabel: formatVisaType(c.visa_subclass, c.visa_stream),
+      }
+    })
 }
 
 // ── 逾期未付款：未付且 due_date < 今天 ───────────────────────
@@ -335,13 +210,6 @@ export function selectOverdueInstallments(
     })
   }
   return items.sort((a, b) => b.daysOverdue - a.daysOverdue)
-}
-
-// ── 星标客户：仅取 is_starred，按姓名排序（不再依赖等级/来源排序）──────
-export function sortPriorityCustomers(customers: Customer[]): Customer[] {
-  return customers
-    .filter((c) => c.is_starred)
-    .sort((a, b) => a.full_name.localeCompare(b.full_name))
 }
 
 // ── 欠款总览：客户欠款合计 / 欠主代理合计（按案件分组，负数不计）──

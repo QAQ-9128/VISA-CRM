@@ -65,6 +65,24 @@ describe('listCustomers', () => {
     expect(orArg).toContain('张三')
   })
 
+  // PostgREST 的 .or() 里逗号/括号是语法保留字符：模式值必须双引号包裹，否则
+  // 搜「Smith, John」「a(b」会破坏过滤串（逗号被当条件分隔符）→ 结果错误或 400。
+  it('搜索词含逗号/括号/引号/顿号：模式值双引号包裹并转义内部引号，语法不被破坏', async () => {
+    const cases: Array<{ input: string; quoted: string }> = [
+      { input: '张, 三', quoted: '"%张, 三%"' },
+      { input: 'a(b)', quoted: '"%a(b)%"' },
+      { input: '王"五', quoted: '"%王\\"五%"' },
+      { input: '张、三', quoted: '"%张、三%"' },
+      { input: 'back\\slash', quoted: '"%back\\\\slash%"' },
+    ]
+    for (const { input, quoted } of cases) {
+      const b = mockReturn({ data: [], error: null })
+      await customersApi.listCustomers({ search: input })
+      const orArg = b.or.mock.calls[0]?.[0] as string
+      expect(orArg).toBe(`full_name.ilike.${quoted},phone.ilike.${quoted},email.ilike.${quoted}`)
+    }
+  })
+
   it('error 时抛出', async () => {
     mockReturn({ data: null, error: { message: 'boom' } })
     await expect(customersApi.listCustomers()).rejects.toThrow('boom')
@@ -159,19 +177,130 @@ describe('写操作', () => {
     expect(b.update).toHaveBeenCalledWith({ sponsor_position: 'Marketing Manager' })
   })
 
-  it('archiveCustomer 是软删除：调用 update({is_archived:true})，绝不 delete', async () => {
-    const b = mockReturn({ data: null, error: null })
+  /** 按表分调用队列的 mock：同一表多次 from() 依次吐出不同结果，记录每次的 builder。 */
+  function mockTables(queues: Record<string, Result[]>) {
+    const made: Record<string, ReturnType<typeof makeBuilder>[]> = {}
+    fromMock.mockImplementation((table: string) => {
+      const r = queues[table]?.shift() ?? { data: null, error: null }
+      const b = makeBuilder(r)
+      b.neq = vi.fn(() => b)
+      b.in = vi.fn(() => b)
+      b.limit = vi.fn(() => b)
+      ;(made[table] ??= []).push(b)
+      return b
+    })
+    return made
+  }
+
+  it('archiveCustomer：TA 参与的所有案件（拥有 ∪ 参与）一并归档，客户软删，绝不 delete', async () => {
+    const made = mockTables({
+      cases: [
+        { data: [{ id: 'k1' }], error: null }, // ① 名下未归档案件
+        { data: null, error: null }, // ② 批量归档 update.in()
+      ],
+      case_applicants: [
+        { data: [{ case_id: 'k2' }], error: null }, // ① TA 作为参与人的案件
+      ],
+      customers: [{ data: null, error: null }], // ③ 客户软删
+    })
     await customersApi.archiveCustomer('c1')
-    expect(b.update).toHaveBeenCalledWith({ is_archived: true })
-    expect(b.eq).toHaveBeenCalledWith('id', 'c1')
-    expect(b.delete).not.toHaveBeenCalled()
+    expect(made.cases[1].update).toHaveBeenCalledWith({ is_archived: true })
+    expect(made.cases[1].in).toHaveBeenCalledWith('id', ['k1', 'k2']) // 拥有 + 参与 全归档
+    expect(made.customers[0].update).toHaveBeenCalledWith({ is_archived: true })
+    expect(made.customers[0].delete).not.toHaveBeenCalled()
+    expect(made.cases[1].delete).not.toHaveBeenCalled()
   })
 
-  it('deleteCustomer 彻底删除：真 delete().eq(id)，不是软删', async () => {
-    const b = mockReturn({ data: null, error: null })
+  it('archiveCustomer：无任何案件 → 只软删客户，不发案件 update', async () => {
+    const made = mockTables({
+      cases: [{ data: [], error: null }],
+      case_applicants: [{ data: [], error: null }],
+      customers: [{ data: null, error: null }],
+    })
+    await customersApi.archiveCustomer('c1')
+    expect(made.cases).toHaveLength(1) // 只有查询
+    expect(made.customers[0].update).toHaveBeenCalledWith({ is_archived: true })
+  })
+
+  it('unarchiveCustomer 只恢复客户本体（连带归档的案件在回收站分别恢复）', async () => {
+    const made = mockTables({ customers: [{ data: null, error: null }] })
+    await customersApi.unarchiveCustomer('c1')
+    expect(made.customers[0].update).toHaveBeenCalledWith({ is_archived: false })
+    expect(made.cases).toBeUndefined()
+  })
+
+  it('deleteCustomer：名下多人案件先过户给另一参与人（案件保留），再真删客户', async () => {
+    // 每张表一个调用队列：同一表的多次 from() 依次返回不同结果
+    const queues: Record<string, Result[]> = {
+      cases: [
+        { data: [{ id: 'k1' }], error: null }, // ① 查名下案件 → k1
+        { data: null, error: null }, // ③ 过户 update customer_id
+      ],
+      case_applicants: [
+        { data: [{ customer_id: 'heir1' }], error: null }, // ② 查 k1 其他参与人 → heir1
+        { data: null, error: null }, // ④ 把 heir1 从参与表移除（已成为案件客户）
+      ],
+      customers: [{ data: [{ id: 'c1' }], error: null }], // ⑤ 真删客户（select 校验：确实删了 1 行）
+    }
+    const made: Record<string, ReturnType<typeof makeBuilder>[]> = {}
+    fromMock.mockImplementation((table: string) => {
+      const r = queues[table]?.shift() ?? { data: null, error: null }
+      const b = makeBuilder(r)
+      b.neq = vi.fn(() => b)
+      ;(made[table] ??= []).push(b)
+      return b
+    })
+
     await customersApi.deleteCustomer('c1')
-    expect(b.delete).toHaveBeenCalled()
-    expect(b.eq).toHaveBeenCalledWith('id', 'c1')
-    expect(b.update).not.toHaveBeenCalled()
+
+    // ③ 案件过户给 heir1（不删除案件）
+    expect(made.cases[1].update).toHaveBeenCalledWith({ customer_id: 'heir1' })
+    expect(made.cases[1].eq).toHaveBeenCalledWith('id', 'k1')
+    // ④ heir1 移出参与表（案件客户不在 case_applicants）
+    expect(made.case_applicants[1].delete).toHaveBeenCalled()
+    // ⑤ 客户真删（其参与的他人案件由 case_applicants 级联自动移出）
+    expect(made.customers[0].delete).toHaveBeenCalled()
+    expect(made.customers[0].eq).toHaveBeenCalledWith('id', 'c1')
+  })
+
+  it('deleteCustomer：名下单人案件（无其他参与人）不过户，随客户级联删除', async () => {
+    const queues: Record<string, Result[]> = {
+      cases: [{ data: [{ id: 'k1' }], error: null }],
+      case_applicants: [{ data: [], error: null }], // 无其他参与人
+      customers: [{ data: [{ id: 'c1' }], error: null }],
+    }
+    const made: Record<string, ReturnType<typeof makeBuilder>[]> = {}
+    fromMock.mockImplementation((table: string) => {
+      const r = queues[table]?.shift() ?? { data: null, error: null }
+      const b = makeBuilder(r)
+      b.neq = vi.fn(() => b)
+      ;(made[table] ??= []).push(b)
+      return b
+    })
+
+    await customersApi.deleteCustomer('c1')
+
+    expect(made.cases).toHaveLength(1) // 只查询，未过户
+    expect(made.customers[0].delete).toHaveBeenCalled()
+  })
+
+  // RLS 把 admin-only DELETE 静默挡掉时（命中 0 行、不报错），必须显式抛错——
+  // 否则前面的过户/移出参与人已写入，会留下"客户没删成但案件归属被改"的脏数据且无任何提示。
+  it('deleteCustomer：末步删除命中 0 行（如被 RLS 拒）→ 抛错，不静默', async () => {
+    const queues: Record<string, Result[]> = {
+      cases: [{ data: [], error: null }], // 名下无案件
+      customers: [{ data: [], error: null }], // delete 被 RLS 挡 → 0 行
+    }
+    const made: Record<string, ReturnType<typeof makeBuilder>[]> = {}
+    fromMock.mockImplementation((table: string) => {
+      const r = queues[table]?.shift() ?? { data: null, error: null }
+      const b = makeBuilder(r)
+      b.neq = vi.fn(() => b)
+      ;(made[table] ??= []).push(b)
+      return b
+    })
+
+    await expect(customersApi.deleteCustomer('c1')).rejects.toThrow(/未删除|管理员/)
+    expect(made.customers[0].select).toHaveBeenCalled() // 删除后跟 select 校验行数
   })
 })

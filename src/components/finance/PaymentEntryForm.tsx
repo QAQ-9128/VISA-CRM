@@ -9,7 +9,10 @@ import type { PaymentMethod } from '../../types/domain'
 
 /** 财务录入的方式：现金 / 转账 / 垫付（其他历史方式在编辑时按需保留）。 */
 const FINANCE_METHODS: PaymentMethod[] = ['cash', 'transfer', 'advance']
-const todayStr = () => new Date().toISOString().slice(0, 10)
+import { todayYmd } from '../../lib/dateRules'
+
+// 录款默认日期取本地日历日——toISOString 是 UTC 日，本地清晨会落到昨天甚至上个月，污染月度账目
+const todayStr = todayYmd
 
 const FEE_CATEGORY_LIST: readonly string[] = FEE_CATEGORIES
 

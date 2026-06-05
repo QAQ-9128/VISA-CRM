@@ -71,6 +71,7 @@ export function useCreateCase() {
   return useMutation({
     mutationFn: (input: CaseInsert) => createCase({ ...input, created_by: user?.id ?? null }),
     onSuccess: () => invalidateCases(qc),
+    meta: { success: '案件已创建', errorPrefix: '创建案件失败' },
   })
 }
 
@@ -79,6 +80,7 @@ export function useUpdateCase() {
   return useMutation({
     mutationFn: ({ id, patch }: { id: string; patch: CaseUpdate }) => updateCase(id, patch),
     onSuccess: () => invalidateCases(qc),
+    meta: { success: '案件已保存', errorPrefix: '保存案件失败' },
   })
 }
 
@@ -107,6 +109,7 @@ export function useUpdateCaseStage() {
       qc.invalidateQueries({ queryKey: queryKeys.lodgements.byCase(vars.caseId) })
       qc.invalidateQueries({ queryKey: queryKeys.lodgements.lodged })
     },
+    meta: { success: '阶段已更新', errorPrefix: '更新阶段失败' },
   })
 }
 
@@ -121,6 +124,7 @@ export function useUpdateStageHistory(caseId: string) {
       qc.invalidateQueries({ queryKey: queryKeys.cases.stageHistory(caseId) })
       qc.invalidateQueries({ queryKey: queryKeys.cases.all })
     },
+    meta: { success: '流转记录已修改', errorPrefix: '修改失败' },
   })
 }
 
@@ -133,6 +137,7 @@ export function useDeleteStageHistory(caseId: string) {
       qc.invalidateQueries({ queryKey: queryKeys.cases.stageHistory(caseId) })
       qc.invalidateQueries({ queryKey: queryKeys.cases.all })
     },
+    meta: { success: '流转记录已删除', errorPrefix: '删除失败' },
   })
 }
 
@@ -141,14 +146,21 @@ export function useArchiveCase() {
   return useMutation({
     mutationFn: (id: string) => archiveCase(id),
     onSuccess: () => invalidateCases(qc),
+    meta: { success: '案件已归档，所有参与人处一并隐藏（档案库→回收站 可恢复）', errorPrefix: '归档失败' },
   })
 }
 
 /** 彻底删除案件（硬删，级联删递交/阶段历史/账目等）。影响面广，成功后失效全部查询缓存。 */
 export function useDeleteCase() {
   const qc = useQueryClient()
+  const { isAdmin } = useAuth()
   return useMutation({
-    mutationFn: (id: string) => deleteCase(id),
+    // 纵深防御：彻底删除是 admin 专属（RLS 同样限制），入口拦下避免被静默挡掉无提示
+    mutationFn: async (id: string) => {
+      if (!isAdmin) throw new Error('仅管理员可彻底删除')
+      await deleteCase(id)
+    },
     onSuccess: () => qc.invalidateQueries(),
+    meta: { success: '案件已彻底删除', errorPrefix: '删除失败' },
   })
 }

@@ -122,7 +122,7 @@ export function ChecklistCard({ notice }: { notice?: ReactNode }) {
                 onClick={() => del.mutate(it.id)}
                 disabled={del.isPending}
                 aria-label="删除"
-                className="shrink-0 px-1 text-sm text-faint hover:text-rose-600"
+                className="grid size-8 shrink-0 place-items-center rounded-full text-sm text-faint hover:bg-rose-50 hover:text-rose-600"
               >
                 ✕
               </button>

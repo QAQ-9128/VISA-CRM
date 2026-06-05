@@ -58,6 +58,8 @@ export function selectArchiveFiles(
   for (const d of documents) {
     if (!d.storage_path) continue // 只展示确有实体文件的行（纯到期登记无文件 → 跳过）
     const cs = d.case_id ? caseById[d.case_id] : undefined
+    // 归档物只在回收站可见：客户或所挂案件已归档 → 文件从档案库隐藏（恢复后自动回来）
+    if (customerById[d.customer_id]?.is_archived || cs?.is_archived) continue
     files.push({
       key: `document:${d.id}`,
       source: 'document',
@@ -80,6 +82,8 @@ export function selectArchiveFiles(
     if (!p.invoice_path) continue
     const cs = caseById[p.case_id]
     const customerId = cs?.customer_id ?? null
+    // 同上：发票所属案件归档，或案件客户归档 → 隐藏
+    if (cs?.is_archived || (customerId && customerById[customerId]?.is_archived)) continue
     files.push({
       key: `invoice:${p.id}`,
       source: 'invoice',

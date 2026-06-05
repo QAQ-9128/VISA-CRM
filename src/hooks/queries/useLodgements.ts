@@ -1,4 +1,4 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+﻿import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import {
   createLodgement,
   listAllLodgements,
@@ -30,6 +30,7 @@ export function useCreateLodgement(caseId: string) {
       qc.invalidateQueries({ queryKey: queryKeys.lodgements.lodged }) // 递交总表同步刷新
       qc.invalidateQueries({ queryKey: queryKeys.cases.all })
     },
+    meta: { success: '递交记录已添加', errorPrefix: '添加递交记录失败' },
   })
 }
 
@@ -43,5 +44,6 @@ export function useUpdateLodgement(caseId: string) {
       qc.invalidateQueries({ queryKey: queryKeys.lodgements.lodged }) // 递交总表同步刷新
       qc.invalidateQueries({ queryKey: queryKeys.cases.all })
     },
+    meta: { success: '递交记录已保存', errorPrefix: '保存递交记录失败' },
   })
 }

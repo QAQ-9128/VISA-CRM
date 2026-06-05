@@ -42,7 +42,8 @@ export function LoginPage() {
   return (
     <div className="rounded-card bg-white p-6 shadow-soft sm:p-8">
       <div className="mb-5 flex items-center gap-3">
-        <span className="grid size-11 place-items-center rounded-[14px] bg-[linear-gradient(135deg,#3b6bff,#6a5cff)] text-white shadow-brand">
+        {/* 与侧栏品牌区同款薄荷绿渐变（2026-06 全站换肤后登录页一并对齐，别回退旧亮蓝） */}
+        <span className="grid size-11 place-items-center rounded-[14px] bg-[linear-gradient(135deg,#4e9a6b,#2e6a48)] text-white shadow-brand">
           <ShieldIcon className="size-6" />
         </span>
         <div>
@@ -77,7 +78,7 @@ export function LoginPage() {
             type="checkbox"
             checked={remember}
             onChange={(e) => setRemember(e.target.checked)}
-            className="size-4 rounded border-line-2 text-brand focus:ring-brand"
+            className="size-4 rounded border-line-2 accent-brand focus:ring-brand"
           />
           记住我（保持登录约 30 天）
         </label>

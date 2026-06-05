@@ -1,10 +1,6 @@
-import type { Customer } from '../types/models'
-import { familyRootId } from './family'
-
 /**
- * 家庭组「组码」：纯派生，不入库。组由 primary_applicant_id 定义，
- * 组根 id = familyRootId（自身或其主申）→ 同组同根 → 同码。
- * 形如 G-1A2B（组根 id 的稳定 4 位 base36 大写哈希）。
+ * 「组码」：纯派生，不入库。形如 G-1A2B（根 id 的稳定 4 位 base36 大写哈希）。
+ * 一案一组：现行组码由 lib/caseGroups 的 caseGroupCode（参与人集合键）调用本函数派生。
  */
 
 /** 稳定哈希（djb2 变体）→ 无符号 32 位整数。 */
@@ -24,9 +20,4 @@ export function groupCode(rootId: string): string {
   if (!rootId) return 'G-0000'
   const code = (hash32(rootId) % CODE_SPACE).toString(36).toUpperCase().padStart(4, '0')
   return `G-${code}`
-}
-
-/** 由客户派生其所属组码（组根 = primary_applicant_id ?? 自身 id）。 */
-export function groupCodeOf(c: Pick<Customer, 'id' | 'primary_applicant_id'>): string {
-  return groupCode(familyRootId(c))
 }

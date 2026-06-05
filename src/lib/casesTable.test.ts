@@ -5,7 +5,6 @@ import {
   groupPositions,
   elapsedMonthsDays,
   formatElapsed,
-  joinFamilyNames,
   selectCaseRows,
   sortCaseRows,
 } from './casesTable'
@@ -107,15 +106,6 @@ describe('elapsedMonthsDays / formatElapsed', () => {
   })
 })
 
-describe('joinFamilyNames', () => {
-  it('案件客户在前，& 连接', () => {
-    const primary = mkCustomer({ id: 'cu1', full_name: '李旻书' })
-    const sub = mkCustomer({ id: 'cu2', full_name: '邓韬', primary_applicant_id: 'cu1' })
-    expect(joinFamilyNames(primary, [primary, sub])).toBe('李旻书 & 邓韬')
-    expect(joinFamilyNames(sub, [primary, sub])).toBe('邓韬 & 李旻书')
-  })
-})
-
 describe('selectCaseRows', () => {
   const customers = [
     mkCustomer({ id: 'cu1', full_name: '李旻书' }),
@@ -185,6 +175,15 @@ describe('selectCaseRows', () => {
     )[0]
     expect(pending.nomApproved).toBe(false)
     expect(pending.visaGranted).toBe(false)
+  })
+
+  it('案件客户已归档：首位在册参与人顶上（显示与链接都切过去），归档者不再显示', () => {
+    const cases = [mkCase({ id: 'c1', customer_id: 'archivedOwner' })]
+    const customers = [mkCustomer({ id: 'cu2', full_name: '邓韬' })] // 在册的只有参与人
+    const rows = selectCaseRows(cases, [], [ca('c1', 'cu2')], customers, TODAY, [lodgedH('c1', 'visa', '2026-01-01')])
+    expect(rows[0].primaryName).toBe('邓韬')
+    expect(rows[0].primaryCustomerId).toBe('cu2') // 链接跳到没被归档的人
+    expect(rows[0].secondaryName).toBe('')
   })
 
   it('获批标记：纯签证案件（从无提名）下签 → visaGranted true 但 nomApproved false（无提名不冒充获批）', () => {

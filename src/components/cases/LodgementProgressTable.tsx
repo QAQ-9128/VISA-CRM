@@ -67,10 +67,12 @@ export function LodgementProgressTable({ rows, tasks }: { rows: CaseRow[]; tasks
         <table className="w-full min-w-[1180px] border-separate border-spacing-0 text-sm">
           <thead>
             <tr className="text-left text-[11.5px] font-bold tracking-[0.05em] text-muted uppercase">
-              {COLUMNS.map((col) => (
+              {COLUMNS.map((col, i) => (
                 <th
                   key={col.key}
-                  className={`border-b border-line-2 bg-surface-2 px-3.5 py-[11px] whitespace-nowrap ${col.head ?? ''}`}
+                  className={`border-b border-line-2 bg-surface-2 px-3.5 py-[11px] whitespace-nowrap ${col.head ?? ''} ${
+                    i === 0 ? 'sticky left-0 z-[2] border-r border-line-2 md:static md:border-r-0' : ''
+                  }`}
                 >
                   <button
                     type="button"
@@ -165,7 +167,12 @@ function CaseRowView({ row, tasks }: { row: CaseRow; tasks: RecordRow[] }) {
 
   return (
     <tr onClick={openCase} className="group cursor-pointer align-middle">
-      <td className={`${td} ${plainBg}`}>
+      {/* 案件编号列在移动端横滚时固定（保持上下文）；底色用实色保证遮住滚动内容 */}
+      <td
+        className={`${td} sticky left-0 z-[1] border-r border-line-2 md:static md:border-r-0 ${
+          todo ? 'bg-[#fffdf6] group-hover:bg-[#fff8e9]' : 'bg-white group-hover:bg-surface-2'
+        }`}
+      >
         <Link
           to={`/customers/${row.primaryCustomerId}?case=${row.caseId}`}
           state={source}
@@ -240,9 +247,16 @@ function CaseRowView({ row, tasks }: { row: CaseRow; tasks: RecordRow[] }) {
         {todo ? null : <WaitCell elapsed={row.nomElapsed} approvedLabel={row.nomApproved ? '提名获批' : null} />}
       </td>
 
-      {/* 签证组（浅紫） */}
+      {/* 签证组（浅紫）：待办行与提名列对称标「待递交」，避免被误读成"只差提名" */}
       <td className={`${td} ${visaBg} ${split} text-[13px] font-medium tabular-nums text-body`}>
-        {row.visaLodgedDate || <span className="text-slate-300">—</span>}
+        {todo ? (
+          <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-50 px-2.5 py-1 text-[12.5px] font-bold text-amber-700">
+            <span className="size-1.5 rounded-full bg-amber-500" />
+            待递交
+          </span>
+        ) : (
+          row.visaLodgedDate || <span className="text-slate-300">—</span>
+        )}
       </td>
       <td className={`${td} ${visaBg}`}>
         <WaitCell elapsed={row.visaElapsed} approvedLabel={row.visaGranted ? '签证获批' : null} />

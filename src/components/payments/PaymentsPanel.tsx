@@ -24,7 +24,10 @@ const DIR_STYLE: Record<PaymentDirection, string> = {
   to_company: 'bg-amber-100 text-amber-800',
   to_referrer: 'bg-violet-100 text-violet-800',
 }
-const todayStr = () => new Date().toISOString().slice(0, 10)
+import { todayYmd } from '../../lib/dateRules'
+
+// 录款默认日期取本地日历日——toISOString 是 UTC 日，本地清晨会落到昨天甚至上个月，污染月度账目
+const todayStr = todayYmd
 
 export function PaymentsPanel({
   caseId,

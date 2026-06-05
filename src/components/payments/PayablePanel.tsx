@@ -13,7 +13,10 @@ import type { PaymentDirection, PaymentMethod } from '../../types/domain'
 import type { Accounting } from '../../lib/accounting'
 import type { PaymentPlan } from '../../types/models'
 
-const todayStr = () => new Date().toISOString().slice(0, 10)
+import { todayYmd } from '../../lib/dateRules'
+
+// 录款默认日期取本地日历日——toISOString 是 UTC 日，本地清晨会落到昨天甚至上个月，污染月度账目
+const todayStr = todayYmd
 
 /** 记一笔付款（付主代理 / 付介绍人）——复用 useCreatePayment，方向固定，不新建账目逻辑。 */
 export function QuickPayoutForm({

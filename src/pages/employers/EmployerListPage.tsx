@@ -1,5 +1,6 @@
 import { Link } from 'react-router-dom'
 import { useArchiveEmployer, useDeleteEmployer, useEmployers } from '../../hooks/queries/useEmployers'
+import { useAuth } from '../../hooks/useAuth'
 import { Button } from '../../components/ui/Button'
 import { Card } from '../../components/ui/Card'
 import { Well } from '../../components/ui/Well'
@@ -10,6 +11,8 @@ import type { Employer } from '../../types/models'
 function EmployerRow({ e }: { e: Employer }) {
   const archive = useArchiveEmployer()
   const del = useDeleteEmployer()
+  // 彻底删除是 admin 专属（RLS 同样限制）：staff 不渲染按钮，归档不受影响
+  const { isAdmin } = useAuth()
   return (
     <li className="flex min-h-12 items-center gap-3 border-t border-line py-3 first:border-t-0">
       <Well tone="indigo" size={42}>
@@ -34,17 +37,19 @@ function EmployerRow({ e }: { e: Employer }) {
       >
         归档
       </button>
-      <button
-        type="button"
-        disabled={del.isPending}
-        className="shrink-0 text-xs text-faint hover:text-rose-600"
-        onClick={() => {
-          if (window.confirm(`彻底删除雇主「${e.name}」？【不可恢复】，已挂靠客户的「担保雇主」将被清空。如只想隐藏请用「归档」。`))
-            del.mutate(e.id)
-        }}
-      >
-        彻底删除
-      </button>
+      {isAdmin && (
+        <button
+          type="button"
+          disabled={del.isPending}
+          className="shrink-0 text-xs text-faint hover:text-rose-600"
+          onClick={() => {
+            if (window.confirm(`彻底删除雇主「${e.name}」？【不可恢复】，已挂靠客户的「担保雇主」将被清空。如只想隐藏请用「归档」。`))
+              del.mutate(e.id)
+          }}
+        >
+          彻底删除
+        </button>
+      )}
     </li>
   )
 }

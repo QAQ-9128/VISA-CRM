@@ -44,6 +44,12 @@ export async function archiveReferrer(id: string): Promise<void> {
   if (error) throw error
 }
 
+/** 取消归档（回收站恢复）。 */
+export async function unarchiveReferrer(id: string): Promise<void> {
+  const { error } = await supabase.from('referrers').update({ is_archived: false }).eq('id', id)
+  if (error) throw error
+}
+
 /** 彻底删除（硬删，不可恢复）：真 DELETE。已挂靠客户的 referrer_id 会被置空。RLS 仅 admin。 */
 export async function deleteReferrer(id: string): Promise<void> {
   const { error } = await supabase.from('referrers').delete().eq('id', id)

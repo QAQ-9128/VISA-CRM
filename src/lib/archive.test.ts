@@ -64,6 +64,37 @@ describe('selectArchiveFiles', () => {
     })
   })
 
+  // 归档物只在回收站可见（2026-06-05 用户拍板）：归档客户/案件名下的文件与发票从档案库隐藏
+  describe('归档隐藏', () => {
+    it('客户已归档 → 其文件不显示（恢复后 is_archived=false 自动回来）', () => {
+      const m = maps([], [mkCustomer({ id: 'cu1', is_archived: true }), mkCustomer({ id: 'cu2', full_name: '李四' })], [])
+      const files = selectArchiveFiles(
+        [mkDoc({ id: 'd1', customer_id: 'cu1' }), mkDoc({ id: 'd2', customer_id: 'cu2', storage_path: 'cu2/general/y.pdf' })],
+        [],
+        m,
+      )
+      expect(files.map((f) => f.sourceId)).toEqual(['d2'])
+    })
+
+    it('文件所挂案件已归档 → 隐藏（即便客户仍在册）', () => {
+      const m = maps([mkCase({ id: 'c1', customer_id: 'cu1', is_archived: true })], [mkCustomer({ id: 'cu1' })], [])
+      const files = selectArchiveFiles([mkDoc({ id: 'd1', customer_id: 'cu1', case_id: 'c1' })], [], m)
+      expect(files).toHaveLength(0)
+    })
+
+    it('发票：案件已归档 → 隐藏', () => {
+      const m = maps([mkCase({ id: 'c1', customer_id: 'cu1', is_archived: true })], [mkCustomer({ id: 'cu1' })], [])
+      const files = selectArchiveFiles([], [mkPayment({ id: 'pay1', case_id: 'c1', invoice_path: 'p.pdf' })], m)
+      expect(files).toHaveLength(0)
+    })
+
+    it('发票：案件在册但案件客户已归档 → 隐藏', () => {
+      const m = maps([mkCase({ id: 'c1', customer_id: 'cu1' })], [mkCustomer({ id: 'cu1', is_archived: true })], [])
+      const files = selectArchiveFiles([], [mkPayment({ id: 'pay1', case_id: 'c1', invoice_path: 'p.pdf' })], m)
+      expect(files).toHaveLength(0)
+    })
+  })
+
   it('上传人缺失（id 为 null 或查不到）显示 —', () => {
     const files = selectArchiveFiles(
       [mkDoc({ id: 'd1', uploaded_by: null })],

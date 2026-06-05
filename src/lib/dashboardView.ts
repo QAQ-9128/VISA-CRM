@@ -1,7 +1,6 @@
 /**
  * 仪表盘「展示层」助手——纯函数，只决定怎么显示，不碰任何数据/聚合/业务逻辑。
  */
-import type { MonthOverMonth } from './dashboard'
 
 /**
  * 问候语用名：有真实姓名显示姓名，否则返回 null（绝不显示邮箱）。
@@ -12,15 +11,6 @@ export function pickGreetingName(fullName?: string | null): string | null {
   const name = fullName?.trim()
   if (!name || name.includes('@')) return null
   return name
-}
-
-/**
- * 是否显示本月收款的月环比 chip。
- * 仅在「当前值 > 0」且「有可比的真实涨跌」时显示——
- * 当前值为 0（如 AUD 0.00 的「↓100%」）、上月为 0（pct=null）、或持平无意义时，一律不显示。
- */
-export function showReceiptsTrend(currentValue: number, mom: MonthOverMonth): boolean {
-  return currentValue > 0 && mom.pct != null && mom.dir !== 'flat'
 }
 
 /**

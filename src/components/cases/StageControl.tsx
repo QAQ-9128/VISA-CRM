@@ -5,13 +5,10 @@ import { TextField } from '../ui/TextField'
 import { StageBadge } from './StageBadge'
 import { useUpdateCaseStage } from '../../hooks/queries/useCases'
 import { replaceDateKeepTime } from '../../lib/stageHistory'
+import { todayYmd, isFutureYmd } from '../../lib/dateRules'
+import { toastError } from '../../store/ui'
 import { CASE_STAGES, CASE_STAGE_LABELS } from '../../types/domain'
 import type { CaseStage } from '../../types/domain'
-
-function todayStr(): string {
-  const d = new Date()
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
-}
 
 /** 阶段流转：选择新阶段 + 可填备注 → 写入 case_stage_history。
  *  一案一组：一份进度全员共享，无任何锁定/同步态——随时可编辑。 */
@@ -24,7 +21,7 @@ export function StageControl({
 }) {
   const [stage, setStage] = useState<CaseStage>(currentStage)
   const [note, setNote] = useState('')
-  const [effDate, setEffDate] = useState(todayStr)
+  const [effDate, setEffDate] = useState(todayYmd)
   const mutation = useUpdateCaseStage()
 
   const changed = stage !== currentStage
@@ -38,6 +35,11 @@ export function StageControl({
 
   function apply() {
     if (!changed) return
+    // 阶段记录的是已发生的事 → 禁未来日期（max 属性 + 此处兜底拦手输）
+    if (isFutureYmd(effDate)) {
+      toastError('实际发生日期不能是未来——阶段记录的是已发生的事')
+      return
+    }
     // 实际发生时间：用所填日期 + 当前时分秒（默认今天=现在）
     const effectiveAt = effDate ? replaceDateKeepTime(new Date().toISOString(), effDate) : null
     mutation.mutate(
@@ -69,8 +71,9 @@ export function StageControl({
           />
         )}
         <TextField
-          label="实际发生日期（默认今天，可补录过去）"
+          label="实际发生日期（默认今天，可补录过去，不能选未来）"
           type="date"
+          max={todayYmd()}
           value={effDate}
           onChange={(e) => setEffDate(e.target.value)}
         />

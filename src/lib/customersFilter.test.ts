@@ -4,6 +4,7 @@ import {
   matchesVisaFilter,
   customerFilterCount,
   customerSource,
+  caseNumberMatchedCustomerIds,
   EMPTY_CUSTOMER_FILTER,
 } from './customersFilter'
 import type { CustomerFilter } from './customersFilter'
@@ -21,6 +22,23 @@ const cust = (over: Partial<Customer>): Customer =>
   }) as Customer
 
 const filter = (over: Partial<CustomerFilter>): CustomerFilter => ({ ...EMPTY_CUSTOMER_FILTER, ...over })
+
+describe('caseNumberMatchedCustomerIds（按案件号搜客户）', () => {
+  const cases = [
+    { id: 'k1', case_number: '70193357', customer_id: 'cu1' },
+    { id: 'k2', case_number: '12345678', customer_id: 'cu2' },
+  ]
+  const applicants = [{ case_id: 'k1', customer_id: 'cu3' }]
+
+  it('部分匹配案件号 → 案件客户 + 全部参与人', () => {
+    expect(caseNumberMatchedCustomerIds('7019', cases, applicants)).toEqual(new Set(['cu1', 'cu3']))
+    expect(caseNumberMatchedCustomerIds('70193357', cases, applicants)).toEqual(new Set(['cu1', 'cu3']))
+  })
+  it('不匹配 / 空搜索 → 空集合（不影响原搜索）', () => {
+    expect(caseNumberMatchedCustomerIds('9999', cases, applicants).size).toBe(0)
+    expect(caseNumberMatchedCustomerIds('   ', cases, applicants).size).toBe(0)
+  })
+})
 
 describe('customerSource', () => {
   it('空 / 非法 → unclassified；合法来源原样', () => {

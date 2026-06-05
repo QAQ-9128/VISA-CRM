@@ -294,6 +294,9 @@ export function selectFinanceReceipts(
   let total = 0
   for (const p of payments) {
     if (p.direction !== 'from_client') continue
+    // 0 元行是视觉噪音（合计本就 +0）：无发票才隐藏——带发票的 0 元付款承载着发票，
+    // 藏掉就没法从账目查看/重传/编辑；负数（冲红）照常保留可追溯。
+    if (num(p.amount) === 0 && !p.invoice_path) continue
     const c = caseById[p.case_id]
     const caseCustomerId = c?.customer_id ?? ''
     // 显示归属：实际付款方(from_client) > 账单归属申请人(applicant_id) > 案件主申。
@@ -356,6 +359,8 @@ export function selectFinancePayouts(
   let toReferrerTotal = 0
   for (const p of payments) {
     if (p.direction !== 'to_company' && p.direction !== 'to_referrer') continue
+    // 同收款明细：无发票的 0 元行不进明细（合计不受影响），负数冲红保留
+    if (num(p.amount) === 0 && !p.invoice_path) continue
     const c = caseById[p.case_id]
     // 账单归属申请人优先（副申自己的账显示副申），回落案件主申
     const ownerId = p.applicant_id ?? c?.customer_id

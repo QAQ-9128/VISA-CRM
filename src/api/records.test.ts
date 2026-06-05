@@ -22,15 +22,6 @@ describe('listRecordsByCustomer / byCase', () => {
   })
 })
 
-describe('getOpenTaskRecords', () => {
-  it('只取 type=task 且未完成', async () => {
-    const b = wireFrom(fromMock, { records: { data: [] } })
-    await api.getOpenTaskRecords()
-    expect(b.records.eq).toHaveBeenCalledWith('type', 'task')
-    expect(b.records.eq).toHaveBeenCalledWith('is_done', false)
-  })
-})
-
 describe('getOpenRecords', () => {
   it('取全部未完成记录（含跟进），不按类型过滤', async () => {
     const b = wireFrom(fromMock, { records: { data: [] } })

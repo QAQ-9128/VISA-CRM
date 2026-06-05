@@ -52,12 +52,14 @@ const mkCase = (o: Partial<Case>): Case => ({
   created_by: null, is_archived: false, created_at: '', updated_at: '', ...o,
 })
 
-const authValue = {
-  user: { id: 'u1' }, loading: false, session: null, profile: null, isAdmin: true,
-  signIn: async () => {}, signOut: async () => {},
-} as unknown as AuthContextValue
+const mkAuth = (isAdmin: boolean) =>
+  ({
+    user: { id: 'u1' }, loading: false, session: null, profile: null, isAdmin,
+    signIn: async () => {}, signOut: async () => {},
+  }) as unknown as AuthContextValue
+const authValue = mkAuth(true)
 
-function renderPage(entry = '/customers/cu1') {
+function renderPage(entry = '/customers/cu1', auth: AuthContextValue = authValue) {
   const qc = new QueryClient({ defaultOptions: { queries: { retry: false, staleTime: Infinity, refetchOnMount: false } } })
   // 费用卡加载门的查询（无网络，确定性）：付款计划/付款/款项 + 家庭关联 + 本案发票
   qc.setQueryData(queryKeys.dashboard.plans, [])
@@ -68,7 +70,7 @@ function renderPage(entry = '/customers/cu1') {
   qc.setQueryData(queryKeys.documents.byCase('caA'), [])
   return render(
     <QueryClientProvider client={qc}>
-      <AuthContext.Provider value={authValue}>
+      <AuthContext.Provider value={auth}>
         <MemoryRouter initialEntries={[entry]}>
           <Routes>
             <Route path="/customers/:id" element={<CustomerDetailPage />} />
@@ -88,6 +90,18 @@ beforeEach(() => {
 })
 
 describe('CustomerDetailPage（案件中心单页 · 无 tab）', () => {
+  // 彻底删除是 admin 专属（RLS 同样限制）：staff 连按钮都不应看到——
+  // 否则点了会被 RLS 静默挡在末步，且删客户流程的前置过户已写入，留脏数据。
+  it('staff（非 admin）：客户「彻底删除」与案件「彻底删除本案」均不显示；归档仍在', async () => {
+    vi.mocked(listCases).mockResolvedValue([mkCase({})])
+    renderPage('/customers/cu1', mkAuth(false))
+    expect((await screen.findAllByText('测试客户')).length).toBeGreaterThan(0)
+    expect(screen.getByRole('button', { name: '归档' })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: '彻底删除' })).toBeNull()
+    expect(screen.queryByText('彻底删除本案')).toBeNull()
+    expect(screen.getByText('归档本案')).toBeInTheDocument() // 案件 ⋯ 菜单仍有归档
+  })
+
   it('概要带：姓名 + 参与案件格 + 编辑客户；无主/副申、无所属组、不再有任何 tab', async () => {
     renderPage()
     expect((await screen.findAllByText('测试客户')).length).toBeGreaterThan(0)
@@ -194,9 +208,14 @@ describe('CustomerDetailPage（案件中心单页 · 无 tab）', () => {
     // 参与的案件出现在 tab，且**不再标注归属人**（没有谁主导一说）
     expect(await screen.findByRole('button', { name: '482' })).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: /482.*Alice/ })).not.toBeInTheDocument()
-    // 以案件为组：平铺「参与客户」（owner + 参与人，无角色）+ 全员进度一致
+    // 以案件为组：参与人完全平级（无案件客户标注）——名字挂链接跳各自客户页；✕ 只在本页客户自己的 chip
     expect(screen.getByText('参与客户')).toBeInTheDocument()
-    expect(await screen.findByText('Alice、测试客户')).toBeInTheDocument()
+    const ownerLink = await screen.findByRole('link', { name: 'Alice' })
+    expect(ownerLink).toHaveAttribute('href', '/customers/al1') // 参与人名字 → 各自客户页
+    expect(screen.queryByText(/案件客户/)).not.toBeInTheDocument() // 无特殊标注，参与人平级
+    expect(screen.getByLabelText('移出 测试客户')).toBeInTheDocument() // 本页客户自己可移出
+    expect(screen.queryByLabelText('移出 Alice')).not.toBeInTheDocument() // 别人的不能移
+    expect(screen.getByRole('button', { name: '+ 添加参与人' })).toBeInTheDocument()
     expect(screen.getByText('· 全员进度一致')).toBeInTheDocument()
     // 参与人页面同样可推进阶段：与案件页同一「阶段进展」卡（推进阶段 → 展开 StageControl）
     expect(screen.getByText('阶段进展')).toBeInTheDocument()

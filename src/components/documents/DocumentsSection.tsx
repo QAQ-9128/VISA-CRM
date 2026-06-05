@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+﻿import { useMemo, useState } from 'react'
 import type { DragEvent, FormEvent, ReactNode } from 'react'
 import { Link } from 'react-router-dom'
 import { Card, CardHead } from '../ui/Card'
@@ -37,6 +37,7 @@ import {
 import type { DocStatusKind } from '../../lib/documentsView'
 import { errorMessage } from '../../lib/errorMessage'
 import type { CaseDocument } from '../../types/models'
+import { toastError } from '../../store/ui'
 
 const PAGE_SIZE = 10
 
@@ -87,7 +88,7 @@ async function openDoc(path: string) {
     const url = await getDocumentSignedUrl(path)
     window.open(url, '_blank', 'noopener')
   } catch (e) {
-    window.alert('打开失败：' + (e instanceof Error ? e.message : '未知错误'))
+    toastError('打开失败：' + (e instanceof Error ? e.message : '未知错误'))
   }
 }
 

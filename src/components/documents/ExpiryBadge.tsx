@@ -15,6 +15,8 @@ export function ExpiryBadge({ expiryDate }: { expiryDate: string | null }) {
   const label =
     info.status === 'overdue'
       ? `已过期 ${Math.abs(info.daysRemaining)} 天`
-      : `${info.daysRemaining} 天后到期`
+      : info.daysRemaining === 0
+        ? '今天到期'
+        : `${info.daysRemaining} 天后到期`
   return <Badge className={STYLE[info.status]}>{label}</Badge>
 }

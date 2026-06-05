@@ -1,12 +1,14 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Link, useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { useArchiveCustomer, useCustomer, useDeleteCustomer } from '../../hooks/queries/useCustomers'
 import { useCases } from '../../hooks/queries/useCases'
 import { useAllCaseApplicants } from '../../hooks/queries/useCaseApplicants'
+import { useAuth } from '../../hooks/useAuth'
 import { selectCustomerCases } from '../../lib/family'
 import { resolveBackLink } from '../../lib/backLink'
 import { BackLink } from '../../components/ui/BackLink'
 import { Button } from '../../components/ui/Button'
+import { ConfirmDialog } from '../../components/ui/ConfirmDialog'
 import { LoadingBlock, ErrorBlock } from '../../components/ui/states'
 import { SummaryBand } from '../../components/customers/overview/SummaryBand'
 import { RelatedCasesCard } from '../../components/customers/overview/RelatedCasesCard'
@@ -28,9 +30,13 @@ export function CustomerDetailPage() {
   const allApplicants = useAllCaseApplicants()
   const archive = useArchiveCustomer()
   const del = useDeleteCustomer()
+  // 彻底删除是 admin 专属（RLS 同样限制）：staff 不渲染按钮，归档不受影响
+  const { isAdmin } = useAuth()
   // ?case=<id> 直达并选中该案件（案件详情页已删，全站案件链接都跳到这里）。
   // 派生式选中（无 effect）：手动点 tab 的选择只在「同一个 case 参数」下生效；参数一变即选中新案。
   const caseParam = searchParams.get('case')
+  const [confirmingDelete, setConfirmingDelete] = useState(false)
+  const [confirmingArchive, setConfirmingArchive] = useState(false)
   const [pickedState, setPickedState] = useState<{ forParam: string | null; id: string | null }>({
     forParam: caseParam,
     id: caseParam,
@@ -41,6 +47,15 @@ export function CustomerDetailPage() {
     () => (id ? selectCustomerCases(id, allCases.data ?? [], allApplicants.data ?? []) : []),
     [id, allCases.data, allApplicants.data],
   )
+
+  // ?goto=fees（「保存并记账」入口）：数据就绪后自动滚到费用记录卡
+  const goto = searchParams.get('goto')
+  const ready = !query.isPending
+  useEffect(() => {
+    if (goto !== 'fees' || !ready) return
+    const t = setTimeout(() => document.getElementById('fees')?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 80)
+    return () => clearTimeout(t)
+  }, [goto, ready])
 
   if (query.isPending) return <LoadingBlock />
   if (query.isError) return <ErrorBlock error={query.error} />
@@ -60,16 +75,9 @@ export function CustomerDetailPage() {
   const selectedCase = caseList.find((x) => x.id === selectedCaseId) ?? null
 
   function handleArchive() {
-    if (!window.confirm(`确定归档「${c.full_name}」吗？归档后默认不显示，可随时恢复。`)) return
     archive.mutate(c.id, { onSuccess: () => navigate('/customers') })
   }
   function handleDelete() {
-    if (
-      !window.confirm(
-        `彻底删除「${c.full_name}」？\n\n将连同其名下所有案件、递交记录、文件、账目、跟进/待办一并【永久删除，不可恢复】！\n如只想暂时隐藏，请用「归档」。`,
-      )
-    )
-      return
     del.mutate(c.id, { onSuccess: () => navigate('/customers') })
   }
 
@@ -79,30 +87,99 @@ export function CustomerDetailPage() {
     <section className="space-y-5">
       <BackLink to={back.to} label={back.label} />
 
+      {/* 移动端快速定位条（单列堆叠很长，给概要/案件/费用三个锚点；桌面双列一屏可见不需要） */}
+      <nav
+        aria-label="页内定位"
+        className="sticky top-2 z-20 -my-1 flex gap-1.5 rounded-full border border-line bg-white/90 p-1 shadow-xs backdrop-blur md:hidden"
+      >
+        {([['summary', '概要'], ['cases', '案件'], ['fees', '费用']] as const).map(([target, label]) => (
+          <button
+            key={target}
+            type="button"
+            onClick={() => document.getElementById(target)?.scrollIntoView({ behavior: 'smooth', block: 'start' })}
+            className="min-h-9 flex-1 rounded-full text-[13px] font-semibold text-muted active:bg-brand-50 active:text-brand-700"
+          >
+            {label}
+          </button>
+        ))}
+      </nav>
+
       {/* ① 概要带 */}
-      <SummaryBand
-        customer={c}
-        selectedCase={selectedCase}
-        caseCount={caseList.length}
-        cases={caseList}
-        onSelectCase={setPicked}
-      />
+      <div id="summary" className="scroll-mt-16">
+        <SummaryBand
+          customer={c}
+          selectedCase={selectedCase}
+          caseCount={caseList.length}
+          cases={caseList}
+          onSelectCase={setPicked}
+        />
+      </div>
 
       {/* ② 相关案件卡（左，主） + ③ 费用记录卡（右，本案） */}
       <div className="grid grid-cols-1 items-stretch gap-5 lg:grid-cols-[minmax(0,1.6fr)_minmax(0,1fr)]">
-        <RelatedCasesCard customer={c} cases={caseList} selectedCase={selectedCase} onSelectCase={setPicked} />
-        <CaseFeesCard caseRow={selectedCase} />
+        <div id="cases" className="h-full min-w-0 scroll-mt-16">
+          <RelatedCasesCard customer={c} cases={caseList} selectedCase={selectedCase} onSelectCase={setPicked} />
+        </div>
+        <div id="fees" className="h-full min-w-0 scroll-mt-16">
+          <CaseFeesCard caseRow={selectedCase} />
+        </div>
       </div>
 
       {/* 客户级危险操作（归档 / 彻底删除） */}
       <div className="flex gap-3 border-t border-line pt-4">
-        <Button variant="ghost" onClick={handleArchive} disabled={archive.isPending}>
+        <Button variant="ghost" onClick={() => setConfirmingArchive(true)} disabled={archive.isPending || c.is_archived}>
           {c.is_archived ? '已归档' : '归档'}
         </Button>
-        <Button variant="ghost" onClick={handleDelete} disabled={del.isPending} className="text-rose-600 hover:bg-rose-50">
-          {del.isPending ? '删除中…' : '彻底删除'}
-        </Button>
+        {isAdmin && (
+          <Button variant="ghost" onClick={() => setConfirmingDelete(true)} disabled={del.isPending} className="text-rose-600 hover:bg-rose-50">
+            {del.isPending ? '删除中…' : '彻底删除'}
+          </Button>
+        )}
       </div>
+
+      {/* 归档（可逆）：统一风格弹窗确认。客户归档不影响案件——案件对其余参与人照常显示 */}
+      <ConfirmDialog
+        open={confirmingArchive}
+        title={`确定归档「${c.full_name}」吗？`}
+        description={
+          <>
+            归档后 TA 从客户列表隐藏，<b>TA 参与的所有案件也一并归档</b>；
+            客户与案件都可在 <b>档案库 → 回收站</b> 分别恢复。
+            想保住某个案件？先在「相关案件」卡把 TA 移出参与人再归档。
+          </>
+        }
+        confirmLabel="归档"
+        pendingLabel="归档中…"
+        pending={archive.isPending}
+        onConfirm={() => {
+          setConfirmingArchive(false)
+          handleArchive()
+        }}
+        onClose={() => setConfirmingArchive(false)}
+      />
+
+      {/* 彻底删除客户（不可恢复）：删人不删多人案件（过户给其余参与人） */}
+      <ConfirmDialog
+        open={confirmingDelete}
+        title={`彻底删除「${c.full_name}」？`}
+        tone="danger"
+        description={
+          <>
+            TA 的<b>客户资料、文件、跟进/待办</b>将永久删除，<b>不可恢复</b>。
+            案件处理：<b>多人案件保留</b>（移出 TA、案件过户给其余参与人，账目不动）；
+            <b>仅 TA 一人的案件</b>连同递交记录与账目<b>整案删除</b>。
+            如只想暂时隐藏，请改用「归档」。
+          </>
+        }
+        confirmLabel="删除"
+        pendingLabel="删除中…"
+        pending={del.isPending}
+        onConfirm={() => {
+          setConfirmingDelete(false)
+          handleDelete()
+        }}
+        onClose={() => setConfirmingDelete(false)}
+      />
     </section>
   )
 }

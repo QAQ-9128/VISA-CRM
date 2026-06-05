@@ -89,12 +89,12 @@ describe('GroupManagementPage（案件参与管理 · 一案一组）', () => {
     expect(screen.queryByText('赵璞')).not.toBeInTheDocument()
   })
 
-  it('「编辑参与人」链到案件表单（参与人增删在案件里做）；无任何 主/副申 字样', async () => {
+  it('「管理参与人」链到客户页相关案件卡（参与人增删在那里做）；无任何 主/副申 字样', async () => {
     renderAt('/customers/A/group')
     await screen.findByText('案件参与管理')
-    const editLinks = await screen.findAllByRole('link', { name: '编辑参与人 ›' })
+    const editLinks = await screen.findAllByRole('link', { name: '管理参与人 ›' })
     expect(editLinks.map((l) => l.getAttribute('href'))).toEqual(
-      expect.arrayContaining(['/cases/ca1/edit', '/cases/ca2/edit']),
+      expect.arrayContaining(['/customers/A?case=ca1', '/customers/A?case=ca2']),
     )
     expect(screen.queryByText(/主申/)).not.toBeInTheDocument()
     expect(screen.queryByText(/副申/)).not.toBeInTheDocument()

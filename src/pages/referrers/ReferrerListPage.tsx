@@ -1,5 +1,6 @@
 import { Link } from 'react-router-dom'
 import { useArchiveReferrer, useDeleteReferrer, useReferrers } from '../../hooks/queries/useReferrers'
+import { useAuth } from '../../hooks/useAuth'
 import { Button } from '../../components/ui/Button'
 import { Card } from '../../components/ui/Card'
 import { Well } from '../../components/ui/Well'
@@ -10,6 +11,8 @@ import type { Referrer } from '../../types/models'
 function ReferrerRow({ r }: { r: Referrer }) {
   const archive = useArchiveReferrer()
   const del = useDeleteReferrer()
+  // 彻底删除是 admin 专属（RLS 同样限制）：staff 不渲染按钮，归档不受影响
+  const { isAdmin } = useAuth()
   return (
     <li className="flex min-h-12 items-center gap-3 border-t border-line py-3 first:border-t-0">
       <Well tone="violet" size={42}>
@@ -34,17 +37,19 @@ function ReferrerRow({ r }: { r: Referrer }) {
       >
         归档
       </button>
-      <button
-        type="button"
-        disabled={del.isPending}
-        className="shrink-0 text-xs text-faint hover:text-rose-600"
-        onClick={() => {
-          if (window.confirm(`彻底删除介绍人「${r.name}」？【不可恢复】，已挂靠客户的「介绍人」将被清空。如只想隐藏请用「归档」。`))
-            del.mutate(r.id)
-        }}
-      >
-        彻底删除
-      </button>
+      {isAdmin && (
+        <button
+          type="button"
+          disabled={del.isPending}
+          className="shrink-0 text-xs text-faint hover:text-rose-600"
+          onClick={() => {
+            if (window.confirm(`彻底删除介绍人「${r.name}」？【不可恢复】，已挂靠客户的「介绍人」将被清空。如只想隐藏请用「归档」。`))
+              del.mutate(r.id)
+          }}
+        >
+          彻底删除
+        </button>
+      )}
     </li>
   )
 }

@@ -53,11 +53,11 @@ export function CasesPage() {
 
   const today = useMemo(() => new Date(), [])
 
-  // 递交进度行（两个 tab 共用）；归档客户的案件不显示
+  // 递交进度行（两个 tab 共用）；全员归档的案件才隐藏（任一参与人在册即可见）
   const caseRows = useMemo(() => {
     const customerById: Record<string, unknown> = {}
     for (const c of customers.data ?? []) customerById[c.id] = c
-    const visible = visibleCaseIds(cases.data ?? [], customerById)
+    const visible = visibleCaseIds(cases.data ?? [], customerById, applicants.data ?? [])
     const visibleCases = (cases.data ?? []).filter((c) => visible.has(c.id))
     return selectCaseRows(
       visibleCases,

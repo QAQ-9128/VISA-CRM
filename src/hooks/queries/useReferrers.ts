@@ -1,4 +1,4 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+﻿import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import type { QueryClient } from '@tanstack/react-query'
 import {
   archiveReferrer,
@@ -39,6 +39,7 @@ export function useCreateReferrer() {
   return useMutation({
     mutationFn: (input: ReferrerInsert) => createReferrer({ ...input, created_by: user?.id ?? null }),
     onSuccess: () => invalidateReferrers(qc),
+    meta: { success: '介绍人已创建', errorPrefix: '创建介绍人失败' },
   })
 }
 
@@ -47,6 +48,7 @@ export function useUpdateReferrer() {
   return useMutation({
     mutationFn: ({ id, patch }: { id: string; patch: ReferrerUpdate }) => updateReferrer(id, patch),
     onSuccess: () => invalidateReferrers(qc),
+    meta: { success: '介绍人已保存', errorPrefix: '保存介绍人失败' },
   })
 }
 
@@ -55,18 +57,25 @@ export function useArchiveReferrer() {
   return useMutation({
     mutationFn: (id: string) => archiveReferrer(id),
     onSuccess: () => invalidateReferrers(qc),
+    meta: { success: '介绍人已归档', errorPrefix: '归档失败' },
   })
 }
 
 /** 彻底删除介绍人（硬删）。已挂靠客户的 referrer_id 被置空 → 同时失效客户/概览缓存。 */
 export function useDeleteReferrer() {
   const qc = useQueryClient()
+  const { isAdmin } = useAuth()
   return useMutation({
-    mutationFn: (id: string) => deleteReferrer(id),
+    // 纵深防御：彻底删除是 admin 专属（RLS 同样限制），入口拦下避免被静默挡掉无提示
+    mutationFn: async (id: string) => {
+      if (!isAdmin) throw new Error('仅管理员可彻底删除')
+      await deleteReferrer(id)
+    },
     onSuccess: () => {
       invalidateReferrers(qc)
       qc.invalidateQueries({ queryKey: queryKeys.customers.all })
       qc.invalidateQueries({ queryKey: queryKeys.dashboard.activeCustomers })
     },
+    meta: { success: '介绍人已彻底删除', errorPrefix: '删除失败' },
   })
 }

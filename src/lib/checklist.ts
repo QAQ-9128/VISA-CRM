@@ -33,7 +33,8 @@ export function checklistSource(
     const cust = customerById[c.customer_id]
     return {
       kind: 'case',
-      to: `/cases/${c.id}`,
+      // 案件详情路由已删（案件并入客户详情页）：链到客户页并带 case 参数定位该案件
+      to: `/customers/${c.customer_id}?case=${c.id}`,
       label: `${displayCustomerName(cust?.full_name, '客户')} · ${formatVisaType(c.visa_subclass, c.visa_stream)}`,
     }
   }

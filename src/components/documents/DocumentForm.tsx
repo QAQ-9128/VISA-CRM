@@ -5,6 +5,8 @@ import { TextField } from '../ui/TextField'
 import { Select } from '../ui/Select'
 import { Textarea } from '../ui/Textarea'
 import { useAddDocument } from '../../hooks/queries/useDocuments'
+import { UPLOAD_LIMIT_HINT, uploadSizeError } from '../../lib/upload'
+import { toastError } from '../../store/ui'
 import { DOC_TYPES, DOC_TYPE_LABELS } from '../../types/domain'
 import type { DocType } from '../../types/domain'
 
@@ -63,10 +65,24 @@ export function DocumentForm({
       </div>
 
       <div className="space-y-1.5">
-        <span className="block text-sm font-semibold text-body">文件（可选，不传则仅登记到期日）</span>
+        <span className="block text-sm font-semibold text-body">
+          文件（可选，不传则仅登记到期日）
+          <span className="ml-2 font-normal text-faint">{UPLOAD_LIMIT_HINT}</span>
+        </span>
         <input
           type="file"
-          onChange={(e) => setFile(e.target.files?.[0] ?? null)}
+          onChange={(e) => {
+            const f = e.target.files?.[0] ?? null
+            // 选中即校验（不等提交才报）：超限提示并清空选择；上传咽喉 uploadFile 还有兜底
+            const err = f && uploadSizeError(f)
+            if (err) {
+              toastError(err)
+              e.target.value = ''
+              setFile(null)
+              return
+            }
+            setFile(f)
+          }}
           className="block w-full text-sm text-slate-600 file:mr-3 file:rounded-lg file:border-0 file:bg-brand file:px-3 file:py-2 file:text-sm file:font-medium file:text-white hover:file:bg-brand-600"
         />
       </div>

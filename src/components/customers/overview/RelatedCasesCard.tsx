@@ -1,15 +1,21 @@
-import { useMemo } from 'react'
+import { useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useBackSource } from '../../../hooks/useBackSource'
 import { Card } from '../../ui/Card'
+import { ConfirmDialog } from '../../ui/ConfirmDialog'
 import { StageBadge } from '../../cases/StageBadge'
 import { StageProgressCard } from '../../cases/StageProgressCard'
 import { CaseTodosCard } from '../../cases/CaseTodosCard'
-import { useCaseApplicants } from '../../../hooks/queries/useCaseApplicants'
+import {
+  useAddCaseApplicant,
+  useCaseApplicants,
+  useRemoveSelfFromCase,
+} from '../../../hooks/queries/useCaseApplicants'
 import { useCustomers } from '../../../hooks/queries/useCustomers'
 import { useEmployer } from '../../../hooks/queries/useEmployers'
 import { useReferrer } from '../../../hooks/queries/useReferrers'
 import { useArchiveCase, useCaseStageHistory, useDeleteCase } from '../../../hooks/queries/useCases'
+import { useAuth } from '../../../hooks/useAuth'
 import { caseGroupCode, caseParticipantIds } from '../../../lib/caseGroups'
 import { useLodgements } from '../../../hooks/queries/useLodgements'
 import { getLodgementLodgedDate } from '../../../lib/lodgementStatus'
@@ -26,6 +32,134 @@ function InfoRow({ label, children, valueClass }: { label: string; children?: Re
     <div className="flex items-center justify-between gap-3 border-b border-line py-2.5 last:border-0">
       <span className="shrink-0 text-[12.5px] font-semibold text-muted">{label}</span>
       <span className={`min-w-0 truncate text-right text-[14px] font-semibold ${valueClass ?? 'text-ink'}`}>{children || '—'}</span>
+    </div>
+  )
+}
+
+/**
+ * 参与人管理（2026-06-05 终版）：参与人完全平级（无案件客户特殊标注）——
+ * 名字全部挂链接跳各自客户页；**✕ 只出现在本页客户自己的 chip 上**（任何人都能且只能移出自己；
+ * 案件客户移出自己 = 本案过户给其余参与人；唯一参与人不能移出，提示改用归档/删除本案）。
+ * 已归档参与人不显示（所有地方不显示已归档的东西）。
+ */
+function ParticipantManager({
+  caseId,
+  participants,
+  pageCustomerId,
+  pageCustomerName,
+  candidates,
+}: {
+  caseId: string
+  /** 在册参与人（案件客户在首位，仅作内部顺序，无 UI 区分） */
+  participants: { id: string; name: string }[]
+  /** 本页客户 id/名：只有 TA 自己的 chip 显示 ✕ */
+  pageCustomerId: string
+  pageCustomerName: string
+  candidates: Customer[]
+}) {
+  const source = useBackSource()
+  const add = useAddCaseApplicant()
+  const remove = useRemoveSelfFromCase()
+  const [adding, setAdding] = useState(false)
+  const [query, setQuery] = useState('')
+  const [confirmingLeave, setConfirmingLeave] = useState(false)
+
+  const q = query.trim().toLowerCase()
+  const list = candidates.filter((c) => !q || c.full_name.toLowerCase().includes(q)).slice(0, 8)
+  // 唯一参与人不能移出（案件不能没有人）→ 不显示 ✕
+  const canLeave = participants.length > 1
+
+  return (
+    <div className="border-b border-line py-2.5 last:border-0 sm:col-span-2">
+      <div className="flex flex-wrap items-center gap-2">
+        <span className="shrink-0 text-[12.5px] font-semibold text-muted">参与客户</span>
+        {participants.map((p) => {
+          const isSelf = p.id === pageCustomerId
+          return (
+            <span
+              key={p.id}
+              className={`inline-flex items-center gap-1 rounded-full bg-surface-2 py-0.5 pl-2.5 text-[12px] font-semibold text-ink ${
+                isSelf && canLeave ? 'pr-1' : 'pr-2.5'
+              }`}
+            >
+              <Link to={`/customers/${p.id}`} state={source} className="hover:text-brand hover:underline">
+                {p.name}
+              </Link>
+              {/* 在谁的客户页只能移谁：✕ 仅本页客户自己的 chip */}
+              {isSelf && canLeave && (
+                <button
+                  type="button"
+                  aria-label={`移出 ${p.name}`}
+                  onClick={() => setConfirmingLeave(true)}
+                  disabled={remove.isPending}
+                  className="grid size-5 place-items-center rounded-full text-[11px] text-faint hover:bg-rose-50 hover:text-rose-600"
+                >
+                  ✕
+                </button>
+              )}
+            </span>
+          )
+        })}
+        <button
+          type="button"
+          onClick={() => setAdding((v) => !v)}
+          className="text-[12.5px] font-semibold text-brand hover:text-brand-600"
+        >
+          {adding ? '收起' : '+ 添加参与人'}
+        </button>
+      </div>
+
+      {adding && (
+        <div className="mt-2 overflow-hidden rounded-xl border border-brand-100 bg-white">
+          <input
+            type="search"
+            autoFocus
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder="搜索客户姓名…"
+            className="w-full border-b border-line px-3 py-2 text-sm text-ink outline-none placeholder:text-faint"
+          />
+          <ul className="max-h-44 overflow-auto">
+            {list.length === 0 ? (
+              <li className="px-3 py-2.5 text-sm text-faint">没有可添加的客户</li>
+            ) : (
+              list.map((c) => (
+                <li key={c.id}>
+                  <button
+                    type="button"
+                    disabled={add.isPending}
+                    onClick={() => add.mutate({ caseId, customerId: c.id })}
+                    className="flex min-h-10 w-full items-center px-3 py-1.5 text-left text-sm text-ink hover:bg-brand-50 disabled:opacity-50"
+                  >
+                    {c.full_name}
+                  </button>
+                </li>
+              ))
+            )}
+          </ul>
+        </div>
+      )}
+
+      {confirmingLeave && (
+        <ConfirmDialog
+          open
+          title={`将「${pageCustomerName}」移出本案？`}
+          description={
+            <>
+              移出后本案由其余参与人继续，<b>案件与账目数据原样保留</b>；
+              TA 的客户档案不受影响，随时可被重新添加回来。
+            </>
+          }
+          confirmLabel="移出"
+          pendingLabel="移出中…"
+          pending={remove.isPending}
+          onConfirm={() => {
+            setConfirmingLeave(false)
+            remove.mutate({ caseId, customerId: pageCustomerId })
+          }}
+          onClose={() => setConfirmingLeave(false)}
+        />
+      )}
     </div>
   )
 }
@@ -79,19 +213,39 @@ export function RelatedCasesCard({
   // 案件级危险操作（与案件页同款确认文案）；归档/删除后列表自动刷新、选中回落到首个案件
   const archiveM = useArchiveCase()
   const delM = useDeleteCase()
+  // 彻底删除是 admin 专属（RLS 同样限制）：staff 不渲染删除项，归档不受影响
+  const { isAdmin } = useAuth()
   // 一案一组：本案组码 = 参与人集合派生（与案件页/案件表同码）
   const groupCode = selectedCase ? caseGroupCode(caseParticipantIds(selectedCase, applicants.data ?? []), selectedCase.id) : ''
 
-  function handleArchiveCase() {
-    if (!selectedCase) return
-    if (!window.confirm('确定归档该案件吗？归档后默认不显示，可随时恢复。')) return
-    archiveM.mutate(selectedCase.id)
-  }
-  function handleDeleteCase() {
-    if (!selectedCase) return
-    if (!window.confirm('彻底删除该案件？\n\n将连同其递交记录、阶段历史、账目一并【永久删除，不可恢复】！\n如只想暂时隐藏，请用「归档案件」。')) return
-    delM.mutate(selectedCase.id)
-  }
+  const [confirmingDeleteCase, setConfirmingDeleteCase] = useState(false)
+  const [confirmingArchiveCase, setConfirmingArchiveCase] = useState(false)
+
+  // 参与人管理数据：名字映射补上本页客户自己（allCustomers 查询与本页客户详情可能有时差）
+  const participantNameById = useMemo(
+    () => ({ ...customerNameById, [customer.id]: customer.full_name }),
+    [customerNameById, customer.id, customer.full_name],
+  )
+  const memberIds = useMemo(() => {
+    if (!selectedCase) return []
+    return [...new Set((applicants.data ?? []).map((a) => a.customer_id))].filter(
+      (cid) => cid !== selectedCase.customer_id,
+    )
+  }, [selectedCase, applicants.data])
+  // 在册参与人 chips（案件客户在首位但无 UI 区分；已归档的解析不到名字 → 不显示）
+  const managerParticipants = useMemo(() => {
+    if (!selectedCase) return []
+    return [selectedCase.customer_id, ...memberIds]
+      .map((cid) => ({ id: cid, name: participantNameById[cid] ?? '' }))
+      .filter((p) => p.name !== '')
+  }, [selectedCase, memberIds, participantNameById])
+  const addCandidates = useMemo(() => {
+    if (!selectedCase) return []
+    const taken = new Set([selectedCase.customer_id, ...memberIds])
+    return (allCustomers.data ?? [])
+      .filter((cu) => !cu.is_archived && !taken.has(cu.id))
+      .sort((a, b) => a.full_name.localeCompare(b.full_name))
+  }, [selectedCase, memberIds, allCustomers.data])
 
   const hist = useMemo(() => history.data ?? [], [history.data])
   const nomDate = getLodgementLodgedDate(hist, 'nomination')
@@ -174,25 +328,27 @@ export function RelatedCasesCard({
                       disabled={archiveM.isPending || selectedCase.is_archived}
                       onClick={(e) => {
                         e.currentTarget.closest('details')?.removeAttribute('open')
-                        handleArchiveCase()
+                        setConfirmingArchiveCase(true)
                       }}
                       className="block w-full px-3.5 py-2 text-left text-[13px] text-body hover:bg-surface-2 disabled:opacity-50"
                     >
                       {selectedCase.is_archived ? '已归档' : '归档本案'}
                       <span className="block text-[11px] text-faint">隐藏不删数据，可恢复</span>
                     </button>
-                    <button
-                      type="button"
-                      disabled={delM.isPending}
-                      onClick={(e) => {
-                        e.currentTarget.closest('details')?.removeAttribute('open')
-                        handleDeleteCase()
-                      }}
-                      className="block w-full px-3.5 py-2 text-left text-[13px] text-rose-600 hover:bg-rose-50 disabled:opacity-50"
-                    >
-                      {delM.isPending ? '删除中…' : '彻底删除本案'}
-                      <span className="block text-[11px] text-rose-300">连同账目/历史，不可恢复</span>
-                    </button>
+                    {isAdmin && (
+                      <button
+                        type="button"
+                        disabled={delM.isPending}
+                        onClick={(e) => {
+                          e.currentTarget.closest('details')?.removeAttribute('open')
+                          setConfirmingDeleteCase(true)
+                        }}
+                        className="block w-full px-3.5 py-2 text-left text-[13px] text-rose-600 hover:bg-rose-50 disabled:opacity-50"
+                      >
+                        {delM.isPending ? '删除中…' : '彻底删除本案'}
+                        <span className="block text-[11px] text-rose-300">连同账目/历史，不可恢复</span>
+                      </button>
+                    )}
                   </div>
                 </details>
               </div>
@@ -207,8 +363,14 @@ export function RelatedCasesCard({
                 <InfoRow label="介绍人" valueClass="text-rose-600">
                   {customer.referrer_id ? referrer.data?.name ?? '…' : null}
                 </InfoRow>
-                {/* 一案一组：平铺显示本案全部参与客户（无归属/主导之分），全员进度一致 */}
-                <InfoRow label="参与客户">{participantNames.join('、')}</InfoRow>
+                {/* 一案一组：参与客户可直接删减（✕ 移出 / + 添加），不必进编辑案件表单 */}
+                <ParticipantManager
+                  caseId={selectedCase.id}
+                  participants={managerParticipants}
+                  pageCustomerId={customer.id}
+                  pageCustomerName={customer.full_name}
+                  candidates={addCandidates}
+                />
                 <InfoRow label="Group 组码">
                   <span className="rounded-full bg-[var(--color-lime-soft)] px-2 py-0.5 text-[11px] font-semibold text-[var(--color-lime-ink)]">
                     {groupCode}
@@ -247,6 +409,58 @@ export function RelatedCasesCard({
 
               {/* 本案待办（与案件详情页同一组件，功能完全一致：+添加 / 完成 / 删除 / 近期跟进） */}
               <CaseTodosCard caseRow={selectedCase} trt={{ show: showTrt, months: trtMonths }} key={`todos-${selectedCase.id}`} />
+
+              {/* 归档本案（可逆）：案件是整体，归档对所有参与人同时生效 */}
+              <ConfirmDialog
+                open={confirmingArchiveCase}
+                title="确定归档该案件吗？"
+                description={
+                  <>
+                    {participantNames.length > 1 && (
+                      <>
+                        本案共 {participantNames.length} 名参与人（{participantNames.join('、')}），
+                        归档后<b>在所有参与人的档案里都会一并隐藏</b>。
+                      </>
+                    )}
+                    归档不删数据，可在 <b>档案库 → 回收站</b> 一键恢复。
+                  </>
+                }
+                confirmLabel="归档本案"
+                pendingLabel="归档中…"
+                pending={archiveM.isPending}
+                onConfirm={() => {
+                  setConfirmingArchiveCase(false)
+                  archiveM.mutate(selectedCase.id)
+                }}
+                onClose={() => setConfirmingArchiveCase(false)}
+              />
+
+              {/* 彻底删除本案（不可恢复）：整案操作，对所有参与人同时生效 */}
+              <ConfirmDialog
+                open={confirmingDeleteCase}
+                title={`彻底删除案件 ${selectedCase.case_number}（${formatVisaType(selectedCase.visa_subclass, selectedCase.visa_stream)}）？`}
+                tone="danger"
+                description={
+                  <>
+                    将连同其<b>递交记录、阶段历史、全部账目</b>一并永久删除，<b>不可恢复</b>。
+                    {participantNames.length > 1 && (
+                      <>
+                        本案共 {participantNames.length} 名参与人（{participantNames.join('、')}），
+                        <b>删除后所有参与人的档案里都不再有此案件</b>。
+                      </>
+                    )}
+                    如只想暂时隐藏，请改用「归档本案」。
+                  </>
+                }
+                confirmLabel="删除"
+                pendingLabel="删除中…"
+                pending={delM.isPending}
+                onConfirm={() => {
+                  setConfirmingDeleteCase(false)
+                  delM.mutate(selectedCase.id)
+                }}
+                onClose={() => setConfirmingDeleteCase(false)}
+              />
             </div>
           )}
         </>

@@ -10,6 +10,7 @@ import { ReferrerSelect } from '../referrers/ReferrerSelect'
 import { useCustomers } from '../../hooks/queries/useCustomers'
 import { useCases } from '../../hooks/queries/useCases'
 import { useAllCaseApplicants } from '../../hooks/queries/useCaseApplicants'
+import { visibleCaseIds } from '../../lib/visibility'
 import { caseGroupCode, caseParticipantIds } from '../../lib/caseGroups'
 import { formatVisaType } from '../../lib/visa'
 import { CLIENT_SOURCES, CLIENT_SOURCE_OPTION_LABELS, GENDERS, GENDER_LABELS } from '../../types/domain'
@@ -19,13 +20,16 @@ import type { Case, CaseApplicant, Customer } from '../../types/models'
 
 export type { CustomerFormValues }
 
+/** 保存后的去向：detail=客户详情（默认）；new-case=直接进新建案件（重录数据快捷路径）。 */
+export type CustomerFormNext = 'detail' | 'new-case'
+
 interface CustomerFormProps {
   /** 编辑时传入现有客户 */
   initial?: Customer
   submitting?: boolean
   error?: string | null
   /** joinCaseId：选了「加入已有案件」时为该案件 id（保存后写 case_applicants），否则 null */
-  onSubmit: (values: CustomerFormValues, joinCaseId: string | null) => void
+  onSubmit: (values: CustomerFormValues, joinCaseId: string | null, next: CustomerFormNext) => void
   onCancel: () => void
 }
 
@@ -57,14 +61,18 @@ export function CustomerForm({ initial, submitting, error, onSubmit, onCancel }:
     () => Object.fromEntries((allCustomers.data ?? []).map((c) => [c.id, c])) as Record<string, Customer | undefined>,
     [allCustomers.data],
   )
-  const joinableCases = useMemo(
-    () => (allCases.data ?? []).filter((c) => !c.is_archived),
-    [allCases.data],
-  )
+  // 可加入案件 = 未归档案件 ∩ 至少有一名在册参与人（全员归档的案件不再可加入）
+  const joinableCases = useMemo(() => {
+    const active = (allCases.data ?? []).filter((c) => !c.is_archived)
+    const visible = visibleCaseIds(active, customerById, allApplicants.data ?? [])
+    return active.filter((c) => visible.has(c.id))
+  }, [allCases.data, customerById, allApplicants.data])
   const selectedCase = joinCaseId ? joinableCases.find((c) => c.id === joinCaseId) ?? null : null
 
   const sourceOptions = CLIENT_SOURCES.map((s) => ({ value: s, label: CLIENT_SOURCE_OPTION_LABELS[s] }))
   const nameFilled = state.full_name.trim() !== ''
+  // 选了「加入已有案件」却没选案件 → 禁存（之前会默默存成独立客户，用户以为加入失败）
+  const joinIncomplete = joinMode && !joinCaseId
 
   function pickJoin() {
     setJoinMode(true)
@@ -74,9 +82,13 @@ export function CustomerForm({ initial, submitting, error, onSubmit, onCancel }:
     setJoinCaseId(null)
   }
 
+  function submit(next: CustomerFormNext) {
+    if (!nameFilled || submitting || joinIncomplete) return
+    onSubmit(toPayload(state), joinMode ? joinCaseId : null, next)
+  }
   function handleSubmit(e: FormEvent) {
     e.preventDefault()
-    onSubmit(toPayload(state), joinMode ? joinCaseId : null)
+    submit('detail')
   }
   // Esc 取消（与底部提示一致）；Enter 由表单原生提交，textarea 内换行不受影响
   function handleKeyDown(e: KeyboardEvent<HTMLFormElement>) {
@@ -221,10 +233,17 @@ export function CustomerForm({ initial, submitting, error, onSubmit, onCancel }:
         <p className="text-xs text-faint">
           填写「姓名」后即可保存 · Enter 保存 / Esc 取消
         </p>
-        <div className="flex justify-end gap-3">
-          <Button type="submit" disabled={submitting || !nameFilled}>
+        <div className="flex flex-wrap justify-end gap-3">
+          {joinIncomplete && <span className="self-center text-xs text-amber-700">先在上方选择要加入的案件</span>}
+          <Button type="submit" disabled={submitting || !nameFilled || joinIncomplete}>
             {submitting ? '保存中…' : '保存'}
           </Button>
+          {/* 重录数据快捷路径：建完人直接进「新建案件」（仅新建独立客户时；加入已有案件无此场景） */}
+          {!initial && !joinMode && (
+            <Button type="button" variant="secondary" disabled={submitting || !nameFilled} onClick={() => submit('new-case')}>
+              保存并新建案件
+            </Button>
+          )}
           <Button type="button" variant="secondary" onClick={onCancel}>
             取消
           </Button>

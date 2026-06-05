@@ -12,7 +12,10 @@ import type { Installment, PaymentPlanItem } from '../../types/models'
 
 /** 收款方式：与现有「记收款」一致（现金 / 转账 / 垫付）。 */
 const RECEIPT_METHODS: PaymentMethod[] = ['cash', 'transfer', 'advance']
-const todayStr = () => new Date().toISOString().slice(0, 10)
+import { todayYmd } from '../../lib/dateRules'
+
+// 录款默认日期取本地日历日——toISOString 是 UTC 日，本地清晨会落到昨天甚至上个月，污染月度账目
+const todayStr = todayYmd
 
 /**
  * 「记一笔收款」卡（案件付款 tab 右栏）。

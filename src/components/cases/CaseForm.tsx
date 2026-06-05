@@ -18,15 +18,19 @@ export interface CaseFormValues extends CaseInsert {
   trt_reminder_enabled: boolean
 }
 
+/** 保存后的去向：detail=客户详情（默认）；fees=直接滚到费用记录卡开始记账（重录数据快捷路径）。 */
+export type CaseFormNext = 'detail' | 'fees'
+
 interface CaseFormProps {
   customerId: string
   customerLabel: string
   initial?: Case
-  /** 编辑时回填已选的副申请人客户 id */
+  /** 编辑时的现有参与人（只读，用于组码展示——编辑模式参与人增删在客户页「相关案件」卡里做） */
   initialApplicantIds?: string[]
   submitting?: boolean
   error?: string | null
-  onSubmit: (values: CaseFormValues, applicantIds: string[]) => void
+  /** applicantIds 仅新建模式有效（建案时一次选好参与人）；编辑模式恒为现有集合、不会被写库 */
+  onSubmit: (values: CaseFormValues, applicantIds: string[], next: CaseFormNext) => void
   onCancel: () => void
 }
 
@@ -51,12 +55,14 @@ export function CaseForm({
   // 财务口径已统一按人(applicant_id)归属：新案固定 sync_tracking=false；编辑保留原值（旧合并案件兼容，不动数据）
   const financeCombined = initial?.sync_tracking ?? false
   const [trtReminder, setTrtReminder] = useState(initial?.trt_reminder_enabled ?? false)
+  // 参与人：仅新建模式可编辑（建案时一次选好）；编辑模式只读（增删在客户页「相关案件」卡）
+  const editing = !!initial
   const [applicantIds, setApplicantIds] = useState<string[]>(initialApplicantIds ?? [])
   const [addingParticipant, setAddingParticipant] = useState(false)
 
   const is482 = visaSubclass.trim().startsWith('482')
 
-  // 一案一组：参与候选 = 全部在册客户（任何人都可参加本案）；组码由参与人集合实时派生
+  // 新建模式的参与候选 = 全部在册客户
   const allCustomers = useCustomers({})
 
   function addApplicant(id: string) {
@@ -66,8 +72,8 @@ export function CaseForm({
     setApplicantIds((prev) => prev.filter((x) => x !== id))
   }
 
-  function handleSubmit(e: FormEvent) {
-    e.preventDefault()
+  function submit(next: CaseFormNext) {
+    if (submitting || visaSubclass.trim() === '') return
     onSubmit(
       {
         customer_id: customerId,
@@ -82,16 +88,20 @@ export function CaseForm({
         trt_reminder_enabled: is482 ? trtReminder : false,
       },
       applicantIds,
+      next,
     )
+  }
+  function handleSubmit(e: FormEvent) {
+    e.preventDefault()
+    submit('detail')
   }
 
   const customersData = allCustomers.data ?? []
   const customerById = Object.fromEntries(customersData.map((c) => [c.id, c])) as Record<string, Customer | undefined>
-  // 一案一组：下拉候选 = 全部在册客户（不限"本组"——建案就是从全部客户里直接挑人组成本案），排除 owner + 已添加
   const pickerCandidates = customersData.filter(
     (c) => c.id !== customerId && !c.is_archived && !applicantIds.includes(c.id),
   )
-  // 组码实时派生 = 案件客户 + 已勾选参与人（保存后与案件页/案件表一致）；新建单人案的码在保存后按案件 id 定
+  // 组码：新建随勾选实时派生；编辑按现有参与人集合只读展示
   const groupCodeStr = caseGroupCode([customerId, ...applicantIds], initial?.id ?? '')
 
   return (
@@ -123,7 +133,7 @@ export function CaseForm({
         <EmployerSelect value={sponsorEmployerId} onChange={setSponsorEmployerId} />
       </div>
 
-      {/* Group：一案一组 —— 组 = 本案参与人集合，组码随下方勾选实时派生（只读，零入库） */}
+      {/* Group：一案一组 —— 组 = 本案参与人集合（只读展示；参与人增删在客户页「相关案件」卡里做） */}
       <fieldset className="rounded-[14px] border border-line-2 p-4">
         <legend className="px-1 text-sm font-semibold text-body">Group（本案的组）</legend>
         <div className="flex flex-wrap items-center gap-2 text-sm">
@@ -132,7 +142,8 @@ export function CaseForm({
             {groupCodeStr}
           </span>
           <span className="text-xs text-faint">
-            共 {applicantIds.length + 1} 人 · 组 = 本案参与人（在下方勾选），同参与人的案件同组
+            共 {applicantIds.length + 1} 人 ·{' '}
+            {editing ? '参与人在客户页「相关案件」卡里增删' : '组 = 本案参与人（在下方选择），同参与人的案件同组'}
           </span>
         </div>
       </fieldset>
@@ -154,65 +165,67 @@ export function CaseForm({
         </label>
       )}
 
-      {/* 本案参与人：owner 固定首位 + 「+ 添加」下拉（候选=全部客户）；账目是参与的自动结果 */}
-      <fieldset className="rounded-[14px] border border-line-2 p-4">
-        <legend className="px-1 text-sm font-semibold text-body">本案参与人</legend>
-        <div className="space-y-2.5">
-          <p className="text-sm text-slate-500">选择本案参与人</p>
+      {/* 本案参与人：仅新建模式可编辑（建案一次选好）；编辑模式此区隐藏，增删在客户页「相关案件」卡 */}
+      {!editing && (
+        <fieldset className="rounded-[14px] border border-line-2 p-4">
+          <legend className="px-1 text-sm font-semibold text-body">本案参与人</legend>
+          <div className="space-y-2.5">
+            <p className="text-sm text-slate-500">选择本案参与人</p>
 
-          {/* 案件客户固定首位，不可移出 */}
-          <div className="flex min-h-11 flex-wrap items-center gap-2 rounded-[10px] border border-line bg-surface-2/60 px-3 py-1.5 text-sm">
-            <span className="font-semibold text-ink">{customerLabel}</span>
-            <span className="rounded-full bg-[var(--color-lime-soft)] px-2 py-0.5 text-[11px] font-semibold text-[var(--color-lime-ink)]">
-              案件客户 · 整案主进度
-            </span>
-          </div>
+            {/* 案件客户固定首位，不可移出 */}
+            <div className="flex min-h-11 flex-wrap items-center gap-2 rounded-[10px] border border-line bg-surface-2/60 px-3 py-1.5 text-sm">
+              <span className="font-semibold text-ink">{customerLabel}</span>
+              <span className="rounded-full bg-[var(--color-lime-soft)] px-2 py-0.5 text-[11px] font-semibold text-[var(--color-lime-ink)]">
+                案件客户 · 整案主进度
+              </span>
+            </div>
 
-          {/* 已选参与人（姓名 + 关系备注 + 移出） */}
-          {applicantIds.map((id) => {
-            const cu = customerById[id]
-            return (
-              <div key={id} className="flex min-h-11 items-center gap-2 rounded-[10px] border border-line px-3 py-1.5 text-sm">
-                <span className="min-w-0 flex-1 truncate text-ink">
-                  {cu?.full_name ?? '（未知客户）'}
-                  {cu?.relationship_to_primary && <span className="text-faint">（{cu.relationship_to_primary}）</span>}
-                </span>
+            {/* 已选参与人（姓名 + 关系备注 + 移出） */}
+            {applicantIds.map((id) => {
+              const cu = customerById[id]
+              return (
+                <div key={id} className="flex min-h-11 items-center gap-2 rounded-[10px] border border-line px-3 py-1.5 text-sm">
+                  <span className="min-w-0 flex-1 truncate text-ink">
+                    {cu?.full_name ?? '（未知客户）'}
+                    {cu?.relationship_to_primary && <span className="text-faint">（{cu.relationship_to_primary}）</span>}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => removeApplicant(id)}
+                    className="shrink-0 text-[12.5px] font-semibold text-faint hover:text-rose-600"
+                  >
+                    移出
+                  </button>
+                </div>
+              )
+            })}
+
+            {/* + 添加本案参与人：可筛选下拉（排除 owner + 已添加；选中即加入，可连选） */}
+            {addingParticipant ? (
+              <div className="space-y-2">
+                <ParticipantPicker candidates={pickerCandidates} onPick={addApplicant} />
                 <button
                   type="button"
-                  onClick={() => removeApplicant(id)}
-                  className="shrink-0 text-[12.5px] font-semibold text-faint hover:text-rose-600"
+                  onClick={() => setAddingParticipant(false)}
+                  className="text-[12.5px] font-semibold text-muted hover:text-ink"
                 >
-                  移出
+                  收起
                 </button>
               </div>
-            )
-          })}
-
-          {/* + 添加本案参与人：可筛选下拉（排除 owner + 已添加；选中即加入，可连选） */}
-          {addingParticipant ? (
-            <div className="space-y-2">
-              <ParticipantPicker candidates={pickerCandidates} onPick={addApplicant} />
+            ) : (
               <button
                 type="button"
-                onClick={() => setAddingParticipant(false)}
-                className="text-[12.5px] font-semibold text-muted hover:text-ink"
+                onClick={() => setAddingParticipant(true)}
+                className="text-[13px] font-semibold text-brand hover:text-brand-600"
               >
-                收起
+                + 添加本案参与人
               </button>
-            </div>
-          ) : (
-            <button
-              type="button"
-              onClick={() => setAddingParticipant(true)}
-              className="text-[13px] font-semibold text-brand hover:text-brand-600"
-            >
-              + 添加本案参与人
-            </button>
-          )}
+            )}
 
-          <p className="text-xs text-faint">账目自动按参与人分开计算并汇总</p>
-        </div>
-      </fieldset>
+            <p className="text-xs text-faint">账目自动按参与人分开计算并汇总</p>
+          </div>
+        </fieldset>
+      )}
 
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
         <TextField label="目的国" value={destination} onChange={(e) => setDestination(e.target.value)} />
@@ -221,9 +234,18 @@ export function CaseForm({
 
       {error && <p className="rounded-lg bg-rose-50 px-3 py-2 text-sm text-rose-700">{error}</p>}
 
-      <div className="flex justify-end gap-3 pt-2">
+      <div className="flex flex-wrap justify-end gap-3 pt-2">
         <Button type="submit" disabled={submitting || visaSubclass.trim() === ''}>
           {submitting ? '保存中…' : '保存'}
+        </Button>
+        {/* 重录数据快捷路径：保存后直接滚到费用记录卡开始记账 */}
+        <Button
+          type="button"
+          variant="secondary"
+          disabled={submitting || visaSubclass.trim() === ''}
+          onClick={() => submit('fees')}
+        >
+          保存并记账
         </Button>
         <Button type="button" variant="secondary" onClick={onCancel}>
           取消
@@ -234,7 +256,7 @@ export function CaseForm({
 }
 
 /**
- * 「添加本案参与人」可筛选下拉：候选 = 全部在册客户（排除 owner + 已添加，由调用方传入）。
+ * 「添加本案参与人」可筛选下拉（仅新建模式）：候选 = 全部在册客户（排除 owner + 已添加，由调用方传入）。
  * 选中即加入（可连选，列表实时收缩）；带关系备注辅助辨认。
  */
 function ParticipantPicker({

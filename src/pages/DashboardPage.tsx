@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { useDashboard } from '../hooks/queries/useDashboard'
 import { useChecklistView } from '../hooks/queries/useChecklistView'
 import { useAuth } from '../hooks/useAuth'
@@ -38,7 +38,7 @@ const TERMINAL_STAGES: ReadonlySet<CaseStage> = new Set<CaseStage>(['granted', '
 const CARD = 'rounded-[20px] bg-white [box-shadow:0_14px_34px_-20px_rgba(40,90,60,.22)]'
 const CORAL_D = 'text-[#c25a52]'
 
-/** KPI 卡（mockup .kpi）：图标井 + 大数 + 标签，右上可选珊瑚角标。 */
+/** KPI 卡（mockup .kpi）：图标井 + 大数 + 标签，右上可选珊瑚角标。整卡可点（to=跳页 / scrollTo=滚到本页区块）。 */
 function Kpi({
   icon,
   iconClass,
@@ -46,6 +46,8 @@ function Kpi({
   valueClass = 'text-ink',
   label,
   badge,
+  to,
+  scrollTo,
 }: {
   icon: ReactNode
   iconClass: string
@@ -53,9 +55,13 @@ function Kpi({
   valueClass?: string
   label: string
   badge?: string
+  /** 点击跳转的路由（如 /cases） */
+  to?: string
+  /** 点击滚到本页的元素 id（如 checklist / debts） */
+  scrollTo?: string
 }) {
-  return (
-    <div className={`relative p-[18px_20px] ${CARD}`}>
+  const body = (
+    <>
       {badge && (
         <span className={`absolute top-[18px] right-[18px] rounded-[7px] bg-rose-50 px-2 py-[2px] text-[11px] font-semibold ${CORAL_D}`}>
           {badge}
@@ -64,7 +70,25 @@ function Kpi({
       <span className={`mb-3 grid size-[38px] place-items-center rounded-[11px] text-[17px] ${iconClass}`}>{icon}</span>
       <div className={`text-[27px] font-bold tracking-[.2px] tabular-nums ${valueClass}`}>{value}</div>
       <div className="mt-1 text-[12.5px] text-muted">{label}</div>
-    </div>
+    </>
+  )
+  const cls = `relative block w-full p-[18px_20px] text-left transition-transform hover:-translate-y-0.5 active:translate-y-0 ${CARD}`
+  if (to) {
+    return (
+      <Link to={to} className={cls} aria-label={`${label}，查看详情`}>
+        {body}
+      </Link>
+    )
+  }
+  return (
+    <button
+      type="button"
+      onClick={() => scrollTo && document.getElementById(scrollTo)?.scrollIntoView({ behavior: 'smooth', block: 'start' })}
+      className={cls}
+      aria-label={`${label}，定位到对应区块`}
+    >
+      {body}
+    </button>
   )
 }
 
@@ -115,6 +139,7 @@ export function DashboardPage() {
   const { profile } = useAuth()
   const checklist = useChecklistView()
   const source = useBackSource()
+  const navigate = useNavigate()
   const greetName = pickGreetingName(profile?.full_name)
 
   if (d.isPending) return <LoadingBlock />
@@ -192,12 +217,14 @@ export function DashboardPage() {
           value={d.activeCaseCount}
           valueClass="text-brand-700"
           label="进行中案件"
+          to="/cases"
         />
         <Kpi
           icon={<ClipboardIcon className="size-[19px]" />}
           iconClass="bg-[#e6edf7] text-[#3f7cb5]"
           value={checklistOpen}
           label="待办事项"
+          scrollTo="checklist"
         />
         <Kpi
           icon={<BanknoteIcon className="size-[19px]" />}
@@ -205,6 +232,7 @@ export function DashboardPage() {
           value={<Money amount={d.thisMonthReceipts} />}
           valueClass="text-emerald-700"
           label="本月收款"
+          to="/finance"
         />
         <Kpi
           icon={<AlertCircleIcon className="size-[19px]" />}
@@ -213,6 +241,7 @@ export function DashboardPage() {
           valueClass={CORAL_D}
           label="客户欠款总额"
           badge={owingCount > 0 ? `${owingCount} 户欠款` : undefined}
+          scrollTo="debts"
         />
       </div>
 
@@ -268,8 +297,36 @@ export function DashboardPage() {
                   <span className="flex min-w-0 items-center gap-[11px]">
                     <Avatar name={displayCustomerName(t.customerName, t.visaLabel)} seed={t.customerId} size={34} radius={10} />
                     <span className="min-w-0">
-                      <span className="block truncate text-sm font-semibold text-ink">
-                        {displayCustomerName(t.customerName, `${t.visaLabel} · 案件`)}
+                      {/* 在册参与人逐个可点 → 各自客户页（外层是案件 <a>，内层用 navigate + stopPropagation） */}
+                      <span className="flex flex-wrap items-center gap-x-1 text-sm font-semibold text-ink">
+                        {t.participants.length === 0 ? (
+                          <span className="truncate">{displayCustomerName('', `${t.visaLabel} · 案件`)}</span>
+                        ) : (
+                          t.participants.map((p, i) => (
+                            <span key={p.id} className="flex items-center gap-x-1">
+                              {i > 0 && <span className="text-faint" aria-hidden>、</span>}
+                              <span
+                                role="link"
+                                tabIndex={0}
+                                onClick={(e) => {
+                                  e.preventDefault()
+                                  e.stopPropagation()
+                                  navigate(`/customers/${p.id}`, { state: source })
+                                }}
+                                onKeyDown={(e) => {
+                                  if (e.key === 'Enter') {
+                                    e.preventDefault()
+                                    e.stopPropagation()
+                                    navigate(`/customers/${p.id}`, { state: source })
+                                  }
+                                }}
+                                className="truncate hover:text-brand hover:underline"
+                              >
+                                {displayCustomerName(p.name)}
+                              </span>
+                            </span>
+                          ))
+                        )}
                       </span>
                       <span className="mt-px block truncate text-xs text-faint">{t.visaLabel}</span>
                     </span>
@@ -286,9 +343,11 @@ export function DashboardPage() {
 
       {/* ── ④ 待办清单 + 欠款总览 ────────────────────────────────── */}
       <div className="grid grid-cols-1 items-start gap-[15px] md:grid-cols-2">
-        <ChecklistCard notice={dueStrip} />
+        <div id="checklist" className="scroll-mt-4">
+          <ChecklistCard notice={dueStrip} />
+        </div>
 
-        <section className={`pb-1 ${CARD}`}>
+        <section id="debts" className={`scroll-mt-4 pb-1 ${CARD}`}>
           <Ch title="欠款总览" small="按客户" />
           <div className="flex items-baseline justify-end px-[22px] pb-2 text-xs text-faint">
             <span>

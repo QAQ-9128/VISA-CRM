@@ -63,8 +63,11 @@ export function useFinance(month: string | null) {
   const customerById = useMemo(() => keyById(customers.data ?? []), [customers.data])
   const referrerById = useMemo(() => keyById(referrers.data ?? []), [referrers.data])
 
-  // 归档客户的案件从财务隐藏：只保留主申在册的案件
-  const visibleIds = useMemo(() => visibleCaseIds(cases.data ?? [], customerById), [cases.data, customerById])
+  // 全员归档的案件从财务隐藏（任一参与人在册即可见，与递交进度/概览同口径）
+  const visibleIds = useMemo(
+    () => visibleCaseIds(cases.data ?? [], customerById, caseApplicants.data ?? []),
+    [cases.data, customerById, caseApplicants.data],
+  )
   const visibleCases = useMemo(
     () => (cases.data ?? []).filter((c) => visibleIds.has(c.id)),
     [cases.data, visibleIds],

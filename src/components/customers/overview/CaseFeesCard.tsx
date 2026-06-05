@@ -31,7 +31,10 @@ const RECV_PILL: Record<FeeLineStatus, { cls: string; label: string }> = {
 
 /** 收款方式（与现有「记收款」一致）。 */
 const RECEIPT_METHODS: PaymentMethod[] = ['cash', 'transfer', 'advance']
-const todayStr = () => new Date().toISOString().slice(0, 10)
+import { todayYmd } from '../../../lib/dateRules'
+
+// 录款默认日期取本地日历日——toISOString 是 UTC 日，本地清晨会落到昨天甚至上个月，污染月度账目
+const todayStr = todayYmd
 const trimOrNull = (s: string) => (s.trim() === '' ? null : s.trim())
 
 /** 该行（应收款项）对应的真实收款：款项 id 唯一定位（撤销用）。 */
@@ -311,36 +314,50 @@ function FeeGroupBlock({
   undoPending: boolean
 }) {
   const [adding, setAdding] = useState(false)
+  // 组头真折叠（之前 ▾ 是装饰）：多人案件费用卡很长，可按人收起；默认展开
+  const [collapsed, setCollapsed] = useState(false)
   return (
     <div>
-      {/* 组头：参与人姓名（green-deep 整条，无主/副申标签） */}
-      <div className="flex w-full items-center gap-1.5 rounded-[10px] bg-brand-700 px-3.5 py-1.5 text-[13px] font-semibold text-white">
+      {/* 组头：参与人姓名（green-deep 整条，无主/副申标签）；点击折叠/展开本人款项 */}
+      <button
+        type="button"
+        onClick={() => setCollapsed((v) => !v)}
+        aria-expanded={!collapsed}
+        className="flex w-full items-center gap-1.5 rounded-[10px] bg-brand-700 px-3.5 py-1.5 text-left text-[13px] font-semibold text-white hover:bg-brand-800"
+      >
         {group.participantName || '—'}
-        <span aria-hidden className="text-[10px] opacity-80">▾</span>
-      </div>
-
-      <div>
-        {group.lines.length === 0 ? (
-          <p className="py-2.5 text-sm text-faint">本人暂无费用</p>
-        ) : (
-          group.lines.map((line) => (
-            <FeeRow
-              key={`r-${line.planItemId}`}
-              line={line}
-              caseId={caseId}
-              customerId={customerId}
-              billingApplicantId={group.applicantId}
-              currency={currency}
-              payments={paymentsForLine(line, casePayments)}
-              onUndo={onUndo}
-              undoPending={undoPending}
-            />
-          ))
+        {collapsed && group.lines.length > 0 && (
+          <span className="text-[11px] font-medium text-white/80">
+            {group.lines.length} 项 · 未收 {formatMoney(group.unpaid, currency)}
+          </span>
         )}
-      </div>
+        <span aria-hidden className={`ml-auto text-[10px] opacity-80 transition-transform ${collapsed ? '-rotate-90' : ''}`}>▾</span>
+      </button>
+
+      {!collapsed && (
+        <div>
+          {group.lines.length === 0 ? (
+            <p className="py-2.5 text-sm text-faint">本人暂无费用</p>
+          ) : (
+            group.lines.map((line) => (
+              <FeeRow
+                key={`r-${line.planItemId}`}
+                line={line}
+                caseId={caseId}
+                customerId={customerId}
+                billingApplicantId={group.applicantId}
+                currency={currency}
+                payments={paymentsForLine(line, casePayments)}
+                onUndo={onUndo}
+                undoPending={undoPending}
+              />
+            ))
+          )}
+        </div>
+      )}
 
       {/* [姓名] 小计：应收 / 已收 / 未收（from_client 口径，现有派生函数求和） */}
-      {group.lines.length > 0 && (
+      {!collapsed && group.lines.length > 0 && (
         <div className="flex flex-wrap items-center justify-end gap-x-3 gap-y-1 border-t border-line py-2 text-[12px]">
           <span className="font-semibold text-ink">{group.participantName} 小计</span>
           <span className="text-muted">
@@ -356,17 +373,18 @@ function FeeGroupBlock({
       )}
 
       {/* + 给 [姓名] 添加款项（仅登记应收 → 待付款）；无全局选人下拉 */}
-      {adding ? (
-        <AddFeeItemForm caseId={caseId} planId={group.planId} billingApplicantId={group.applicantId} onDone={() => setAdding(false)} />
-      ) : (
-        <button
-          type="button"
-          onClick={() => setAdding(true)}
-          className="py-1.5 text-[12.5px] font-semibold text-brand hover:text-brand-600"
-        >
-          + 给 {group.participantName} 添加款项
-        </button>
-      )}
+      {!collapsed &&
+        (adding ? (
+          <AddFeeItemForm caseId={caseId} planId={group.planId} billingApplicantId={group.applicantId} onDone={() => setAdding(false)} />
+        ) : (
+          <button
+            type="button"
+            onClick={() => setAdding(true)}
+            className="py-1.5 text-[12.5px] font-semibold text-brand hover:text-brand-600"
+          >
+            + 给 {group.participantName} 添加款项
+          </button>
+        ))}
     </div>
   )
 }

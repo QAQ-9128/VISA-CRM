@@ -137,6 +137,12 @@ export async function archiveCase(id: string): Promise<void> {
   if (error) throw error
 }
 
+/** 取消归档（回收站恢复）。 */
+export async function unarchiveCase(id: string): Promise<void> {
+  const { error } = await supabase.from('cases').update({ is_archived: false }).eq('id', id)
+  if (error) throw error
+}
+
 /**
  * 彻底删除（硬删，不可恢复）：真 DELETE。级联删除该案件的递交记录、阶段历史、付款计划/分期/收付款、
  * 副申请关联、案件级文件/记录/待办。RLS 仅 admin 可执行。

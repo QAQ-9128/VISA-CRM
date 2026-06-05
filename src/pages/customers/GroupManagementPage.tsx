@@ -114,11 +114,12 @@ function CaseGroupBlock({
         </Link>
         <StageBadge stage={caseRow.current_stage} />
         <Link
-          to={`/cases/${caseRow.id}/edit`}
+          to={`/customers/${caseRow.customer_id}?case=${caseRow.id}`}
+          state={source}
           className="ml-auto text-[12.5px] font-semibold text-brand hover:text-brand-600"
-          title="在案件表单里勾选/移除本案参与客户"
+          title="在客户页「相关案件」卡里增删参与人"
         >
-          编辑参与人 ›
+          管理参与人 ›
         </Link>
       </div>
       <div className="mt-2.5 flex flex-wrap items-center gap-x-4 gap-y-1.5">

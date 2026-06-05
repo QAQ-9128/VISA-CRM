@@ -39,14 +39,13 @@ function setDash(over: Record<string, unknown> = {}) {
       stage('granted', '下签', 10, '#4e9a6b'),
     ],
     todoCases: [
-      { caseId: 'k1', customerId: 'cu1', customerName: '测试2222222', visaLabel: '494' },
-      { caseId: 'k2', customerId: 'cu2', customerName: '测试1111111', visaLabel: '186' },
-      { caseId: 'k3', customerId: 'cu3', customerName: '王璞', visaLabel: '482' },
-      { caseId: 'k4', customerId: 'cu4', customerName: '邓韬（Dylan）', visaLabel: '482 · Subsequent Entrant' },
-      { caseId: 'k5', customerId: 'cu5', customerName: '孙佳琪', visaLabel: '186 · Direct Entry' },
+      { caseId: 'k1', customerId: 'cu1', customerName: '测试2222222', participants: [{ id: 'cu1', name: '测试2222222' }], visaLabel: '494' },
+      { caseId: 'k2', customerId: 'cu2', customerName: '测试1111111', participants: [{ id: 'cu2', name: '测试1111111' }], visaLabel: '186' },
+      { caseId: 'k3', customerId: 'cu3', customerName: '王璞', participants: [{ id: 'cu3', name: '王璞' }, { id: 'cu5', name: '孙佳琪' }], visaLabel: '482' },
+      { caseId: 'k4', customerId: 'cu4', customerName: '邓韬（Dylan）', participants: [{ id: 'cu4', name: '邓韬（Dylan）' }], visaLabel: '482 · Subsequent Entrant' },
+      { caseId: 'k5', customerId: 'cu5', customerName: '孙佳琪', participants: [{ id: 'cu5', name: '孙佳琪' }], visaLabel: '186 · Direct Entry' },
     ],
     thisMonthReceipts: 114,
-    receiptsMoM: { pct: null, dir: 'flat' },
     debtTotals: { clientOwesTotal: 196601.09, companyOwesTotal: 0 },
     customerDebts: [
       { customerId: 'cu6', customerName: '吕列隆', clientOwes: 190000.09, companyOwes: 0, color: 'blue' },
@@ -117,6 +116,14 @@ describe('DashboardPage · 概览精简 5 块（mockup 重做）', () => {
     expect(screen.getByText('3 户欠款')).toBeInTheDocument()
   })
 
+  it('② KPI 卡可点：进行中案件 → /cases；本月收款 → /finance；待办/欠款卡是定位按钮', () => {
+    renderPage()
+    expect(screen.getByRole('link', { name: /进行中案件/ })).toHaveAttribute('href', '/cases')
+    expect(screen.getByRole('link', { name: /本月收款/ })).toHaveAttribute('href', '/finance')
+    expect(screen.getByRole('button', { name: /待办事项/ })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /客户欠款总额/ })).toBeInTheDocument()
+  })
+
   it('③ 案件阶段分布：在办/已下签小字 + 六阶段图例计数逐一吻合', () => {
     renderPage()
     expect(screen.getByText('案件阶段分布')).toBeInTheDocument()
@@ -128,13 +135,17 @@ describe('DashboardPage · 概览精简 5 块（mockup 重做）', () => {
     expect(screen.getByRole('link', { name: /全部案件/ })).toHaveAttribute('href', '/cases')
   })
 
-  it('③ 待办阶段案件：5 行（姓名 + 类别小字 + 待办 pill）', () => {
+  it('③ 待办阶段案件：5 行（参与人 + 类别小字 + 待办 pill）；多参与人逐个列出且各自可点', () => {
     renderPage()
     expect(screen.getByText('待办阶段案件')).toBeInTheDocument()
     expect(screen.getByText('测试2222222')).toBeInTheDocument()
     expect(screen.getByText('邓韬（Dylan）')).toBeInTheDocument()
     expect(screen.getByText('482 · Subsequent Entrant')).toBeInTheDocument()
     expect(screen.getAllByText('待办').length).toBeGreaterThanOrEqual(5) // 行内 pill（+图例「待办」）
+    // k3 行的两名参与人都显示，且各自是可点的链接（role=link，点击跳各自客户页）
+    expect(screen.getAllByRole('link', { name: '王璞' }).length + screen.getAllByText('王璞').length).toBeGreaterThan(0)
+    const participantLinks = screen.getAllByText('孙佳琪') // k3 参与人 + k5 自己的行
+    expect(participantLinks.length).toBeGreaterThanOrEqual(2)
   })
 
   it('④ 待办清单：输入框 + 添加 + 浅绿临近到期空态条 + 逐条待办（随手记 + ✕）', () => {
