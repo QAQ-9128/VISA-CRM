@@ -1,4 +1,4 @@
-import { useId, useMemo, useRef, useState } from 'react'
+import { useEffect, useId, useMemo, useRef, useState } from 'react'
 import type { KeyboardEvent } from 'react'
 import { useCreateOwner, useReferrers } from '../../hooks/queries/useReferrers'
 
@@ -25,6 +25,8 @@ export function OwnerSelect({
   const inputId = useId()
   const listId = useId()
   const blurTimer = useRef<number | null>(null)
+  // 卸载时清掉 blur 延迟（建完人父组件重置会卸载本组件，游离 timer 会对已卸载组件 setState）
+  useEffect(() => () => { if (blurTimer.current) window.clearTimeout(blurTimer.current) }, [])
 
   // 迁移防御：kind 列尚未加（或旧缓存）时一律视为介绍人 → 归属人下拉为空但不误抓
   const owners = useMemo(
@@ -80,6 +82,9 @@ export function OwnerSelect({
   }
 
   function onKeyDown(e: KeyboardEvent<HTMLInputElement>) {
+    // 中文输入法组词中（拼音候选面板）按 Enter 是「选词」不是「选项」——一律放行，
+    // 否则会误选第一行或误创建半成品拼音名
+    if (e.nativeEvent.isComposing) return
     if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
       e.preventDefault()
       setOpen(true)

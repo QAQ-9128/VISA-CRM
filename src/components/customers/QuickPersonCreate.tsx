@@ -30,6 +30,12 @@ export function QuickPersonCreate({
   const errMsg = errorMessage(createM.error)
   const canCreate = state.full_name.trim() !== '' && !createM.isPending
 
+  function requestCancel() {
+    // 填了内容才二次确认，空表直接关（防误触丢掉已填的四五个字段）
+    const dirty = Object.values(state).some((v) => v !== '')
+    if (!dirty || window.confirm('丢弃已填写的内容？')) onCancel()
+  }
+
   function create() {
     if (!canCreate) return
     const payload = toQuickPayload(state)
@@ -42,11 +48,23 @@ export function QuickPersonCreate({
   }
 
   return (
-    <div className="space-y-3 rounded-[14px] border border-brand-100 bg-white p-3">
-      {/* 块标题：和外层客户表单的「姓名」区分开，明确这块是在建另一个人 */}
+    <div
+      className="space-y-3 rounded-[14px] border border-brand-100 bg-white p-3"
+      onKeyDown={(e) => {
+        // Esc = 只收起建人块；拦下冒泡，否则外层 CustomerForm 的 Esc 会取消整张表单丢光已填内容
+        if (e.key === 'Escape') {
+          e.stopPropagation()
+          requestCancel()
+        }
+      }}
+    >
+      {/* 块标题：和外层客户表单的「姓名」区分开，明确这块是在建另一个人。
+          文案不许诺「已成组」——一案一组：真正成组发生在「保存并新建案件/加入案件」那一步 */}
       <div>
         <h4 className="text-[13px] font-bold text-ink">⚡ 快速建档同组的人</h4>
-        <p className="mt-0.5 text-xs text-faint">给还没有档案的 TA 建档，建完自动进同组名单（可连建多个）</p>
+        <p className="mt-0.5 text-xs text-faint">
+          给还没有档案的 TA 建档并进同组名单（可连建多个）；真正成组发生在保存并新建案件 / 加入案件时
+        </p>
       </div>
       <TextField
         label="姓名"
@@ -88,11 +106,11 @@ export function QuickPersonCreate({
       )}
 
       <div className="flex justify-end gap-2">
-        <Button type="button" variant="ghost" onClick={onCancel}>
+        <Button type="button" variant="ghost" onClick={requestCancel}>
           取消
         </Button>
         <Button type="button" disabled={!canCreate} onClick={create}>
-          {createM.isPending ? '创建中…' : '创建并加入同组'}
+          {createM.isPending ? '创建中…' : '创建并加入名单'}
         </Button>
       </div>
     </div>

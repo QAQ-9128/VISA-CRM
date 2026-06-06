@@ -94,7 +94,7 @@ export function RecordPaymentForm({
       ) : (
         <form onSubmit={submit} className="space-y-3">
           <Select
-            label="对应款项 *"
+            label="对应款项" required
             options={items.map((i) => ({ value: i.id, label: i.fee_category }))}
             value={itemId}
             onChange={(e) => setItemId(e.target.value)}
@@ -113,7 +113,8 @@ export function RecordPaymentForm({
             />
           )}
           <TextField
-            label={`收款金额（${currency}）*`}
+            label={`收款金额（${currency}）`}
+            required
             type="number"
             min={0}
             step="0.01"
@@ -121,12 +122,12 @@ export function RecordPaymentForm({
             onChange={(e) => setAmount(e.target.value)}
           />
           <Select
-            label="收款方式 *"
+            label="收款方式" required
             options={RECEIPT_METHODS.map((m) => ({ value: m, label: PAYMENT_METHOD_LABELS[m] }))}
             value={method}
             onChange={(e) => setMethod(e.target.value as PaymentMethod)}
           />
-          <TextField label="收款日期 *" type="date" value={paidAt} onChange={(e) => setPaidAt(e.target.value)} />
+          <TextField label="收款日期" required type="date" value={paidAt} onChange={(e) => setPaidAt(e.target.value)} />
           <Select
             label="付款方（可选）"
             placeholder={`默认：${defaultPayerName}`}

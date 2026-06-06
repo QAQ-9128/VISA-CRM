@@ -61,6 +61,25 @@ describe('CustomerActionsMenu（客户列表/看板的 ⋯ 操作菜单）', () 
     expect(deleteMutate).toHaveBeenCalledWith('cu1')
   })
 
+  it('点菜单外部 / 按 Esc → 菜单收起（原生 details 不会自己关，组件补的行为）', () => {
+    render(
+      <div>
+        <button type="button">外面</button>
+        <CustomerActionsMenu customer={cust} />
+      </div>,
+    )
+    fireEvent.click(screen.getByLabelText('客户操作'))
+    expect(screen.getByText('归档客户')).toBeVisible()
+    // 点外部 → 收起
+    fireEvent.mouseDown(screen.getByRole('button', { name: '外面' }))
+    expect(screen.getByText('归档客户')).not.toBeVisible()
+    // 再开 → Esc 收起
+    fireEvent.click(screen.getByLabelText('客户操作'))
+    expect(screen.getByText('归档客户')).toBeVisible()
+    fireEvent.keyDown(document, { key: 'Escape' })
+    expect(screen.getByText('归档客户')).not.toBeVisible()
+  })
+
   it('取消弹窗：不调用任何 mutation', () => {
     render(<CustomerActionsMenu customer={cust} />)
     fireEvent.click(screen.getByLabelText('客户操作'))

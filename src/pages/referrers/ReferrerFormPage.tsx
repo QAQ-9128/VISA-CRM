@@ -18,8 +18,8 @@ export function ReferrerFormPage() {
   const [searchParams] = useSearchParams()
   // 列表页开关带过来的默认类型：?kind=owner → 新建归属人（编辑时以实体自身 kind 为准）
   const defaultKind = searchParams.get('kind') === 'owner' ? ('owner' as const) : ('referrer' as const)
-  // 取消 = 回到点进来的那个界面；刷新/直链兜底回介绍人列表
-  const goBack = useSmartBack('/referrers')
+  // 取消 = 回到点进来的那个界面；刷新/直链兜底回列表（带回当前类型 tab，别把人甩回介绍人 tab）
+  const goBack = useSmartBack(defaultKind === 'owner' ? '/referrers?kind=owner' : '/referrers')
 
   const existing = useReferrer(id)
   const createM = useCreateReferrer()
@@ -32,11 +32,13 @@ export function ReferrerFormPage() {
   if (editing && existing.isError) return <ErrorBlock error={existing.error} />
 
   function handleSubmit(values: ReferrerFormValues) {
-    // 保存后 replace：表单页不留在历史里
+    // 保存后 replace：表单页不留在历史里。回列表带上保存值的 kind →
+    // 建/改完归属人落在「归属人」tab，立刻看到刚保存的人（丢 kind 会被甩回介绍人 tab）
+    const dest = values.kind === 'owner' ? '/referrers?kind=owner' : '/referrers'
     if (editing && id) {
-      updateM.mutate({ id, patch: values }, { onSuccess: () => navigate('/referrers', { replace: true }) })
+      updateM.mutate({ id, patch: values }, { onSuccess: () => navigate(dest, { replace: true }) })
     } else {
-      createM.mutate(values, { onSuccess: () => navigate('/referrers', { replace: true }) })
+      createM.mutate(values, { onSuccess: () => navigate(dest, { replace: true }) })
     }
   }
 

@@ -101,8 +101,10 @@ export function CaseForm({
   const pickerCandidates = customersData.filter(
     (c) => c.id !== customerId && !c.is_archived && !applicantIds.includes(c.id),
   )
-  // 组码：新建随勾选实时派生；编辑按现有参与人集合只读展示
-  const groupCodeStr = caseGroupCode([customerId, ...applicantIds], initial?.id ?? '')
+  // 组码/人数的展示集合：编辑模式直接随 prop 派生（existingApplicants 异步到达后照常更新——
+  // 之前进 useState 定格首渲空值，多人案件会显示成「1 人 + 单人组码」）；新建模式随勾选实时变
+  const displayApplicantIds = editing ? initialApplicantIds ?? [] : applicantIds
+  const groupCodeStr = caseGroupCode([customerId, ...displayApplicantIds], initial?.id ?? '')
 
   return (
     <form onSubmit={handleSubmit} className="space-y-5">
@@ -133,16 +135,16 @@ export function CaseForm({
         <EmployerSelect value={sponsorEmployerId} onChange={setSponsorEmployerId} />
       </div>
 
-      {/* Group：一案一组 —— 组 = 本案参与人集合（只读展示；参与人增删在客户页「相关案件」卡里做） */}
+      {/* 组（Group）：一案一组 —— 组 = 本案参与人集合（与客户表单组区同一用语，中文为主） */}
       <fieldset className="rounded-[14px] border border-line-2 p-4">
-        <legend className="px-1 text-sm font-semibold text-body">Group（本案的组）</legend>
+        <legend className="px-1 text-sm font-semibold text-body">组（Group）</legend>
         <div className="flex flex-wrap items-center gap-2 text-sm">
-          <span className="text-muted">Group ID</span>
+          <span className="text-muted">组码</span>
           <span className="rounded-full bg-[var(--color-lime-soft)] px-2.5 py-0.5 text-[12px] font-semibold text-[var(--color-lime-ink)]">
             {groupCodeStr}
           </span>
           <span className="text-xs text-faint">
-            共 {applicantIds.length + 1} 人 ·{' '}
+            共 {displayApplicantIds.length + 1} 人 ·{' '}
             {editing ? '参与人在客户页「相关案件」卡里增删' : '组 = 本案参与人（在下方选择），同参与人的案件同组'}
           </span>
         </div>
@@ -171,6 +173,10 @@ export function CaseForm({
           <legend className="px-1 text-sm font-semibold text-body">本案参与人</legend>
           <div className="space-y-2.5">
             <p className="text-sm text-slate-500">选择本案参与人</p>
+            {/* ?with= 一条龙带过来的预选人：说明来源，免得用户以为系统乱填 */}
+            {(initialApplicantIds?.length ?? 0) > 0 && (
+              <p className="text-xs text-faint">已自动带入上一步「快速建档同组的人」，不需要的可移出</p>
+            )}
 
             {/* 案件客户固定首位，不可移出 */}
             <div className="flex min-h-11 flex-wrap items-center gap-2 rounded-[10px] border border-line bg-surface-2/60 px-3 py-1.5 text-sm">

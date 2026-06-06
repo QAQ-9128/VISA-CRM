@@ -55,7 +55,7 @@ const oldLinkedCase = {
 describe('CaseForm（新增案件 · 一案一组）', () => {
   it('有 Group 区（组码只读）+ 案件级担保字段；无主/副申措辞', async () => {
     renderForm()
-    expect(await screen.findByText('Group（本案的组）')).toBeInTheDocument()
+    expect(await screen.findByText('组（Group）')).toBeInTheDocument()
     // 初始 = 仅案件客户 → 单人组码（新建未保存以 '' 占位，保存后按案件 id 定）
     expect(screen.getByText(caseGroupCode(['P'], ''))).toBeInTheDocument()
     expect(screen.getByText('担保职位')).toBeInTheDocument()
@@ -68,7 +68,7 @@ describe('CaseForm（新增案件 · 一案一组）', () => {
 
   it('新建模式：「本案参与人」区可编辑——下拉添加、可移出、组码实时更新', async () => {
     renderForm()
-    await screen.findByText('Group（本案的组）')
+    await screen.findByText('组（Group）')
     expect(screen.getByText('本案参与人')).toBeInTheDocument()
     expect(screen.getByText('案件客户 · 整案主进度')).toBeInTheDocument()
     fireEvent.click(screen.getByRole('button', { name: '+ 添加本案参与人' }))
@@ -92,7 +92,7 @@ describe('CaseForm（新增案件 · 一案一组）', () => {
   // ?with= 一条龙：客户表单组区快速建的同组人，进建案表单即已是本案参与人
   it('新建模式带 initialApplicantIds → 参与人预选（chip + 双人组码），保存 applicantIds 含之', async () => {
     const { onSubmit } = renderForm(undefined, ['S'])
-    await screen.findByText('Group（本案的组）')
+    await screen.findByText('组（Group）')
     expect(screen.getByText('乙')).toBeInTheDocument() // 预选 chip
     expect(screen.getByText(caseGroupCode(['P', 'S'], ''))).toBeInTheDocument()
 
@@ -122,7 +122,7 @@ describe('CaseForm（新增案件 · 一案一组）', () => {
         </AuthContext.Provider>
       </QueryClientProvider>,
     )
-    await screen.findByText('Group（本案的组）')
+    await screen.findByText('组（Group）')
     expect(screen.queryByText('本案参与人')).not.toBeInTheDocument()
     expect(screen.queryByRole('button', { name: '+ 添加本案参与人' })).not.toBeInTheDocument()
     expect(screen.queryByRole('button', { name: '移出' })).not.toBeInTheDocument()
@@ -134,7 +134,7 @@ describe('CaseForm（新增案件 · 一案一组）', () => {
 
   it('「与其他案件的关系」整块已删：无任何相关文案（案件自包含，案与案无关系）', async () => {
     renderForm()
-    await screen.findByText('Group（本案的组）')
+    await screen.findByText('组（Group）')
     expect(screen.queryByText('与其他案件的关系')).not.toBeInTheDocument()
     expect(screen.queryByText(/关联案件/)).not.toBeInTheDocument()
     expect(screen.queryByText(/独立案件/)).not.toBeInTheDocument()
@@ -144,7 +144,7 @@ describe('CaseForm（新增案件 · 一案一组）', () => {
 
   it('保存新案件：payload 不含 parent_case_id / parent_sync_progress（落库默认 null）', async () => {
     const { onSubmit } = renderForm()
-    await screen.findByText('Group（本案的组）')
+    await screen.findByText('组（Group）')
     // 选签证类别使保存可用（目录下拉选 482）
     fireEvent.change(screen.getByLabelText('签证类别'), { target: { value: '482' } })
     fireEvent.click(screen.getByRole('button', { name: '保存' }))
@@ -155,7 +155,7 @@ describe('CaseForm（新增案件 · 一案一组）', () => {
 
   it('「保存并记账」（重录快捷路径）：next=fees；未选签证类别时禁用', async () => {
     const { onSubmit } = renderForm()
-    await screen.findByText('Group（本案的组）')
+    await screen.findByText('组（Group）')
     const btn = screen.getByRole('button', { name: '保存并记账' })
     expect(btn).toBeDisabled()
     fireEvent.change(screen.getByLabelText('签证类别'), { target: { value: '482' } })
@@ -167,7 +167,7 @@ describe('CaseForm（新增案件 · 一案一组）', () => {
 
   it('普通「保存」：next=detail，applicantIds 随表单勾选', async () => {
     const { onSubmit } = renderForm()
-    await screen.findByText('Group（本案的组）')
+    await screen.findByText('组（Group）')
     fireEvent.change(screen.getByLabelText('签证类别'), { target: { value: '482' } })
     fireEvent.click(screen.getByRole('button', { name: '保存' }))
     expect(onSubmit.mock.calls[0][1]).toEqual([]) // 未勾选参与人
@@ -176,7 +176,7 @@ describe('CaseForm（新增案件 · 一案一组）', () => {
 
   it('加载 parent_case_id 非空的旧案件：正常渲染、可保存；提交不写 parent 字段（旧值留库不报错）', async () => {
     const { onSubmit } = renderForm(oldLinkedCase)
-    await screen.findByText('Group（本案的组）')
+    await screen.findByText('组（Group）')
     expect(screen.queryByText(/关联案件|与其他案件|进度同步/)).not.toBeInTheDocument()
     const save = screen.getByRole('button', { name: '保存' })
     expect(save).not.toBeDisabled() // visa 已回填 → 可保存

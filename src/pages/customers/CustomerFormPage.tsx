@@ -1,3 +1,4 @@
+import { useRef } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { CustomerForm } from '../../components/customers/CustomerForm'
 import type { CustomerFormNext, CustomerFormValues } from '../../components/customers/CustomerForm'
@@ -34,6 +35,11 @@ export function CustomerFormPage() {
   // 取消 = 回到点进来的那个界面（应用内历史后退；刷新/直链则兜底到详情或列表）
   const goBack = useSmartBack(editing && id ? `/customers/${id}` : '/customers')
 
+  // 防重：客户建好但「加入案件」失败时记住已建 id 与已加入的人——
+  // 用户重试只补加入（绝不重复建人、不重复写已成功的 applicant 行）
+  const createdIdRef = useRef<string | null>(null)
+  const joinedRef = useRef<Set<string>>(new Set())
+
   function handleSubmit(
     values: CustomerFormValues,
     joinCaseId: string | null,
@@ -49,7 +55,7 @@ export function CustomerFormPage() {
       // 选了「加入已有案件」→ 建完人把 本客户 + 同组的人 依次写 case_applicants（一案一组）。
       // onSuccess 才跳转：加入失败时留在表单显示错误（客户已建好，可重试或取消）。
       if (joinCaseId) {
-        const queue = [customerId, ...companionIds]
+        const queue = [customerId, ...companionIds].filter((cid) => !joinedRef.current.has(cid))
         const addNext = (i: number) => {
           if (i >= queue.length) {
             navigate(dest, { replace: true })
@@ -57,7 +63,12 @@ export function CustomerFormPage() {
           }
           addApplicantM.mutate(
             { caseId: joinCaseId, customerId: queue[i] },
-            { onSuccess: () => addNext(i + 1) },
+            {
+              onSuccess: () => {
+                joinedRef.current.add(queue[i]) // 断点续传：重试不再重写已成功的人
+                addNext(i + 1)
+              },
+            },
           )
         }
         addNext(0)
@@ -67,8 +78,16 @@ export function CustomerFormPage() {
     }
     if (editing && id) {
       updateM.mutate({ id, patch: values }, { onSuccess: () => finish(id) })
+    } else if (createdIdRef.current) {
+      // 上一轮已建好客户（仅加入失败）→ 直接重试加入，绝不重复建人
+      finish(createdIdRef.current)
     } else {
-      createM.mutate(values, { onSuccess: (created) => finish(created.id) })
+      createM.mutate(values, {
+        onSuccess: (created) => {
+          createdIdRef.current = created.id
+          finish(created.id)
+        },
+      })
     }
   }
 

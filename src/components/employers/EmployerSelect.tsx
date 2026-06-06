@@ -37,7 +37,7 @@ export function EmployerSelect({
   if (creating) {
     return (
       <div className="space-y-3 rounded-lg border border-brand-100 bg-brand-50/40 p-3">
-        <TextField label="新雇主名称 *" value={name} onChange={(e) => setName(e.target.value)} placeholder="如 ACME Pty Ltd" />
+        <TextField label="新雇主名称" value={name} onChange={(e) => setName(e.target.value)} placeholder="如 ACME Pty Ltd" />
         <TextField label="ABN（可选）" value={abn} onChange={(e) => setAbn(e.target.value)} />
         <div className="flex gap-2">
           <Button type="button" onClick={handleCreate} disabled={create.isPending || name.trim() === ''}>

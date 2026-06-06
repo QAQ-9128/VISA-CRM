@@ -123,6 +123,23 @@ export function CustomerForm({ initial, submitting, error, onSubmit, onCancel }:
             </Checkbox>
           </div>
         </div>
+
+        {/* 生日/性别归基本信息（与组区建人块同序：姓名→性别→生日，两处心智一致） */}
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+          <Select
+            label="性别"
+            placeholder="未填"
+            options={GENDERS.map((g) => ({ value: g, label: GENDER_LABELS[g] }))}
+            value={state.gender}
+            onChange={(e) => set('gender')(e.target.value)}
+          />
+          <TextField
+            label="生日"
+            type="date"
+            value={state.birth_date}
+            onChange={(e) => set('birth_date')(e.target.value)}
+          />
+        </div>
       </Section>
 
       {/* 担保信息 */}
@@ -184,8 +201,12 @@ export function CustomerForm({ initial, submitting, error, onSubmit, onCancel }:
               </div>
             )}
 
-            {/* 同组的人还没建档 → 当场快速建（2026-06 拍板：建案时 TA 们自动预选为参与人） */}
+            {/* 同组的人还没建档 → 当场快速建（2026-06 拍板：建案时 TA 们自动预选为参与人）。
+                说明常驻：用户加人之前就要知道「加了会怎样」 */}
             <div className="border-t border-brand-100 pt-3">
+              <p className="mb-2 text-xs text-faint">
+                同组的人还没有档案？在这里先建好——TA 们会随本客户一并加入所选案件，或在「保存并新建案件」时自动成为本案参与人
+              </p>
               {companions.length > 0 && (
                 <div className="mb-2 flex flex-wrap items-center gap-2">
                   <span className="text-[12.5px] font-semibold text-muted">同组的人</span>
@@ -210,7 +231,10 @@ export function CustomerForm({ initial, submitting, error, onSubmit, onCancel }:
               )}
               {creatingCompanion ? (
                 <QuickPersonCreate
-                  onCreated={(p) => setCompanions((list) => [...list, p])}
+                  onCreated={(p) =>
+                    // 按 id 去重：防 onSuccess 偶发重入把同一个人塞两次（真重名是不同 id，允许）
+                    setCompanions((list) => (list.some((x) => x.id === p.id) ? list : [...list, p]))
+                  }
                   onCancel={() => setCreatingCompanion(false)}
                 />
               ) : (
@@ -222,13 +246,6 @@ export function CustomerForm({ initial, submitting, error, onSubmit, onCancel }:
                   + 快速建档同组的人（TA 还没有档案）
                 </button>
               )}
-              {companions.length > 0 && (
-                <p className="mt-2 text-xs text-faint">
-                  {joinMode
-                    ? 'TA 们将与本客户一并加入所选案件'
-                    : '点「保存并新建案件」→ TA 们自动成为本案参与人'}
-                </p>
-              )}
             </div>
           </div>
         </div>
@@ -236,21 +253,6 @@ export function CustomerForm({ initial, submitting, error, onSubmit, onCancel }:
 
       {/* 其他 */}
       <Section title="其他">
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-          <TextField
-            label="生日"
-            type="date"
-            value={state.birth_date}
-            onChange={(e) => set('birth_date')(e.target.value)}
-          />
-          <Select
-            label="性别"
-            placeholder="未填"
-            options={GENDERS.map((g) => ({ value: g, label: GENDER_LABELS[g] }))}
-            value={state.gender}
-            onChange={(e) => set('gender')(e.target.value)}
-          />
-        </div>
         <Textarea
           label="备注"
           value={state.notes}

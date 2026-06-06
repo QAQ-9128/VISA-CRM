@@ -83,12 +83,12 @@ function AddFeeItemForm({
     <form onSubmit={save} className="mt-2 space-y-2.5 rounded-[14px] border border-brand-100 bg-brand-50/40 p-3">
       <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2">
         <Select
-          label="款项类型 *"
+          label="款项类型" required
           options={[...FEE_CATEGORIES.map((c) => ({ value: c, label: c })), { value: FEE_CATEGORY_OTHER, label: '其他（手填）' }]}
           value={cat}
           onChange={(e) => setCat(e.target.value)}
         />
-        <TextField label="金额 *" type="number" min={0} step="0.01" value={amount} onChange={(e) => setAmount(e.target.value)} />
+        <TextField label="金额" required type="number" min={0} step="0.01" value={amount} onChange={(e) => setAmount(e.target.value)} />
       </div>
       {cat === FEE_CATEGORY_OTHER && (
         <TextField label="其他类型" value={other} onChange={(e) => setOther(e.target.value)} placeholder="如：公证费" />
@@ -165,10 +165,10 @@ function ReceiptForm({
     <form onSubmit={save} className="mt-2 space-y-2.5 rounded-[14px] border border-brand-100 bg-brand-50/40 p-3">
       <p className="text-[13px] font-semibold text-ink">记收款 · {line.label}</p>
       <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-3">
-        <TextField label={`金额（${currency}）*`} type="number" min={0} step="0.01" value={amount} onChange={(e) => setAmount(e.target.value)} />
-        <TextField label="实际日期 *" type="date" value={paidAt} onChange={(e) => setPaidAt(e.target.value)} />
+        <TextField label={`金额（${currency}）`} required type="number" min={0} step="0.01" value={amount} onChange={(e) => setAmount(e.target.value)} />
+        <TextField label="实际日期" required type="date" value={paidAt} onChange={(e) => setPaidAt(e.target.value)} />
         <Select
-          label="方式 *"
+          label="方式" required
           options={RECEIPT_METHODS.map((m) => ({ value: m, label: PAYMENT_METHOD_LABELS[m] }))}
           value={method}
           onChange={(e) => setMethod(e.target.value as PaymentMethod)}

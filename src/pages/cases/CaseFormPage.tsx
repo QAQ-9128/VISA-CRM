@@ -22,8 +22,11 @@ export function CaseFormPage() {
 
   // 编辑模式参与人只读（组码展示用，增删在客户页「相关案件」卡）；新建模式建案后写一次参与人
   const existingApplicants = useCaseApplicants(id)
-  // 新建：?with=<id,id> 预选参与人（客户表单组区「快速建档同组的人」一条龙带过来）
-  const withIds = params.get('with')?.split(',').filter(Boolean) ?? []
+  // 新建：?with=<id,id> 预选参与人（客户表单组区「快速建档同组的人」一条龙带过来）。
+  // 消毒：去重 + 排除案件客户自己（避免人数虚高、重复行 key 冲突）
+  const withIds = [...new Set(params.get('with')?.split(',').filter(Boolean) ?? [])].filter(
+    (cid) => cid !== customerId,
+  )
   const createM = useCreateCase()
   const updateM = useUpdateCase()
   const setApplicantsM = useSetCaseApplicants()

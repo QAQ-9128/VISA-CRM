@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { ConfirmDialog } from '../ui/ConfirmDialog'
 import { useArchiveCustomer, useDeleteCustomer } from '../../hooks/queries/useCustomers'
 import type { Customer } from '../../types/models'
@@ -13,10 +13,29 @@ export function CustomerActionsMenu({ customer }: { customer: Customer }) {
   const del = useDeleteCustomer()
   // 0031 起彻底删除全员开放（两位用户均 staff，2026-06 拍板）；防误删靠红色确认弹窗
   const [confirming, setConfirming] = useState<'archive' | 'delete' | null>(null)
+  const detailsRef = useRef<HTMLDetailsElement | null>(null)
+
+  // 原生 <details> 不会因点外部/Esc 收起 → 自己补上（否则多行菜单同时挂开互相叠压）
+  useEffect(() => {
+    const close = () => detailsRef.current?.removeAttribute('open')
+    const onDown = (e: MouseEvent) => {
+      if (detailsRef.current?.open && !detailsRef.current.contains(e.target as Node)) close()
+    }
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && detailsRef.current?.open) close()
+    }
+    document.addEventListener('mousedown', onDown)
+    document.addEventListener('keydown', onKey)
+    return () => {
+      document.removeEventListener('mousedown', onDown)
+      document.removeEventListener('keydown', onKey)
+    }
+  }, [])
 
   return (
     <>
       <details
+        ref={detailsRef}
         className="relative"
         onClick={(e) => {
           // 行/卡片整体是 Link：菜单交互不允许冒泡成跳转
@@ -36,7 +55,7 @@ export function CustomerActionsMenu({ customer }: { customer: Customer }) {
               details.toggleAttribute('open')
             }
           }}
-          className="grid size-8 cursor-pointer list-none place-items-center rounded-full text-muted transition-colors hover:bg-surface-2 hover:text-ink [&::-webkit-details-marker]:hidden"
+          className="grid size-11 cursor-pointer list-none place-items-center rounded-full text-[17px] text-muted transition-colors hover:bg-surface-2 hover:text-ink [&::-webkit-details-marker]:hidden"
         >
           ⋯
         </summary>

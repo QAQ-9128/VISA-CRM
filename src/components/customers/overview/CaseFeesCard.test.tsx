@@ -92,7 +92,7 @@ describe('CaseFeesCard（本案费用卡 · 单人）', () => {
     expect(screen.queryByText(/选择参与人后添加款项/)).not.toBeInTheDocument()
     fireEvent.click(screen.getByRole('button', { name: '+ 给 测试客户 添加款项' }))
     // 轻量录入表单（类型/金额/备注），不是旧 PlanItemsTable
-    expect(screen.getByText('款项类型 *')).toBeInTheDocument()
+    expect(screen.getByText('款项类型')).toBeInTheDocument()
     expect(screen.getByText('备注（选填）')).toBeInTheDocument()
     expect(screen.queryByText(/分阶段收费/)).not.toBeInTheDocument()
     expect(screen.queryByText('已付')).not.toBeInTheDocument() // 旧「应收/已付/未付」三列没了

@@ -92,7 +92,8 @@ function AddCaseRecordForm({ caseId, customerId, onDone }: { caseId: string; cus
       )}
 
       <TextField
-        label={type === 'task' ? '待办内容 *' : '跟进内容 *'}
+        label={type === 'task' ? '待办内容' : '跟进内容'}
+        required
         value={content}
         onChange={(e) => setContent(e.target.value)}
         placeholder={type === 'task' ? '如：递交签证申请' : '如：已电话沟通补件清单'}

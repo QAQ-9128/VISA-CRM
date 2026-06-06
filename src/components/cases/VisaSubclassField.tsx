@@ -66,7 +66,7 @@ export function VisaSubclassField({
   return (
     <div className="space-y-3">
       <div className="space-y-1.5">
-        <label className="block text-sm font-medium text-slate-700">签证类别 *</label>
+        <label className="block text-sm font-medium text-slate-700">签证类别<span className="ml-0.5 text-rose-500">*</span></label>
         <input
           type="text"
           value={query}
