@@ -134,7 +134,8 @@ export function CustomerForm({ initial, submitting, error, onSubmit, onCancel }:
         />
         <ReferrerSelect value={state.referrer_id} onChange={(id) => set('referrer_id')(id)} />
 
-        {/* 组（Group）：一案一组 —— 新建独立成组 / 加入已有案件（成为本案参与人，组随案件走） */}
+        {/* 组（Group）：一案一组。不勾任何东西本身就是独立客户——「新建独立客户」选项已删
+            （2026-06 用户拍板：无需专门一个选择来展现默认态），只留可选的「加入已有案件」 */}
         <div className="rounded-[18px] border border-brand-100 bg-brand-50/50 p-[18px]">
           <h3 className="mb-3 flex items-center gap-1.5 text-[13.5px] font-bold text-ink">
             <span aria-hidden>🧩</span> 组（Group）
@@ -142,29 +143,14 @@ export function CustomerForm({ initial, submitting, error, onSubmit, onCancel }:
           <div className="space-y-3">
             <label className="flex cursor-pointer items-start gap-2.5">
               <input
-                type="radio"
-                name="groupMode"
-                checked={!joinMode}
-                onChange={pickNewGroup}
-                className="mt-0.5 size-4 accent-brand"
-              />
-              <span className="min-w-0">
-                <span className="block text-sm font-semibold text-ink">新建独立客户（自成一组）</span>
-                <span className="block text-xs text-faint">默认 —— 不参加任何案件；TA 自己办案件时即自成一组</span>
-              </span>
-            </label>
-
-            <label className="flex cursor-pointer items-start gap-2.5">
-              <input
-                type="radio"
-                name="groupMode"
+                type="checkbox"
                 checked={joinMode}
-                onChange={pickJoin}
+                onChange={(e) => (e.target.checked ? pickJoin() : pickNewGroup())}
                 className="mt-0.5 size-4 accent-brand"
               />
               <span className="min-w-0">
                 <span className="block text-sm font-semibold text-ink">加入已有案件（成为本案参与人）</span>
-                <span className="block text-xs text-faint">选择一个案件，保存后 TA 加入该案的组（写入本案参与客户）</span>
+                <span className="block text-xs text-faint">选择一个案件，保存后 TA 加入该案的组；不勾 = 独立客户（自成一组）</span>
               </span>
             </label>
 
