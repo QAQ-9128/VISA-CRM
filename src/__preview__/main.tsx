@@ -22,6 +22,7 @@ import { CasesPage } from '../pages/cases/CasesPage'
 import { ArchivePage } from '../pages/archive/ArchivePage'
 import { RecycleBin } from '../pages/archive/RecycleBin'
 import { ReferrerListPage } from '../pages/referrers/ReferrerListPage'
+import { ReferrerFormPage } from '../pages/referrers/ReferrerFormPage'
 import { CustomerFormPage } from '../pages/customers/CustomerFormPage'
 import { CustomerListPage } from '../pages/customers/CustomerListPage'
 import { AuthContext } from '../providers/auth-context'
@@ -260,6 +261,7 @@ const ENTRY: Record<string, string> = {
   recycle: '/storage', // 静态截图点不了 tab → 直接渲染 RecycleBin
   referrers: '/referrers',
   owners: '/referrers?kind=owner', // 介绍人页·归属人视图
+  newowner: '/referrers/new?kind=owner', // 新建归属人表单
   customers: '/customers',
   board: '/customers?view=board',
   quick: '/customers/new', // 新建客户页（快速建档卡 + 完整表单并存）
@@ -276,6 +278,18 @@ if (params.get('focus') === 'owner') {
 if (params.get('focus') === 'menu') {
   window.setTimeout(() => {
     document.querySelector('details')?.setAttribute('open', '')
+  }, 600)
+}
+// ?type=<文本> → 往归属人下拉里模拟键入（React 受控输入需走原生 setter + input 事件）
+const typeText = params.get('type')
+if (typeText) {
+  window.setTimeout(() => {
+    const input = document.querySelector<HTMLInputElement>('[role="combobox"]')
+    if (!input) return
+    input.focus()
+    const setter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value')?.set
+    setter?.call(input, typeText)
+    input.dispatchEvent(new Event('input', { bubbles: true }))
   }, 600)
 }
 
@@ -295,6 +309,7 @@ createRoot(document.getElementById('root')!).render(
               <Route path="/cases" element={<CasesPage />} />
               <Route path="/storage" element={page === 'recycle' ? <RecycleBin /> : <ArchivePage />} />
               <Route path="/referrers" element={<ReferrerListPage />} />
+              <Route path="/referrers/new" element={<ReferrerFormPage />} />
             </Route>
           </Routes>
         </MemoryRouter>

@@ -46,13 +46,17 @@ export function ReferrerForm({ initial, defaultKind = 'referrer', submitting, er
   return (
     <form onSubmit={handleSubmit} className="space-y-5">
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-        <TextField label={`${kindLabel}姓名 *`} required value={name} onChange={(e) => setName(e.target.value)} placeholder="如 王经理 / XX 移民工作室" />
-        <Select
-          label="类型"
-          options={REFERRER_KINDS.map((k) => ({ value: k, label: REFERRER_KIND_LABELS[k] }))}
-          value={kind}
-          onChange={(e) => setKind(e.target.value as ReferrerKind)}
-        />
+        {/* 红色必填星号由 required 自动渲染，label 里别再写 *（否则双星号） */}
+        <TextField label={`${kindLabel}姓名`} required value={name} onChange={(e) => setName(e.target.value)} placeholder="如 王经理 / XX 移民工作室" />
+        <div>
+          <Select
+            label="类型"
+            options={REFERRER_KINDS.map((k) => ({ value: k, label: REFERRER_KIND_LABELS[k] }))}
+            value={kind}
+            onChange={(e) => setKind(e.target.value as ReferrerKind)}
+          />
+          <p className="mt-1.5 text-[12px] text-faint">改类型不影响已挂靠客户的关联，只决定 TA 出现在哪个下拉里</p>
+        </div>
       </div>
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
         <TextField label="联系电话" value={contactPhone} onChange={(e) => setContactPhone(e.target.value)} />

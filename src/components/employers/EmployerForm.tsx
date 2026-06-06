@@ -39,7 +39,8 @@ export function EmployerForm({ initial, submitting, error, onSubmit, onCancel }:
 
   return (
     <form onSubmit={handleSubmit} className="space-y-5">
-      <TextField label="雇主名称 *" required value={name} onChange={(e) => setName(e.target.value)} placeholder="如 ACME Pty Ltd" />
+      {/* 红色必填星号由 required 自动渲染，label 里别再写 *（否则双星号） */}
+      <TextField label="雇主名称" required value={name} onChange={(e) => setName(e.target.value)} placeholder="如 ACME Pty Ltd" />
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
         <TextField label="ABN（澳洲企业号）" value={abn} onChange={(e) => setAbn(e.target.value)} />
         <TextField label="联系人" value={contactName} onChange={(e) => setContactName(e.target.value)} />
