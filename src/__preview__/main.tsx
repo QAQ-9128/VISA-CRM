@@ -24,6 +24,7 @@ import { RecycleBin } from '../pages/archive/RecycleBin'
 import { ReferrerListPage } from '../pages/referrers/ReferrerListPage'
 import { ReferrerFormPage } from '../pages/referrers/ReferrerFormPage'
 import { CustomerFormPage } from '../pages/customers/CustomerFormPage'
+import { CaseFormPage } from '../pages/cases/CaseFormPage'
 import { CustomerListPage } from '../pages/customers/CustomerListPage'
 import { AuthContext } from '../providers/auth-context'
 import type { AuthContextValue } from '../providers/auth-context'
@@ -264,7 +265,8 @@ const ENTRY: Record<string, string> = {
   newowner: '/referrers/new?kind=owner', // 新建归属人表单
   customers: '/customers',
   board: '/customers?view=board',
-  quick: '/customers/new', // 新建客户页（快速建档卡 + 完整表单并存）
+  quick: '/customers/new', // 新建客户页（单张完整表单，组区含快速建同组人）
+  newcase: '/cases/new?customer=P&with=S', // 建案表单：?with= 预选同组人（Ben）
   edit: '/customers/P/edit', // 编辑客户（完整表单，回填 Alice）
 }
 
@@ -278,6 +280,14 @@ if (params.get('focus') === 'owner') {
 if (params.get('focus') === 'menu') {
   window.setTimeout(() => {
     document.querySelector('details')?.setAttribute('open', '')
+  }, 600)
+}
+// ?click=<按钮文案片段> → 渲染后点击第一个匹配按钮（截图展开态用：静态截图点不了按钮）
+const clickText = params.get('click')
+if (clickText) {
+  window.setTimeout(() => {
+    const btn = [...document.querySelectorAll('button')].find((b) => b.textContent?.includes(clickText))
+    btn?.click()
   }, 600)
 }
 // ?type=<文本> → 往归属人下拉里模拟键入（React 受控输入需走原生 setter + input 事件）
@@ -302,6 +312,7 @@ createRoot(document.getElementById('root')!).render(
             <Route element={<AppLayout />}>
               <Route path="/" element={<DashboardPage />} />
               <Route path="/customers/new" element={<CustomerFormPage />} />
+              <Route path="/cases/new" element={<CaseFormPage />} />
               <Route path="/customers" element={<CustomerListPage />} />
               <Route path="/customers/:id/edit" element={<CustomerFormPage />} />
               <Route path="/customers/:id" element={<CustomerDetailPage />} />

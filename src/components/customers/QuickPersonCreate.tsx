@@ -43,6 +43,11 @@ export function QuickPersonCreate({
 
   return (
     <div className="space-y-3 rounded-[14px] border border-brand-100 bg-white p-3">
+      {/* 块标题：和外层客户表单的「姓名」区分开，明确这块是在建另一个人 */}
+      <div>
+        <h4 className="text-[13px] font-bold text-ink">⚡ 快速建档同组的人</h4>
+        <p className="mt-0.5 text-xs text-faint">给还没有档案的 TA 建档，建完自动进同组名单（可连建多个）</p>
+      </div>
       <TextField
         label="姓名"
         required
