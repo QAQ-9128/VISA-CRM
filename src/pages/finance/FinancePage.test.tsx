@@ -3,20 +3,24 @@ import { render, screen, fireEvent } from '@testing-library/react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { MemoryRouter } from 'react-router-dom'
 
-// 用受控数据替换 useFinance（初始渲染不触发任何网络查询）；记录传入的月份
+// 用受控数据替换 useFinance（初始渲染不触发任何网络查询）；记录传入的周期（月度/财年）
 const { state } = vi.hoisted(() => ({
-  state: { data: null as unknown, lastMonth: null as string | null },
+  state: { data: null as unknown, lastPeriod: null as unknown },
 }))
 vi.mock('../../hooks/queries/useFinance', () => ({
-  useFinance: (month: string | null) => {
-    state.lastMonth = month
+  useFinance: (period: unknown) => {
+    state.lastPeriod = period
     return state.data
   },
 }))
-// 固定「今天」= 2026-06-05（默认月 2026-06）
+// 固定「今天」= 2026-06-05（默认月 2026-06，当前财年 2025–26）
 vi.mock('../../lib/month', async (importOriginal) => {
   const mod = await importOriginal<typeof import('../../lib/month')>()
   return { ...mod, currentMonth: () => '2026-06' }
+})
+vi.mock('../../lib/dateRules', async (importOriginal) => {
+  const mod = await importOriginal<typeof import('../../lib/dateRules')>()
+  return { ...mod, auFinancialYear: () => mod.fyOfEndYear(2026) }
 })
 
 import { FinancePage } from './FinancePage'
@@ -147,11 +151,11 @@ describe('FinancePage · 月度账目（mockup 重做）', () => {
     renderPage()
     expect(screen.getByText('2026年6月')).toBeInTheDocument()
     expect(screen.getByText('本月')).toBeInTheDocument() // pill 内 chip（精确匹配）
-    expect(state.lastMonth).toBe('2026-06')
+    expect(state.lastPeriod).toEqual({ kind: 'month', month: '2026-06' })
     fireEvent.click(screen.getByRole('button', { name: '上个月' }))
     expect(screen.getByText('2026年5月')).toBeInTheDocument()
     expect(screen.queryByText('本月')).toBeNull() // 非当前月不显示 chip
-    expect(state.lastMonth).toBe('2026-05')
+    expect(state.lastPeriod).toEqual({ kind: 'month', month: '2026-05' })
     // 非当前月文案退「当月」
     expect(screen.getByText('当月收入 · 客户已收')).toBeInTheDocument()
     fireEvent.click(screen.getByRole('button', { name: '下个月' }))
@@ -182,5 +186,132 @@ describe('FinancePage · 月度账目（mockup 重做）', () => {
     expect(screen.queryByText('+ 记收款')).toBeNull()
     expect(screen.queryByText('+ 加支出')).toBeNull()
     expect(screen.queryByText('全部状态')).toBeNull()
+  })
+})
+
+describe('FinancePage · 财年模式（月度 / 财年 段控）', () => {
+  const toFy = () => fireEvent.click(screen.getByRole('button', { name: '财年' }))
+
+  it('段控默认月度：月度态与改前完全一致，财年按钮存在且选中态可感知（aria-pressed）', () => {
+    renderPage()
+    expect(screen.getByRole('button', { name: '月度' })).toHaveAttribute('aria-pressed', 'true')
+    expect(screen.getByRole('button', { name: '财年' })).toHaveAttribute('aria-pressed', 'false')
+    expect(screen.getByRole('heading', { name: '月度账目' })).toBeInTheDocument()
+    expect(state.lastPeriod).toEqual({ kind: 'month', month: '2026-06' })
+    toFy()
+    expect(screen.getByRole('button', { name: '财年' })).toHaveAttribute('aria-pressed', 'true')
+  })
+
+  it('切到财年：财年选择器「2025–26 财年」+ 本财年 chip + 起止日期，取数窗口换成 FY', () => {
+    renderPage()
+    toFy()
+    expect(state.lastPeriod).toEqual({ kind: 'fy', endYear: 2026 })
+    expect(screen.getByText('2025–26 财年')).toBeInTheDocument()
+    expect(screen.getByText('本财年')).toBeInTheDocument()
+    expect(screen.getByText('2025-07-01 ~ 2026-06-30')).toBeInTheDocument()
+  })
+
+  it('财年 KPI 三卡：本财年收入 / 本财年支出 / 本财年净额；小计与底部条同改口径', () => {
+    renderPage()
+    toFy()
+    expect(screen.getByText('本财年收入 · 客户已收')).toBeInTheDocument()
+    expect(screen.getByText('本财年支出 · 付主代理 + 付介绍人')).toBeInTheDocument()
+    expect(screen.getByText('本财年净额')).toBeInTheDocument()
+    expect(screen.getAllByText('本财年小计').length).toBe(2)
+    expect(screen.getByText('本财年净额（双流恒等）')).toBeInTheDocument()
+  })
+
+  it('财年汇总双流恒等：净额 = 收入 − 付主代理 − 付介绍人（同一套聚合，只换窗口）', () => {
+    renderPage()
+    toFy()
+    // 22200 − (4200 + 2300) = 15700，KPI + 净额条都出现
+    expect(screen.getAllByText('15,700.00').length).toBeGreaterThan(1)
+    expect(screen.getByText(/收入 22,200\.00/)).toBeInTheDocument()
+    expect(screen.getByText(/支出 6,500\.00/)).toBeInTheDocument()
+    // 较上财年（上一财年有流水 → 真实对比）
+    expect(screen.getAllByText(/较上财年/).length).toBeGreaterThan(0)
+  })
+
+  it('‹ 切上一财年：2024–25 财年、无本财年 chip、取数 endYear=2025；› 切回', () => {
+    renderPage()
+    toFy()
+    fireEvent.click(screen.getByRole('button', { name: '上一财年' }))
+    expect(screen.getByText('2024–25 财年')).toBeInTheDocument()
+    expect(screen.getByText('2024-07-01 ~ 2025-06-30')).toBeInTheDocument()
+    expect(screen.queryByText('本财年')).toBeNull()
+    expect(state.lastPeriod).toEqual({ kind: 'fy', endYear: 2025 })
+    // 非当前财年文案退「该财年」
+    expect(screen.getByText('该财年收入 · 客户已收')).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: '下一财年' }))
+    expect(screen.getByText('2025–26 财年')).toBeInTheDocument()
+    expect(state.lastPeriod).toEqual({ kind: 'fy', endYear: 2026 })
+  })
+
+  it('空财年：空态 + 全 0，不报错、不显示较上财年', () => {
+    setData({
+      receipts: empty,
+      payouts: emptyPayouts,
+      prevReceipts: empty,
+      prevPayouts: emptyPayouts,
+    })
+    expect(() => {
+      renderPage()
+      toFy()
+    }).not.toThrow()
+    expect(screen.getByText('本财年暂无收入')).toBeInTheDocument()
+    expect(screen.getByText('本财年暂无支出')).toBeInTheDocument()
+    expect(screen.getAllByText('0.00').length).toBeGreaterThan(0)
+    expect(screen.queryByText(/较上财年/)).toBeNull()
+  })
+
+  it('切回月度：恢复月份选择器与月度取数（月度回归）', () => {
+    renderPage()
+    toFy()
+    fireEvent.click(screen.getByRole('button', { name: '月度' }))
+    expect(screen.getByText('2026年6月')).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: '月度账目' })).toBeInTheDocument()
+    expect(state.lastPeriod).toEqual({ kind: 'month', month: '2026-06' })
+    expect(screen.getByText('本月收入 · 客户已收')).toBeInTheDocument()
+  })
+})
+
+describe('FinancePage · 月度 ↔ 财年 跟随联动', () => {
+  const toFy = () => fireEvent.click(screen.getByRole('button', { name: '财年' }))
+  const toMonth = () => fireEvent.click(screen.getByRole('button', { name: '月度' }))
+
+  it('月→财：财年自动跳到包含所选月份的财年（2026年7月 → 2026–27 财年）', () => {
+    renderPage()
+    fireEvent.click(screen.getByRole('button', { name: '下个月' })) // 2026-07，已属下一财年
+    toFy()
+    expect(screen.getByText('2026–27 财年')).toBeInTheDocument()
+    expect(state.lastPeriod).toEqual({ kind: 'fy', endYear: 2027 })
+  })
+
+  it('财→月：原月份不在所选财年内 → 过去财年跳到该财年末月 6 月', () => {
+    renderPage() // month=2026-06
+    toFy() // 跟随 → 2025–26
+    fireEvent.click(screen.getByRole('button', { name: '上一财年' })) // 2024–25
+    toMonth()
+    expect(screen.getByText('2025年6月')).toBeInTheDocument()
+    expect(state.lastPeriod).toEqual({ kind: 'month', month: '2025-06' })
+  })
+
+  it('财→月：原月份在所选财年内 → 保留原月份（来回切不丢位置）', () => {
+    renderPage() // month=2026-06 ∈ 2025–26 财年
+    toFy()
+    expect(screen.getByText('2025–26 财年')).toBeInTheDocument() // 跟随当前月所属财年
+    toMonth()
+    expect(screen.getByText('2026年6月')).toBeInTheDocument()
+    expect(screen.getByText('本月')).toBeInTheDocument()
+    expect(state.lastPeriod).toEqual({ kind: 'month', month: '2026-06' })
+  })
+
+  it('财→月：未来财年 → 跳到该财年首月 7 月', () => {
+    renderPage()
+    toFy()
+    fireEvent.click(screen.getByRole('button', { name: '下一财年' })) // 2026–27（未来）
+    toMonth()
+    expect(screen.getByText('2026年7月')).toBeInTheDocument()
+    expect(state.lastPeriod).toEqual({ kind: 'month', month: '2026-07' })
   })
 })

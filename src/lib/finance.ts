@@ -36,6 +36,22 @@ export function filterPaymentsByMonth<T extends { paid_at: string | null }>(
   return payments.filter((p) => !!p.paid_at && p.paid_at.slice(0, 7) === month)
 }
 
+/**
+ * 按本地日期区间 [startYmd, endYmd]（含两端）过滤付款——财年窗口用。
+ * 与按月口径同源：无 paid_at 排除；YYYY-MM-DD 字符串比较（本地日历日，时区/DST 安全）。
+ */
+export function filterPaymentsByRange<T extends { paid_at: string | null }>(
+  payments: T[],
+  startYmd: string,
+  endYmd: string,
+): T[] {
+  return payments.filter((p) => {
+    if (!p.paid_at) return false
+    const d = p.paid_at.slice(0, 10)
+    return d >= startYmd && d <= endYmd
+  })
+}
+
 /** 最近活动的 N 个案件：按 updated_at 倒序取前 N（同时间按 id 稳定）。不改原数组。 */
 export function selectRecentCases(cases: Case[], limit: number): Case[] {
   return [...cases]

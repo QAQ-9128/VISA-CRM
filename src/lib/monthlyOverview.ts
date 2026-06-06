@@ -70,6 +70,11 @@ export function formatMonthDay(date: string | null): string {
   return `${m}月${d}日`
 }
 
+/** 'YYYY-MM-DD' → 'YYYY-MM'（财年模式行尾日期，跨两个自然年须带年份，照 mockup）；无日期 → '—'。 */
+export function formatYearMonth(date: string | null): string {
+  return date ? date.slice(0, 7) : '—'
+}
+
 /** 收入行小字：fee_category · note（缺哪个省哪个）；全缺退付款方式标签——全为真实字段。 */
 export function receiptSubtitle(i: Pick<ReceiptItem, 'feeCategory' | 'note' | 'method'>): string {
   const parts = [i.feeCategory, i.note].filter(Boolean)

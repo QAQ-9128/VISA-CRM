@@ -4,6 +4,7 @@ import {
   groupPayouts,
   monthTitle,
   formatMonthDay,
+  formatYearMonth,
   receiptSubtitle,
   payoutDisplayName,
   payoutSubtitle,
@@ -155,6 +156,11 @@ describe('格式化', () => {
     expect(formatMonthDay('2026-05-03')).toBe('5月3日')
     expect(formatMonthDay('2026-12-31')).toBe('12月31日')
     expect(formatMonthDay(null)).toBe('—')
+  })
+  it("formatYearMonth（财年行尾日期，跨年须带年份）: '2025-09-12' → '2025-09'；null → '—'", () => {
+    expect(formatYearMonth('2025-09-12')).toBe('2025-09')
+    expect(formatYearMonth('2026-03-01')).toBe('2026-03')
+    expect(formatYearMonth(null)).toBe('—')
   })
 })
 

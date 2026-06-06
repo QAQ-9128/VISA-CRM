@@ -11,12 +11,14 @@ import { listReferrers } from '../../api/referrers'
 import { listAllCaseApplicants } from '../../api/caseApplicants'
 import {
   filterPaymentsByMonth,
+  filterPaymentsByRange,
   selectFinancePayouts,
   selectFinanceReceipts,
   selectFinanceReceivables,
   selectRecentCases,
   sumFinanceReceivables,
 } from '../../lib/finance'
+import { fyOfEndYear } from '../../lib/dateRules'
 import { installmentSummaryByPlan } from '../../lib/financeRows'
 import { visibleCaseIds } from '../../lib/visibility'
 import { formatVisaType } from '../../lib/visa'
@@ -29,11 +31,17 @@ function keyById<T extends { id: string }>(rows: T[]): Record<string, T> {
   return map
 }
 
+/** 账目取数周期：月度（month=null 表示「全部」）或澳洲财年（按结束年命名）。 */
+export type FinancePeriod =
+  | { kind: 'month'; month: string | null }
+  | { kind: 'fy'; endYear: number }
+
 /**
- * 财务总览数据。month='YYYY-MM' 时，收款明细/支出明细按该月 paid_at 过滤、合计随之；
- * month=null 表示「全部」。应收汇总（余额）始终按所有时间累计，不受 month 影响。
+ * 财务总览数据。period 只决定收款明细/支出明细的日期窗口（月 = paid_at 当月；
+ * 财年 = 7/1~次年 6/30 本地日期区间），聚合算法两种模式同一套。
+ * 应收汇总（余额）始终按所有时间累计，不受 period 影响。
  */
-export function useFinance(month: string | null) {
+export function useFinance(period: FinancePeriod) {
   const cases = useQuery({ queryKey: queryKeys.dashboard.activeCases, queryFn: getActiveCases })
   const customers = useQuery({
     queryKey: queryKeys.dashboard.activeCustomers,
@@ -91,32 +99,41 @@ export function useFinance(month: string | null) {
   )
   const receivableTotals = useMemo(() => sumFinanceReceivables(receivables), [receivables])
 
-  // 收款/支出明细按选定月份过滤（应收余额不过滤）
-  const monthPayments = useMemo(
-    () => filterPaymentsByMonth(visiblePayments, month),
-    [visiblePayments, month],
-  )
+  // 收款/支出明细按选定窗口过滤（应收余额不过滤）。period 是页面每次渲染新建的对象，
+  // memo 依赖用解出来的原始值，避免引用变化引发的无谓重算。
+  const month = period.kind === 'month' ? period.month : null
+  const fyEnd = period.kind === 'fy' ? period.endYear : null
+  const windowPayments = useMemo(() => {
+    if (fyEnd !== null) {
+      const fy = fyOfEndYear(fyEnd)
+      return filterPaymentsByRange(visiblePayments, fy.startYmd, fy.endYmd)
+    }
+    return filterPaymentsByMonth(visiblePayments, month)
+  }, [visiblePayments, month, fyEnd])
   const receipts = useMemo(
-    () => selectFinanceReceipts(monthPayments, caseById, customerById),
-    [monthPayments, caseById, customerById],
+    () => selectFinanceReceipts(windowPayments, caseById, customerById),
+    [windowPayments, caseById, customerById],
   )
   const payouts = useMemo(
-    () => selectFinancePayouts(monthPayments, caseById, customerById, referrerById),
-    [monthPayments, caseById, customerById, referrerById],
+    () => selectFinancePayouts(windowPayments, caseById, customerById, referrerById),
+    [windowPayments, caseById, customerById, referrerById],
   )
 
-  // 上月（month−1）收/支：月度账目 KPI「较上月」用。复用同一套过滤 + selector，零新查询。
-  const prevMonthPayments = useMemo(
-    () => (month ? filterPaymentsByMonth(visiblePayments, shiftMonth(month, -1)) : []),
-    [visiblePayments, month],
-  )
+  // 上一周期（上月 / 上财年）收/支：KPI「较上月 / 较上财年」用。复用同一套过滤 + selector，零新查询。
+  const prevWindowPayments = useMemo(() => {
+    if (fyEnd !== null) {
+      const prev = fyOfEndYear(fyEnd - 1)
+      return filterPaymentsByRange(visiblePayments, prev.startYmd, prev.endYmd)
+    }
+    return month ? filterPaymentsByMonth(visiblePayments, shiftMonth(month, -1)) : []
+  }, [visiblePayments, month, fyEnd])
   const prevReceipts = useMemo(
-    () => selectFinanceReceipts(prevMonthPayments, caseById, customerById),
-    [prevMonthPayments, caseById, customerById],
+    () => selectFinanceReceipts(prevWindowPayments, caseById, customerById),
+    [prevWindowPayments, caseById, customerById],
   )
   const prevPayouts = useMemo(
-    () => selectFinancePayouts(prevMonthPayments, caseById, customerById, referrerById),
-    [prevMonthPayments, caseById, customerById, referrerById],
+    () => selectFinancePayouts(prevWindowPayments, caseById, customerById, referrerById),
+    [prevWindowPayments, caseById, customerById, referrerById],
   )
 
   // 加支出/加收款表单用：可选案件下拉（客户·签证），同样只列在册客户的案件

@@ -6,6 +6,7 @@ import {
   selectFinancePayouts,
   selectCustomerFinance,
   filterPaymentsByMonth,
+  filterPaymentsByRange,
   selectRecentCases,
   getCustomerPaymentColor,
   selectCasePaymentColors,
@@ -15,6 +16,7 @@ import {
   ledgerCounts,
 } from './finance'
 import type { ReceivableRow, FinanceReceipts, FinancePayouts, ReceiptItem, PayoutItem } from './finance'
+import { shiftMonth } from './month'
 import type { Case, Customer, Payment, PaymentPlan, PaymentPlanItem, Referrer } from '../types/models'
 
 // 最小工厂
@@ -68,6 +70,37 @@ describe('filterPaymentsByMonth', () => {
   it('空数据 → 空', () => {
     expect(filterPaymentsByMonth([], '2026-05')).toEqual([])
     expect(filterPaymentsByMonth([], null)).toEqual([])
+  })
+})
+
+describe('filterPaymentsByRange（财年窗口：本地日历日字符串比较，含两端）', () => {
+  const pays = [
+    mkPayment({ id: 'before', paid_at: '2025-06-30' }), // 上一财年末日
+    mkPayment({ id: 'start', paid_at: '2025-07-01' }), // 财年首日（含）
+    mkPayment({ id: 'mid', paid_at: '2026-01-15' }),
+    mkPayment({ id: 'end', paid_at: '2026-06-30' }), // 财年末日（含）
+    mkPayment({ id: 'after', paid_at: '2026-07-01' }), // 下一财年首日
+    mkPayment({ id: 'none', paid_at: null }), // 无日期
+  ]
+
+  it('2025–26 财年：含 7/1 与 6/30 两端，排除前后财年与无日期', () => {
+    expect(filterPaymentsByRange(pays, '2025-07-01', '2026-06-30').map((p) => p.id)).toEqual([
+      'start',
+      'mid',
+      'end',
+    ])
+  })
+  it('空财年（无任何流水落入）→ 空数组，不报错', () => {
+    expect(filterPaymentsByRange(pays, '2030-07-01', '2031-06-30')).toEqual([])
+    expect(filterPaymentsByRange([], '2025-07-01', '2026-06-30')).toEqual([])
+  })
+
+  // 月度/财年数据联动的护栏：财年数字必须 == 12 个月之和（同一笔不多算不漏算）
+  it('窗口拼接恒等：财年过滤结果 == 该财年 12 个月按月过滤的并集', () => {
+    const months = Array.from({ length: 12 }, (_, i) => shiftMonth('2025-07', i))
+    const byMonths = months.flatMap((m) => filterPaymentsByMonth(pays, m))
+    const byFy = filterPaymentsByRange(pays, '2025-07-01', '2026-06-30')
+    expect(byFy.map((p) => p.id).sort()).toEqual(byMonths.map((p) => p.id).sort())
   })
 })
 
