@@ -1,19 +1,17 @@
 import { useState } from 'react'
 import { ConfirmDialog } from '../ui/ConfirmDialog'
 import { useArchiveCustomer, useDeleteCustomer } from '../../hooks/queries/useCustomers'
-import { useAuth } from '../../hooks/useAuth'
 import type { Customer } from '../../types/models'
 
 /**
- * 客户「⋯」操作菜单（客户列表行 + 来源看板卡共用）：归档客户 / 彻底删除客户（admin 专属）。
+ * 客户「⋯」操作菜单（客户列表行 + 来源看板卡共用）：归档客户 / 彻底删除客户（0031 起全员开放，防误删靠红色确认弹窗）。
  * 确认弹窗文案与客户详情页逐字一致（同一套级联行为：归档连带 TA 参与的所有案件；
  * 彻底删除删人不删多人案件）。挂在 <Link> 旁边/之上时注意外层已做 stopPropagation。
  */
 export function CustomerActionsMenu({ customer }: { customer: Customer }) {
   const archive = useArchiveCustomer()
   const del = useDeleteCustomer()
-  // 彻底删除是 admin 专属（RLS 同样限制）：staff 不渲染删除项，归档不受影响
-  const { isAdmin } = useAuth()
+  // 0031 起彻底删除全员开放（两位用户均 staff，2026-06 拍板）；防误删靠红色确认弹窗
   const [confirming, setConfirming] = useState<'archive' | 'delete' | null>(null)
 
   return (
@@ -57,7 +55,6 @@ export function CustomerActionsMenu({ customer }: { customer: Customer }) {
             归档客户
             <span className="block text-[11px] text-faint">隐藏不删数据，可恢复</span>
           </button>
-          {isAdmin && (
             <button
               type="button"
               disabled={del.isPending}
@@ -72,7 +69,6 @@ export function CustomerActionsMenu({ customer }: { customer: Customer }) {
               彻底删除客户
               <span className="block text-[11px] text-rose-300">连同资料/文件，不可恢复</span>
             </button>
-          )}
         </div>
       </details>
 

@@ -31,12 +31,12 @@ describe('CustomerActionsMenu（客户列表/看板的 ⋯ 操作菜单）', () 
     expect(screen.getByText('彻底删除客户')).toBeInTheDocument()
   })
 
-  it('staff（非 admin）：看不到 彻底删除客户，归档仍可用', () => {
+  it('staff 也能彻底删除（0031 全员开放，防误删靠确认弹窗）', () => {
     state.isAdmin = false
     render(<CustomerActionsMenu customer={cust} />)
     fireEvent.click(screen.getByLabelText('客户操作'))
     expect(screen.getByText('归档客户')).toBeInTheDocument()
-    expect(screen.queryByText('彻底删除客户')).toBeNull()
+    expect(screen.getByText('彻底删除客户')).toBeInTheDocument()
   })
 
   it('归档：弹窗确认（文案与客户详情页一致）→ 调 archive(id)', () => {

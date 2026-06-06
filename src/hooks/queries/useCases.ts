@@ -150,16 +150,12 @@ export function useArchiveCase() {
   })
 }
 
-/** 彻底删除案件（硬删，级联删递交/阶段历史/账目等）。影响面广，成功后失效全部查询缓存。 */
+/** 彻底删除案件（硬删，级联删递交/阶段历史/账目等）。影响面广，成功后失效全部查询缓存。
+ *  0031 起全员开放（两位用户均 staff，2026-06 拍板）。 */
 export function useDeleteCase() {
   const qc = useQueryClient()
-  const { isAdmin } = useAuth()
   return useMutation({
-    // 纵深防御：彻底删除是 admin 专属（RLS 同样限制），入口拦下避免被静默挡掉无提示
-    mutationFn: async (id: string) => {
-      if (!isAdmin) throw new Error('仅管理员可彻底删除')
-      await deleteCase(id)
-    },
+    mutationFn: (id: string) => deleteCase(id),
     onSuccess: () => qc.invalidateQueries(),
     meta: { success: '案件已彻底删除', errorPrefix: '删除失败' },
   })

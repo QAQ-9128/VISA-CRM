@@ -1,6 +1,5 @@
 import { Link } from 'react-router-dom'
 import { useArchiveEmployer, useDeleteEmployer, useEmployers } from '../../hooks/queries/useEmployers'
-import { useAuth } from '../../hooks/useAuth'
 import { Button } from '../../components/ui/Button'
 import { Card } from '../../components/ui/Card'
 import { Well } from '../../components/ui/Well'
@@ -11,8 +10,7 @@ import type { Employer } from '../../types/models'
 function EmployerRow({ e }: { e: Employer }) {
   const archive = useArchiveEmployer()
   const del = useDeleteEmployer()
-  // 彻底删除是 admin 专属（RLS 同样限制）：staff 不渲染按钮，归档不受影响
-  const { isAdmin } = useAuth()
+  // 0031 起彻底删除全员开放（两位用户均 staff，2026-06 拍板）；防误删靠红色确认弹窗
   return (
     <li className="flex min-h-12 items-center gap-3 border-t border-line py-3 first:border-t-0">
       <Well tone="indigo" size={42}>
@@ -37,7 +35,6 @@ function EmployerRow({ e }: { e: Employer }) {
       >
         归档
       </button>
-      {isAdmin && (
         <button
           type="button"
           disabled={del.isPending}
@@ -49,7 +46,6 @@ function EmployerRow({ e }: { e: Employer }) {
         >
           彻底删除
         </button>
-      )}
     </li>
   )
 }

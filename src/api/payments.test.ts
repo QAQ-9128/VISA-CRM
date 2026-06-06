@@ -73,9 +73,9 @@ describe('installments', () => {
 
   // RLS 把 admin-only DELETE 静默挡掉时命中 0 行不报错——必须显式抛错，
   // 否则 staff 点「删除分期」看起来像点了没反应（全局 toast 接住这个错误）
-  it('deleteInstallment 命中 0 行（staff 被 RLS 拒）→ 抛错不静默', async () => {
+  it('deleteInstallment 命中 0 行（目标不存在/被拒）→ 抛错不静默', async () => {
     wireFrom(fromMock, { installments: { data: [] } })
-    await expect(paymentsApi.deleteInstallment('i1')).rejects.toThrow(/管理员/)
+    await expect(paymentsApi.deleteInstallment('i1')).rejects.toThrow(/不存在|已被/)
   })
 })
 
@@ -143,9 +143,9 @@ describe('payments', () => {
   })
 
   // 同 deleteInstallment：撤销收款被 RLS 静默挡掉时必须显式报错（staff 点撤销才有反馈）
-  it('deletePayment 命中 0 行（staff 被 RLS 拒）→ 抛错不静默', async () => {
+  it('deletePayment 命中 0 行（目标不存在/被拒）→ 抛错不静默', async () => {
     wireFrom(fromMock, { payments: { data: [] } })
-    await expect(paymentsApi.deletePayment('pay1')).rejects.toThrow(/管理员/)
+    await expect(paymentsApi.deletePayment('pay1')).rejects.toThrow(/不存在|已被/)
   })
 })
 

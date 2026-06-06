@@ -174,7 +174,7 @@ export async function deleteCustomer(id: string): Promise<void> {
   const { data, error } = await supabase.from('customers').delete().eq('id', id).select('id')
   if (error) throw error
   if (!data || data.length === 0) {
-    throw new Error('删除被拒绝：未删除任何数据（彻底删除需要管理员权限）')
+    throw new Error('删除失败：未删除任何数据（客户可能已被删除）')
   }
 }
 

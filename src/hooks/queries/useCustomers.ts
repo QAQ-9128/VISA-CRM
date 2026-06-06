@@ -9,7 +9,6 @@ import {
 } from '../../api/customers'
 import type { ListCustomersOptions } from '../../api/customers'
 import type { CustomerInsert, CustomerUpdate } from '../../types/models'
-import { useAuth } from '../useAuth'
 import { queryKeys } from './keys'
 
 export function useCustomers(opts: ListCustomersOptions = {}) {
@@ -70,14 +69,10 @@ export function useArchiveCustomer() {
 /** 彻底删除客户（硬删，级联删其案件/文件/账目/记录）。影响面广，成功后失效全部查询缓存。 */
 export function useDeleteCustomer() {
   const qc = useQueryClient()
-  const { isAdmin } = useAuth()
   return useMutation({
-    // 纵深防御：彻底删除是 admin 专属（RLS 同样限制）。入口就拦下非 admin——
-    // 删客户是多步流程（过户案件→移出参与人→删客户），被 RLS 静默挡在末步会留脏数据。
-    mutationFn: async (id: string) => {
-      if (!isAdmin) throw new Error('仅管理员可彻底删除')
-      await deleteCustomer(id)
-    },
+    // 0031 起彻底删除全员开放（两位用户均 staff，2026-06 拍板）；
+    // api 层仍有 select 行数校验，删除被拒/目标不存在时显式报错而非静默
+    mutationFn: (id: string) => deleteCustomer(id),
     onSuccess: () => qc.invalidateQueries(),
     meta: { success: '客户已彻底删除', errorPrefix: '删除失败' },
   })

@@ -13,7 +13,6 @@ import { useDeleteCustomer } from '../../hooks/queries/useCustomers'
 import { useDeleteDocument } from '../../hooks/queries/useDocuments'
 import { useDeleteEmployer } from '../../hooks/queries/useEmployers'
 import { useDeleteReferrer } from '../../hooks/queries/useReferrers'
-import { useAuth } from '../../hooks/useAuth'
 import { Avatar } from '../../components/ui/Avatar'
 import { Button } from '../../components/ui/Button'
 import { ConfirmDialog } from '../../components/ui/ConfirmDialog'
@@ -31,7 +30,7 @@ interface DeleteTarget {
   storagePath?: string | null
 }
 
-/** 一条回收站行：名称 + 说明 + 恢复 + 彻底删除（onDelete 缺省 = 无删除权限，按钮不渲染）。 */
+/** 一条回收站行：名称 + 说明 + 恢复 + 彻底删除。 */
 function Row({
   name,
   meta,
@@ -44,7 +43,6 @@ function Row({
   meta?: string
   pending: boolean
   onRestore: () => void
-  /** 彻底删除是 admin 专属：非 admin 不传 → 按钮不渲染（RLS 同样限制，双保险） */
   onDelete?: () => void
   deletePending: boolean
 }) {
@@ -137,9 +135,6 @@ export function RecycleBin() {
   const deleteReferrer = useDeleteReferrer()
 
   const [target, setTarget] = useState<DeleteTarget | null>(null)
-  // 彻底删除是 admin 专属（RLS 同样限制）：staff 不渲染删除按钮，恢复不受影响
-  const { isAdmin } = useAuth()
-  const ifAdmin = (fn: () => void) => (isAdmin ? fn : undefined)
 
   if (bin.isPending) return <LoadingBlock />
   if (bin.isError) return <ErrorBlock error={new Error('回收站数据加载失败，请刷新重试')} />
@@ -186,7 +181,7 @@ export function RecycleBin() {
               meta="恢复后回到客户列表；随 TA 归档的案件在下方分别恢复"
               pending={restoreCustomer.isPending && restoreCustomer.variables === c.id}
               onRestore={() => restoreCustomer.mutate(c.id)}
-              onDelete={ifAdmin(() => setTarget({ kind: 'customer', id: c.id, name }))}
+              onDelete={() => setTarget({ kind: 'customer', id: c.id, name })}
               deletePending={deleteCustomer.isPending && deleteCustomer.variables === c.id}
             />
           )
@@ -203,7 +198,7 @@ export function RecycleBin() {
               meta={`客户：${displayCustomerName(bin.customerById[k.customer_id]?.full_name)}`}
               pending={restoreCase.isPending && restoreCase.variables === k.id}
               onRestore={() => restoreCase.mutate(k.id)}
-              onDelete={ifAdmin(() => setTarget({ kind: 'case', id: k.id, name }))}
+              onDelete={() => setTarget({ kind: 'case', id: k.id, name })}
               deletePending={deleteCase.isPending && deleteCase.variables === k.id}
             />
           )
@@ -220,7 +215,7 @@ export function RecycleBin() {
               meta={`客户：${displayCustomerName(bin.customerById[d.customer_id]?.full_name)}`}
               pending={restoreDocument.isPending && restoreDocument.variables === d.id}
               onRestore={() => restoreDocument.mutate(d.id)}
-              onDelete={ifAdmin(() => setTarget({ kind: 'document', id: d.id, name, storagePath: d.storage_path }))}
+              onDelete={() => setTarget({ kind: 'document', id: d.id, name, storagePath: d.storage_path })}
               deletePending={deleteDocument.isPending && deleteDocument.variables?.id === d.id}
             />
           )
@@ -234,7 +229,7 @@ export function RecycleBin() {
             name={e.name}
             pending={restoreEmployer.isPending && restoreEmployer.variables === e.id}
             onRestore={() => restoreEmployer.mutate(e.id)}
-            onDelete={ifAdmin(() => setTarget({ kind: 'employer', id: e.id, name: e.name }))}
+            onDelete={() => setTarget({ kind: 'employer', id: e.id, name: e.name })}
             deletePending={deleteEmployer.isPending && deleteEmployer.variables === e.id}
           />
         ))}
@@ -247,7 +242,7 @@ export function RecycleBin() {
             name={r.name}
             pending={restoreReferrer.isPending && restoreReferrer.variables === r.id}
             onRestore={() => restoreReferrer.mutate(r.id)}
-            onDelete={ifAdmin(() => setTarget({ kind: 'referrer', id: r.id, name: r.name }))}
+            onDelete={() => setTarget({ kind: 'referrer', id: r.id, name: r.name })}
             deletePending={deleteReferrer.isPending && deleteReferrer.variables === r.id}
           />
         ))}

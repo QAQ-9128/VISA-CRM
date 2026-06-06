@@ -3,7 +3,6 @@ import { Link, useLocation, useNavigate, useParams, useSearchParams } from 'reac
 import { useArchiveCustomer, useCustomer, useDeleteCustomer } from '../../hooks/queries/useCustomers'
 import { useCases } from '../../hooks/queries/useCases'
 import { useAllCaseApplicants } from '../../hooks/queries/useCaseApplicants'
-import { useAuth } from '../../hooks/useAuth'
 import { selectCustomerCases } from '../../lib/family'
 import { resolveBackLink } from '../../lib/backLink'
 import { BackLink } from '../../components/ui/BackLink'
@@ -30,8 +29,7 @@ export function CustomerDetailPage() {
   const allApplicants = useAllCaseApplicants()
   const archive = useArchiveCustomer()
   const del = useDeleteCustomer()
-  // 彻底删除是 admin 专属（RLS 同样限制）：staff 不渲染按钮，归档不受影响
-  const { isAdmin } = useAuth()
+  // 0031 起彻底删除全员开放（两位用户均 staff，2026-06 拍板）；防误删靠红色确认弹窗
   // ?case=<id> 直达并选中该案件（案件详情页已删，全站案件链接都跳到这里）。
   // 派生式选中（无 effect）：手动点 tab 的选择只在「同一个 case 参数」下生效；参数一变即选中新案。
   const caseParam = searchParams.get('case')
@@ -130,11 +128,9 @@ export function CustomerDetailPage() {
         <Button variant="ghost" onClick={() => setConfirmingArchive(true)} disabled={archive.isPending || c.is_archived}>
           {c.is_archived ? '已归档' : '归档'}
         </Button>
-        {isAdmin && (
           <Button variant="ghost" onClick={() => setConfirmingDelete(true)} disabled={del.isPending} className="text-rose-600 hover:bg-rose-50">
             {del.isPending ? '删除中…' : '彻底删除'}
           </Button>
-        )}
       </div>
 
       {/* 归档（可逆）：统一风格弹窗确认。客户归档不影响案件——案件对其余参与人照常显示 */}

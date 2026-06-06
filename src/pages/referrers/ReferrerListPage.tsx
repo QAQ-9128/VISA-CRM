@@ -1,7 +1,6 @@
 import { useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { useArchiveReferrer, useDeleteReferrer, useReferrers } from '../../hooks/queries/useReferrers'
-import { useAuth } from '../../hooks/useAuth'
 import { Button } from '../../components/ui/Button'
 import { Card } from '../../components/ui/Card'
 import { Well } from '../../components/ui/Well'
@@ -14,8 +13,7 @@ import type { Referrer } from '../../types/models'
 function ReferrerRow({ r, kindLabel }: { r: Referrer; kindLabel: string }) {
   const archive = useArchiveReferrer()
   const del = useDeleteReferrer()
-  // 彻底删除是 admin 专属（RLS 同样限制）：staff 不渲染按钮，归档不受影响
-  const { isAdmin } = useAuth()
+  // 0031 起彻底删除全员开放（两位用户均 staff，2026-06 拍板）；防误删靠红色确认弹窗
   return (
     <li className="flex min-h-12 items-center gap-3 border-t border-line py-3 first:border-t-0">
       <Well tone="violet" size={42}>
@@ -40,7 +38,6 @@ function ReferrerRow({ r, kindLabel }: { r: Referrer; kindLabel: string }) {
       >
         归档
       </button>
-      {isAdmin && (
         <button
           type="button"
           disabled={del.isPending}
@@ -52,7 +49,6 @@ function ReferrerRow({ r, kindLabel }: { r: Referrer; kindLabel: string }) {
         >
           彻底删除
         </button>
-      )}
     </li>
   )
 }

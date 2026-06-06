@@ -104,10 +104,10 @@ describe('回收站（恢复 + 彻底删除全类型）', () => {
     Object.values(del).forEach((f) => expect(f).not.toHaveBeenCalled())
   })
 
-  it('staff（非 admin）：看不到任何「彻底删除」按钮，恢复仍可用', () => {
+  it('staff 也有「彻底删除」（0031 全员开放，防误删靠确认弹窗）', () => {
     authState.isAdmin = false
     renderBin()
-    expect(screen.queryAllByRole('button', { name: '彻底删除' })).toHaveLength(0)
+    expect(screen.getAllByRole('button', { name: '彻底删除' })).toHaveLength(5)
     expect(screen.getAllByRole('button', { name: '恢复' })).toHaveLength(5)
   })
 

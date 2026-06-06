@@ -15,7 +15,6 @@ import { useCustomers } from '../../../hooks/queries/useCustomers'
 import { useEmployer } from '../../../hooks/queries/useEmployers'
 import { useReferrer } from '../../../hooks/queries/useReferrers'
 import { useArchiveCase, useCaseStageHistory, useDeleteCase } from '../../../hooks/queries/useCases'
-import { useAuth } from '../../../hooks/useAuth'
 import { caseGroupCode, caseParticipantIds } from '../../../lib/caseGroups'
 import { useLodgements } from '../../../hooks/queries/useLodgements'
 import { getLodgementLodgedDate } from '../../../lib/lodgementStatus'
@@ -213,8 +212,7 @@ export function RelatedCasesCard({
   // 案件级危险操作（与案件页同款确认文案）；归档/删除后列表自动刷新、选中回落到首个案件
   const archiveM = useArchiveCase()
   const delM = useDeleteCase()
-  // 彻底删除是 admin 专属（RLS 同样限制）：staff 不渲染删除项，归档不受影响
-  const { isAdmin } = useAuth()
+  // 0031 起彻底删除全员开放（两位用户均 staff，2026-06 拍板）；防误删靠红色确认弹窗
   // 一案一组：本案组码 = 参与人集合派生（与案件页/案件表同码）
   const groupCode = selectedCase ? caseGroupCode(caseParticipantIds(selectedCase, applicants.data ?? []), selectedCase.id) : ''
 
@@ -335,7 +333,6 @@ export function RelatedCasesCard({
                       {selectedCase.is_archived ? '已归档' : '归档本案'}
                       <span className="block text-[11px] text-faint">隐藏不删数据，可恢复</span>
                     </button>
-                    {isAdmin && (
                       <button
                         type="button"
                         disabled={delM.isPending}
@@ -348,7 +345,6 @@ export function RelatedCasesCard({
                         {delM.isPending ? '删除中…' : '彻底删除本案'}
                         <span className="block text-[11px] text-rose-300">连同账目/历史，不可恢复</span>
                       </button>
-                    )}
                   </div>
                 </details>
               </div>

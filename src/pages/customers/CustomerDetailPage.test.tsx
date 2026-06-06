@@ -116,16 +116,15 @@ describe('CustomerDetailPage（案件中心单页 · 无 tab）', () => {
     expect(await screen.findByText('刘祎')).toBeInTheDocument()
   })
 
-  // 彻底删除是 admin 专属（RLS 同样限制）：staff 连按钮都不应看到——
-  // 否则点了会被 RLS 静默挡在末步，且删客户流程的前置过户已写入，留脏数据。
-  it('staff（非 admin）：客户「彻底删除」与案件「彻底删除本案」均不显示；归档仍在', async () => {
+  // 0031 起彻底删除全员开放（两位用户均 staff，2026-06 拍板）；防误删靠红色确认弹窗
+  it('staff 也能看到客户「彻底删除」与案件「彻底删除本案」（0031 全员开放）', async () => {
     vi.mocked(listCases).mockResolvedValue([mkCase({})])
     renderPage('/customers/cu1', mkAuth(false))
     expect((await screen.findAllByText('测试客户')).length).toBeGreaterThan(0)
     expect(screen.getByRole('button', { name: '归档' })).toBeInTheDocument()
-    expect(screen.queryByRole('button', { name: '彻底删除' })).toBeNull()
-    expect(screen.queryByText('彻底删除本案')).toBeNull()
-    expect(screen.getByText('归档本案')).toBeInTheDocument() // 案件 ⋯ 菜单仍有归档
+    expect(screen.getByRole('button', { name: '彻底删除' })).toBeInTheDocument()
+    expect(screen.getByText('彻底删除本案')).toBeInTheDocument()
+    expect(screen.getByText('归档本案')).toBeInTheDocument()
   })
 
   it('概要带：姓名 + 参与案件格 + 编辑客户；无主/副申、无所属组、不再有任何 tab', async () => {

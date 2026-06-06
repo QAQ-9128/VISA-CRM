@@ -104,13 +104,10 @@ export function useArchiveDocument() {
 /** 彻底删除文件（回收站终点）：删行 + 清 Storage 实体。 */
 export function useDeleteDocument() {
   const qc = useQueryClient()
-  const { isAdmin } = useAuth()
   return useMutation({
-    // 纵深防御：彻底删除是 admin 专属（RLS 同样限制），入口拦下避免被静默挡掉无提示
-    mutationFn: async ({ id, storagePath }: { id: string; storagePath: string | null }) => {
-      if (!isAdmin) throw new Error('仅管理员可彻底删除')
-      await deleteDocument(id, storagePath)
-    },
+    // 0031 起彻底删除全员开放（两位用户均 staff，2026-06 拍板）
+    mutationFn: ({ id, storagePath }: { id: string; storagePath: string | null }) =>
+      deleteDocument(id, storagePath),
     onSuccess: () => invalidateDocuments(qc),
     meta: { success: '文件已彻底删除', errorPrefix: '删除失败' },
   })
