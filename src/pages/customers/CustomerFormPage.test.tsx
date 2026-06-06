@@ -1,14 +1,19 @@
-import { describe, it, expect, vi } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { render, screen, fireEvent } from '@testing-library/react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { MemoryRouter, Routes, Route } from 'react-router-dom'
 import { AuthContext } from '../../providers/auth-context'
 import type { AuthContextValue } from '../../providers/auth-context'
 
-// 表单依赖的列表查询全部空数据（零网络）
+const { createCustomerMock, navigateMock } = vi.hoisted(() => ({
+  // 依调用顺序发 id：组区先建同组人 cu-b，提交时再建主客户 cu-a
+  createCustomerMock: vi.fn(),
+  navigateMock: vi.fn(),
+}))
 vi.mock('../../api/customers', async (orig) => ({
   ...(await orig<typeof import('../../api/customers')>()),
   listCustomers: vi.fn().mockResolvedValue([]),
+  createCustomer: createCustomerMock,
 }))
 vi.mock('../../api/cases', async (orig) => ({
   ...(await orig<typeof import('../../api/cases')>()),
@@ -25,6 +30,10 @@ vi.mock('../../api/employers', async (orig) => ({
 vi.mock('../../api/referrers', async (orig) => ({
   ...(await orig<typeof import('../../api/referrers')>()),
   listReferrers: vi.fn().mockResolvedValue([]),
+}))
+vi.mock('react-router-dom', async (orig) => ({
+  ...(await orig<typeof import('react-router-dom')>()),
+  useNavigate: () => navigateMock,
 }))
 
 import { CustomerFormPage } from './CustomerFormPage'
@@ -49,19 +58,39 @@ function renderNew() {
   )
 }
 
-describe('CustomerFormPage · 新建：快速建档卡片与完整表单同页并存（2026-06 图纸）', () => {
-  it('两张卡同时可见可用：快速建档（五字段）+ 完整建档（原表单原样）', () => {
+beforeEach(() => {
+  navigateMock.mockReset()
+  createCustomerMock.mockReset()
+  let n = 0
+  createCustomerMock.mockImplementation(async (input: { full_name: string }) => ({
+    id: n++ === 0 ? 'cu-b' : 'cu-a',
+    ...input,
+  }))
+})
+
+describe('CustomerFormPage · 单张完整表单（独立快速卡已删；建同组人在组区内）', () => {
+  it('只有一张完整表单：无 ⚡ 快速建档卡；组区有「快速建档同组的人」入口', () => {
     renderNew()
-    // 左卡：快速建档
-    expect(screen.getByText('⚡ 快速建档')).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: '快速建档' })).toBeInTheDocument()
-    // 两张卡各有一个归属人下拉（快速卡 + 完整表单关系区）——同时可用
-    expect(screen.getAllByText('归属人').length).toBeGreaterThanOrEqual(2)
-    // 右卡：完整表单（组=单个「加入已有案件」可选项，「新建独立客户」已删——不勾即独立）
-    expect(screen.getByText('完整建档')).toBeInTheDocument()
-    expect(screen.queryByText(/新建独立客户/)).toBeNull()
-    expect(screen.getAllByText(/加入已有案件/).length).toBeGreaterThanOrEqual(2) // 快速卡 + 完整表单各一
+    expect(screen.queryByText('⚡ 快速建档')).toBeNull()
+    expect(screen.queryByText('完整建档')).toBeNull() // 单卡无需左右卡标题
+    expect(screen.getAllByLabelText(/姓名/)).toHaveLength(1) // 只有一个姓名输入
+    expect(screen.getByText('组（Group）')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /快速建档同组的人/ })).toBeInTheDocument()
     expect(screen.getByText('担保信息')).toBeInTheDocument()
-    expect(screen.getAllByText(/保存并新建案件/).length).toBeGreaterThan(0)
+  })
+
+  it('组区建同组人 + 保存并新建案件 → 跳 /cases/new 带 ?customer=主客户&with=同组人（自动预选参与人）', async () => {
+    renderNew()
+    // ① 组区快速建李四（cu-b）
+    fireEvent.click(screen.getByRole('button', { name: /快速建档同组的人/ }))
+    fireEvent.change(screen.getAllByLabelText(/姓名/)[1], { target: { value: '李四' } })
+    fireEvent.click(screen.getByRole('button', { name: /创建并加入同组/ }))
+    expect(await screen.findByText('李四')).toBeInTheDocument()
+    // ② 主客户张三（cu-a）保存并新建案件
+    fireEvent.change(screen.getAllByLabelText(/姓名/)[0], { target: { value: '张三' } })
+    fireEvent.click(screen.getByRole('button', { name: '保存并新建案件' }))
+    await vi.waitFor(() =>
+      expect(navigateMock).toHaveBeenCalledWith('/cases/new?customer=cu-a&with=cu-b', { replace: true }),
+    )
   })
 })

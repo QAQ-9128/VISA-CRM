@@ -9,6 +9,7 @@ import { EmployerSelect } from '../employers/EmployerSelect'
 import { ReferrerSelect } from '../referrers/ReferrerSelect'
 import { OwnerSelect } from './OwnerSelect'
 import { CaseJoinPicker } from './CaseJoinPicker'
+import { QuickPersonCreate } from './QuickPersonCreate'
 import { useJoinableCases } from '../../hooks/queries/useJoinableCases'
 import { CLIENT_SOURCES, CLIENT_SOURCE_OPTION_LABELS, GENDERS, GENDER_LABELS } from '../../types/domain'
 import { initialFormState, toPayload } from '../../lib/customerForm'
@@ -25,8 +26,15 @@ interface CustomerFormProps {
   initial?: Customer
   submitting?: boolean
   error?: string | null
-  /** joinCaseId：选了「加入已有案件」时为该案件 id（保存后写 case_applicants），否则 null */
-  onSubmit: (values: CustomerFormValues, joinCaseId: string | null, next: CustomerFormNext) => void
+  /** joinCaseId：选了「加入已有案件」时为该案件 id（保存后写 case_applicants），否则 null；
+   *  companionIds：组区就地快速建档的「同组的人」——保存并新建案件时自动预选为本案参与人，
+   *  选了加入已有案件时随主客户一并加入该案 */
+  onSubmit: (
+    values: CustomerFormValues,
+    joinCaseId: string | null,
+    next: CustomerFormNext,
+    companionIds: string[],
+  ) => void
   onCancel: () => void
 }
 
@@ -45,6 +53,9 @@ export function CustomerForm({ initial, submitting, error, onSubmit, onCancel }:
   // 一案一组：加入已有案件（成为本案参与人）/ 新建独立客户（自成一组）
   const [joinMode, setJoinMode] = useState(false)
   const [joinCaseId, setJoinCaseId] = useState<string | null>(null)
+  // 组区就地建档的「同组的人」（TA 们还没档案 → 当场建）：保存时随成组路径落地
+  const [companions, setCompanions] = useState<{ id: string; full_name: string }[]>([])
+  const [creatingCompanion, setCreatingCompanion] = useState(false)
   // 可加入案件口径与快速建档卡共用（CaseJoinPicker.tsx 的 useJoinableCases）
   const { joinableCases, applicants, customerById } = useJoinableCases()
 
@@ -70,7 +81,7 @@ export function CustomerForm({ initial, submitting, error, onSubmit, onCancel }:
 
   function submit(next: CustomerFormNext) {
     if (!nameFilled || submitting || joinIncomplete) return
-    onSubmit(toPayload(state), joinMode ? joinCaseId : null, next)
+    onSubmit(toPayload(state), joinMode ? joinCaseId : null, next, companions.map((c) => c.id))
   }
   function handleSubmit(e: FormEvent) {
     e.preventDefault()
@@ -172,6 +183,53 @@ export function CustomerForm({ initial, submitting, error, onSubmit, onCancel }:
                 )}
               </div>
             )}
+
+            {/* 同组的人还没建档 → 当场快速建（2026-06 拍板：建案时 TA 们自动预选为参与人） */}
+            <div className="border-t border-brand-100 pt-3">
+              {companions.length > 0 && (
+                <div className="mb-2 flex flex-wrap items-center gap-2">
+                  <span className="text-[12.5px] font-semibold text-muted">同组的人</span>
+                  {companions.map((p) => (
+                    <span
+                      key={p.id}
+                      className="inline-flex items-center gap-1 rounded-full bg-surface-2 py-0.5 pr-1 pl-2.5 text-[12px] font-semibold text-ink"
+                    >
+                      {p.full_name}
+                      <button
+                        type="button"
+                        aria-label={`将 ${p.full_name} 移出同组名单`}
+                        title="移出同组名单（TA 的档案保留）"
+                        onClick={() => setCompanions((list) => list.filter((x) => x.id !== p.id))}
+                        className="grid size-5 place-items-center rounded-full text-[11px] text-faint hover:bg-rose-50 hover:text-rose-600"
+                      >
+                        ✕
+                      </button>
+                    </span>
+                  ))}
+                </div>
+              )}
+              {creatingCompanion ? (
+                <QuickPersonCreate
+                  onCreated={(p) => setCompanions((list) => [...list, p])}
+                  onCancel={() => setCreatingCompanion(false)}
+                />
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => setCreatingCompanion(true)}
+                  className="text-[12.5px] font-semibold text-brand hover:text-brand-600"
+                >
+                  + 快速建档同组的人（TA 还没有档案）
+                </button>
+              )}
+              {companions.length > 0 && (
+                <p className="mt-2 text-xs text-faint">
+                  {joinMode
+                    ? 'TA 们将与本客户一并加入所选案件'
+                    : '点「保存并新建案件」→ TA 们自动成为本案参与人'}
+                </p>
+              )}
+            </div>
           </div>
         </div>
       </Section>

@@ -17,7 +17,7 @@ const authValue = {
   signIn: async () => {}, signOut: async () => {},
 } as unknown as AuthContextValue
 
-function renderForm(initial?: Case) {
+function renderForm(initial?: Case, initialApplicantIds?: string[]) {
   const onSubmit = vi.fn()
   const qc = new QueryClient({ defaultOptions: { queries: { retry: false, staleTime: Infinity, gcTime: Infinity, refetchOnMount: false } } })
   qc.setQueryData(queryKeys.customers.list({}), [P, S])
@@ -28,7 +28,14 @@ function renderForm(initial?: Case) {
     <QueryClientProvider client={qc}>
       <AuthContext.Provider value={authValue}>
         <MemoryRouter>
-          <CaseForm customerId="P" customerLabel="甲" initial={initial} onSubmit={onSubmit} onCancel={() => {}} />
+          <CaseForm
+            customerId="P"
+            customerLabel="甲"
+            initial={initial}
+            initialApplicantIds={initialApplicantIds}
+            onSubmit={onSubmit}
+            onCancel={() => {}}
+          />
         </MemoryRouter>
       </AuthContext.Provider>
     </QueryClientProvider>,
@@ -80,6 +87,18 @@ describe('CaseForm（新增案件 · 一案一组）', () => {
     // 移出 → 回到单人组
     fireEvent.click(screen.getByRole('button', { name: '移出' }))
     expect(screen.getByText(caseGroupCode(['P'], ''))).toBeInTheDocument()
+  })
+
+  // ?with= 一条龙：客户表单组区快速建的同组人，进建案表单即已是本案参与人
+  it('新建模式带 initialApplicantIds → 参与人预选（chip + 双人组码），保存 applicantIds 含之', async () => {
+    const { onSubmit } = renderForm(undefined, ['S'])
+    await screen.findByText('Group（本案的组）')
+    expect(screen.getByText('乙')).toBeInTheDocument() // 预选 chip
+    expect(screen.getByText(caseGroupCode(['P', 'S'], ''))).toBeInTheDocument()
+
+    fireEvent.change(screen.getByLabelText(/签证类别/), { target: { value: '482' } })
+    fireEvent.click(screen.getByRole('button', { name: '保存' }))
+    expect(onSubmit.mock.calls[0][1]).toEqual(['S'])
   })
 
   it('编辑模式：「本案参与人」编辑区隐藏（增删在客户页相关案件卡）；组码按现有集合只读展示', async () => {

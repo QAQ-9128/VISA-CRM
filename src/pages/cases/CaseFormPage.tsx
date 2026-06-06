@@ -22,6 +22,8 @@ export function CaseFormPage() {
 
   // 编辑模式参与人只读（组码展示用，增删在客户页「相关案件」卡）；新建模式建案后写一次参与人
   const existingApplicants = useCaseApplicants(id)
+  // 新建：?with=<id,id> 预选参与人（客户表单组区「快速建档同组的人」一条龙带过来）
+  const withIds = params.get('with')?.split(',').filter(Boolean) ?? []
   const createM = useCreateCase()
   const updateM = useUpdateCase()
   const setApplicantsM = useSetCaseApplicants()
@@ -84,7 +86,7 @@ export function CaseFormPage() {
           customerId={customerId as string}
           customerLabel={customer.data?.full_name ?? '…'}
           initial={editing ? existing.data ?? undefined : undefined}
-          initialApplicantIds={(existingApplicants.data ?? []).map((a) => a.customer_id)}
+          initialApplicantIds={editing ? (existingApplicants.data ?? []).map((a) => a.customer_id) : withIds}
           submitting={submitting}
           error={errorMsg}
           onSubmit={handleSubmit}

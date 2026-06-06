@@ -34,9 +34,12 @@ const { WANG, LI, CA1, CA9, APS } = vi.hoisted(() => {
   }
 })
 
+const { createCustomerMock } = vi.hoisted(() => ({
+  createCustomerMock: vi.fn(async (input: { full_name: string }) => ({ id: 'cu-new', ...input })),
+}))
 vi.mock('../../api/customers', async (orig) => {
   const actual = await orig<typeof import('../../api/customers')>()
-  return { ...actual, listCustomers: vi.fn().mockResolvedValue([WANG, LI]) }
+  return { ...actual, listCustomers: vi.fn().mockResolvedValue([WANG, LI]), createCustomer: createCustomerMock }
 })
 vi.mock('../../api/cases', async (orig) => {
   const actual = await orig<typeof import('../../api/cases')>()
@@ -150,6 +153,28 @@ describe('CustomerForm「组（Group）」区（一案一组：加入已有案�
     fireEvent.click(screen.getByRole('button', { name: '保存' }))
     expect(onSubmit.mock.calls[0][0]).toMatchObject({ full_name: '新客户' })
     expect(onSubmit.mock.calls[0][1]).toBe('ca1') // 保存后由页面写 case_applicants
+  })
+
+  // 组区就地建人（2026-06 用户拍板）：同组的人不在系统里 → 当场快速建档，
+  // 保存并新建案件时 TA 自动预选为本案参与人（onSubmit 第 4 参带 ids）
+  it('「+ 快速建档同组的人」：建好出 chip，提交时第 4 参带 TA 的 id；✕ 可移出名单', async () => {
+    const { onSubmit } = renderForm()
+    fireEvent.click(screen.getByRole('button', { name: /快速建档同组的人/ }))
+    // 外层表单与建人块各有一个「姓名」输入：第二个是建人块的
+    fireEvent.change(screen.getAllByLabelText(/姓名/)[1], { target: { value: '李四' } })
+    fireEvent.click(screen.getByRole('button', { name: /创建并加入同组/ }))
+    // chip 出现
+    expect(await screen.findByText('李四')).toBeInTheDocument()
+
+    fireEvent.change(screen.getAllByLabelText(/姓名/)[0], { target: { value: '张三' } })
+    fireEvent.click(screen.getByRole('button', { name: '保存并新建案件' }))
+    expect(onSubmit).toHaveBeenCalledTimes(1)
+    expect(onSubmit.mock.calls[0][3]).toEqual(['cu-new'])
+
+    // ✕ 移出名单（档案保留）后再提交 → 第 4 参为空
+    fireEvent.click(screen.getByRole('button', { name: /移出同组名单/ }))
+    fireEvent.click(screen.getByRole('button', { name: '保存并新建案件' }))
+    expect(onSubmit.mock.calls[1][3]).toEqual([])
   })
 
   it('筛选可用（按参与人名）；取消勾选「加入已有案件」→ joinCaseId 清空（= 独立客户）', async () => {
