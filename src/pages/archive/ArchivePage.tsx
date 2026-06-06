@@ -15,7 +15,6 @@ import { Select } from '../../components/ui/Select'
 import { TextField } from '../../components/ui/TextField'
 import { LoadingBlock, ErrorBlock } from '../../components/ui/states'
 import { RecycleBin } from './RecycleBin'
-import { useAuth } from '../../hooks/useAuth'
 import { toastError } from '../../store/ui'
 
 // 类型只区分「发票 / 其他」：细分 doc_type 对档案库没用（2026-06 用户反馈），
@@ -74,8 +73,6 @@ function LinkedTo({ file }: { file: ArchiveFile }) {
 export function ArchivePage() {
   const { isPending, isError, files, customers } = useArchiveFiles()
   const del = useDeleteArchiveFile()
-  // 回收站（含彻底删除）是 admin 专属：staff 连入口都不显示，与 RLS 的 admin-only DELETE 对齐
-  const { isAdmin } = useAuth()
 
   // 文件 = 全部上传文件；回收站 = 已归档的客户/案件/文件/雇主/介绍人（可恢复）
   const [view, setView] = useState<'files' | 'recycle'>('files')
@@ -130,10 +127,12 @@ export function ArchivePage() {
 
       {/* 文件 / 回收站 切换 */}
       <div className="inline-flex gap-1 rounded-full bg-surface-2 p-1">
+        {/* 回收站对 staff 也可见：恢复是 staff 日常要用的撤销路径（2026-06 两位用户均为 staff）；
+            行内「彻底删除」由 RecycleBin 按 isAdmin 单独门禁，RLS 同样兜底 */}
         {(
           [
             { v: 'files' as const, label: '文件' },
-            ...(isAdmin ? [{ v: 'recycle' as const, label: '回收站' }] : []),
+            { v: 'recycle' as const, label: '回收站' },
           ]
         ).map(({ v, label }) => (
           <button
@@ -149,7 +148,7 @@ export function ArchivePage() {
         ))}
       </div>
 
-      {view === 'recycle' && isAdmin ? (
+      {view === 'recycle' ? (
         <RecycleBin />
       ) : (
         <>

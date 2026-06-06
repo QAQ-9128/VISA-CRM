@@ -64,11 +64,18 @@ describe('installments', () => {
     expect(b.installments.eq).toHaveBeenCalledWith('id', 'i1')
   })
 
-  it('deleteInstallment 真删该分期', async () => {
-    const b = wireFrom(fromMock, { installments: {} })
+  it('deleteInstallment 真删该分期（select 校验确实删到行）', async () => {
+    const b = wireFrom(fromMock, { installments: { data: [{ id: 'i1' }] } })
     await paymentsApi.deleteInstallment('i1')
     expect(b.installments.delete).toHaveBeenCalled()
     expect(b.installments.eq).toHaveBeenCalledWith('id', 'i1')
+  })
+
+  // RLS 把 admin-only DELETE 静默挡掉时命中 0 行不报错——必须显式抛错，
+  // 否则 staff 点「删除分期」看起来像点了没反应（全局 toast 接住这个错误）
+  it('deleteInstallment 命中 0 行（staff 被 RLS 拒）→ 抛错不静默', async () => {
+    wireFrom(fromMock, { installments: { data: [] } })
+    await expect(paymentsApi.deleteInstallment('i1')).rejects.toThrow(/管理员/)
   })
 })
 
@@ -128,11 +135,17 @@ describe('payments', () => {
     expect(b2.payments.update).toHaveBeenCalledWith({ from_client_customer_id: null })
   })
 
-  it('deletePayment 删除一笔', async () => {
-    const b = wireFrom(fromMock, { payments: {} })
+  it('deletePayment 删除一笔（select 校验确实删到行）', async () => {
+    const b = wireFrom(fromMock, { payments: { data: [{ id: 'pay1' }] } })
     await paymentsApi.deletePayment('pay1')
     expect(b.payments.delete).toHaveBeenCalled()
     expect(b.payments.eq).toHaveBeenCalledWith('id', 'pay1')
+  })
+
+  // 同 deleteInstallment：撤销收款被 RLS 静默挡掉时必须显式报错（staff 点撤销才有反馈）
+  it('deletePayment 命中 0 行（staff 被 RLS 拒）→ 抛错不静默', async () => {
+    wireFrom(fromMock, { payments: { data: [] } })
+    await expect(paymentsApi.deletePayment('pay1')).rejects.toThrow(/管理员/)
   })
 })
 

@@ -124,8 +124,11 @@ export async function updateInstallment(
 
 /** 分期是计划的子项，直接删除（非业务软删）。RLS 限 admin。 */
 export async function deleteInstallment(id: string): Promise<void> {
-  const { error } = await supabase.from('installments').delete().eq('id', id)
+  // RLS 把 admin-only DELETE 挡掉时是「命中 0 行、不报错」——select 校验行数并显式抛错，
+  // 否则 staff 点删除看起来像点了没反应（错误经全局 toast 显示）
+  const { data, error } = await supabase.from('installments').delete().eq('id', id).select('id')
   if (error) throw error
+  if (!data || data.length === 0) throw new Error('删除被拒绝：需要管理员权限')
 }
 
 // ── payments（实收实付，带方向）──────────────────────────────
@@ -157,6 +160,8 @@ export async function updatePayment(id: string, patch: PaymentUpdate): Promise<P
 }
 
 export async function deletePayment(id: string): Promise<void> {
-  const { error } = await supabase.from('payments').delete().eq('id', id)
+  // 同 deleteInstallment：撤销收款被 RLS 静默挡掉时必须显式报错（staff 才有反馈）
+  const { data, error } = await supabase.from('payments').delete().eq('id', id).select('id')
   if (error) throw error
+  if (!data || data.length === 0) throw new Error('撤销被拒绝：需要管理员权限')
 }

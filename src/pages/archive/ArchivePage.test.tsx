@@ -33,7 +33,7 @@ beforeEach(() => {
   authState.isAdmin = true
 })
 
-describe('ArchivePage · 回收站入口的角色门禁（彻底删除是 admin 专属）', () => {
+describe('ArchivePage · 回收站对全员可见（恢复是 staff 的撤销路径；彻底删除由行内按 admin 门禁）', () => {
   it('admin：有「回收站」切换，点击进入回收站视图', () => {
     renderPage()
     const tab = screen.getByRole('button', { name: '回收站' })
@@ -41,11 +41,11 @@ describe('ArchivePage · 回收站入口的角色门禁（彻底删除是 admin 
     expect(screen.getByText('回收站内容占位')).toBeInTheDocument()
   })
 
-  it('staff（非 admin）：没有「回收站」入口，文件视图照常可用', () => {
+  it('staff：同样有「回收站」入口（误归档要能自己恢复）', () => {
     authState.isAdmin = false
     renderPage()
-    expect(screen.queryByRole('button', { name: '回收站' })).toBeNull()
-    expect(screen.getByRole('button', { name: '文件' })).toBeInTheDocument()
-    expect(screen.getByText('档案库')).toBeInTheDocument()
+    const tab = screen.getByRole('button', { name: '回收站' })
+    fireEvent.click(tab)
+    expect(screen.getByText('回收站内容占位')).toBeInTheDocument()
   })
 })
