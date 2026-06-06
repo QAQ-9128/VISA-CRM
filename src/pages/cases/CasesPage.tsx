@@ -46,6 +46,7 @@ export function CasesPage() {
     search: '',
     stages: new Set<CaseStage>(),
     subclasses: new Set<string>(),
+    categories: new Set<string>(),
     employerIds: new Set<string>(),
     referrerIds: new Set<string>(),
     activeOnly: false,
@@ -81,7 +82,7 @@ export function CasesPage() {
       ),
     [caseRows, cases.data, customers.data, employers.data, referrers.data],
   )
-  // 筛选项：阶段=全部；签证类别=只列已有案件的；雇主/介绍人=主数据全集
+  // 筛选项：阶段=全部；案件类型/案件大类=只列已有案件的；雇主/介绍人=主数据全集
   const facets = useMemo(
     () => caseFilterFacets(listRows, employers.data ?? [], referrers.data ?? []),
     [listRows, employers.data, referrers.data],
@@ -97,6 +98,7 @@ export function CasesPage() {
   const activeCount =
     filter.stages.size +
     filter.subclasses.size +
+    filter.categories.size +
     filter.employerIds.size +
     filter.referrerIds.size +
     (filter.activeOnly ? 1 : 0)
@@ -116,6 +118,7 @@ export function CasesPage() {
       ...f,
       stages: new Set(),
       subclasses: new Set(),
+      categories: new Set(),
       employerIds: new Set(),
       referrerIds: new Set(),
       activeOnly: false,
@@ -137,7 +140,7 @@ export function CasesPage() {
             type="search"
             value={filter.search}
             onChange={(e) => setFilter((f) => ({ ...f, search: e.target.value }))}
-            placeholder="搜索客户 / 签证类别 / 雇主 / 案件编号"
+            placeholder="搜索客户 / 案件类型 / 案件大类 / 雇主 / 案件编号"
             className="h-full w-full bg-transparent text-[15px] text-ink outline-none placeholder:text-faint"
           />
         </div>
@@ -175,8 +178,23 @@ export function CasesPage() {
             </FilterGroup>
           )}
 
+          {/* 案件大类（cases.case_category 四值枚举）：只列已出现过的 */}
+          {facets.categories.length > 0 && (
+            <FilterGroup label="案件大类">
+              {facets.categories.map((c) => (
+                <Chip
+                  key={c}
+                  active={filter.categories.has(c)}
+                  onClick={() => setFilter((f) => ({ ...f, categories: toggle(f.categories, c) }))}
+                >
+                  {c}
+                </Chip>
+              ))}
+            </FilterGroup>
+          )}
+
           {facets.subclasses.length > 0 && (
-            <FilterGroup label="签证类别">
+            <FilterGroup label="案件类型">
               {facets.subclasses.map((sc) => (
                 <Chip
                   key={sc}

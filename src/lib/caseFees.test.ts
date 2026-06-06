@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+﻿import { describe, expect, it } from 'vitest'
 import { selectCaseFeeGroups } from './caseFees'
 import { getCaseTotals } from './planItems'
 import type { Case, Customer, Payment, PaymentPlan, PaymentPlanItem } from '../types/models'
@@ -11,7 +11,7 @@ const mkCust = (o: Partial<Customer>): Customer => ({
   created_at: '', updated_at: '', ...o,
 })
 const mkCase = (o: Partial<Case>): Case => ({
-  id: 'ca1', case_number: '12345678', customer_id: 'P', visa_subclass: '482', visa_stream: 'Core Skill',
+  id: 'ca1', case_number: '12345678', customer_id: 'P', visa_subclass: '482', visa_stream: 'Core Skill', case_category: null,
   destination_country: null, sponsor_position: null, sponsor_employer_id: null, current_stage: 'nomination_lodged', currency: 'AUD', sync_tracking: true,
   trt_reminder_enabled: false, parent_case_id: null, parent_sync_progress: false, assigned_to: null,
   created_by: null, is_archived: false, created_at: '', updated_at: '', ...o,

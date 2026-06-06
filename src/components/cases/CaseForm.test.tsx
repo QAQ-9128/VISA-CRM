@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest'
+﻿import { describe, expect, it, vi } from 'vitest'
 import { render, screen, fireEvent } from '@testing-library/react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { MemoryRouter } from 'react-router-dom'
@@ -96,9 +96,69 @@ describe('CaseForm（新增案件 · 一案一组）', () => {
     expect(screen.getByText('乙')).toBeInTheDocument() // 预选 chip
     expect(screen.getByText(caseGroupCode(['P', 'S'], ''))).toBeInTheDocument()
 
-    fireEvent.change(screen.getByLabelText(/签证类别/), { target: { value: '482' } })
+    fireEvent.change(screen.getByLabelText(/案件类型/), { target: { value: '482' } })
     fireEvent.click(screen.getByRole('button', { name: '保存' }))
     expect(onSubmit.mock.calls[0][1]).toEqual(['S'])
+  })
+
+  // 两级分类：「案件大类」（粗，四值枚举）在「案件类型」（细）上方，相互独立不级联
+  it('「案件大类」下拉位于「案件类型」上方：四个选项可选，保存写入 case_category 且不影响案件类型', async () => {
+    const { onSubmit } = renderForm()
+    await screen.findByText('组（Group）')
+    const cat = screen.getByLabelText('案件大类')
+    const type = screen.getByLabelText('案件类型')
+    // 大类在类型上方（DOM 先后序）
+    expect(cat.compareDocumentPosition(type) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    for (const o of ['签证申请', '职业评估', 'De Facto 关系认定', '定制文件']) {
+      expect(screen.getByRole('option', { name: o })).toBeInTheDocument()
+    }
+    fireEvent.change(cat, { target: { value: '职业评估' } })
+    fireEvent.change(type, { target: { value: '482' } })
+    fireEvent.click(screen.getByRole('button', { name: '保存' }))
+    const values = onSubmit.mock.calls[0][0]
+    expect(values.case_category).toBe('职业评估')
+    expect(values.visa_subclass).toBe('482') // 类型照常保存，互不影响
+  })
+
+  it('编辑模式：已有 case_category 回填选中；清回「— 请选择 —」保存写 null', async () => {
+    const { onSubmit } = renderForm({ ...oldLinkedCase, case_category: '定制文件' } as Case)
+    await screen.findByText('组（Group）')
+    const cat = screen.getByLabelText('案件大类') as HTMLSelectElement
+    expect(cat.value).toBe('定制文件') // 回填
+    fireEvent.change(cat, { target: { value: '' } }) // 清回占位
+    fireEvent.click(screen.getByRole('button', { name: '保存' }))
+    expect(onSubmit.mock.calls[0][0].case_category).toBeNull()
+  })
+
+  it('不选「案件大类」：可空，按现有逻辑正常保存（case_category=null）', async () => {
+    const { onSubmit } = renderForm()
+    await screen.findByText('组（Group）')
+    fireEvent.change(screen.getByLabelText('案件类型'), { target: { value: '482' } })
+    fireEvent.click(screen.getByRole('button', { name: '保存' }))
+    const values = onSubmit.mock.calls[0][0]
+    expect(values.case_category).toBeNull()
+    expect(values.visa_subclass).toBe('482')
+    expect(onSubmit.mock.calls[0][1]).toEqual([]) // 参与人等其它数据改前=改后
+  })
+
+  // 命名简化：单一标签「案件类型」，无「签证类别 / 案件大类」双层残留；下拉选项与取值不变
+  it('案件类型字段：单一标签、无旧标签残留；下拉大类分组与选项不变，选 482 保存写 visa_subclass', async () => {
+    const { onSubmit } = renderForm()
+    await screen.findByText('组（Group）')
+    // 单一标签「案件类型」（可见 <label> 恰好一个 + 下拉可达名）
+    const labels = screen.getAllByText(/案件类型/).filter((el) => el.tagName === 'LABEL')
+    expect(labels).toHaveLength(1)
+    expect(screen.getByLabelText('案件类型')).toBeInTheDocument()
+    // 无旧标签残留（「案件大类」现为独立的两级分类字段，见上方用例）
+    expect(screen.queryByText(/签证类别/)).toBeNull()
+    // 下拉结构不变：大类 optgroup 分组 + 现有选项 + 其他（手填）
+    expect(screen.getByRole('group', { name: '工作 / 雇主担保' })).toBeInTheDocument()
+    expect(screen.getByRole('option', { name: '482 Skills in Demand' })).toBeInTheDocument()
+    expect(screen.getByRole('option', { name: '其他（手填）' })).toBeInTheDocument()
+    // 取值读写不变：选 482 → 保存 payload visa_subclass='482'
+    fireEvent.change(screen.getByLabelText('案件类型'), { target: { value: '482' } })
+    fireEvent.click(screen.getByRole('button', { name: '保存' }))
+    expect(onSubmit.mock.calls[0][0].visa_subclass).toBe('482')
   })
 
   it('编辑模式：「本案参与人」编辑区隐藏（增删在客户页相关案件卡）；组码按现有集合只读展示', async () => {
@@ -145,20 +205,20 @@ describe('CaseForm（新增案件 · 一案一组）', () => {
   it('保存新案件：payload 不含 parent_case_id / parent_sync_progress（落库默认 null）', async () => {
     const { onSubmit } = renderForm()
     await screen.findByText('组（Group）')
-    // 选签证类别使保存可用（目录下拉选 482）
-    fireEvent.change(screen.getByLabelText('签证类别'), { target: { value: '482' } })
+    // 选案件类型使保存可用（目录下拉选 482）
+    fireEvent.change(screen.getByLabelText('案件类型'), { target: { value: '482' } })
     fireEvent.click(screen.getByRole('button', { name: '保存' }))
     const values = onSubmit.mock.calls[0][0]
     expect('parent_case_id' in values).toBe(false)
     expect('parent_sync_progress' in values).toBe(false)
   })
 
-  it('「保存并记账」（重录快捷路径）：next=fees；未选签证类别时禁用', async () => {
+  it('「保存并记账」（重录快捷路径）：next=fees；未选案件类型时禁用', async () => {
     const { onSubmit } = renderForm()
     await screen.findByText('组（Group）')
     const btn = screen.getByRole('button', { name: '保存并记账' })
     expect(btn).toBeDisabled()
-    fireEvent.change(screen.getByLabelText('签证类别'), { target: { value: '482' } })
+    fireEvent.change(screen.getByLabelText('案件类型'), { target: { value: '482' } })
     expect(btn).not.toBeDisabled()
     fireEvent.click(btn)
     expect(onSubmit).toHaveBeenCalledTimes(1)
@@ -168,7 +228,7 @@ describe('CaseForm（新增案件 · 一案一组）', () => {
   it('普通「保存」：next=detail，applicantIds 随表单勾选', async () => {
     const { onSubmit } = renderForm()
     await screen.findByText('组（Group）')
-    fireEvent.change(screen.getByLabelText('签证类别'), { target: { value: '482' } })
+    fireEvent.change(screen.getByLabelText('案件类型'), { target: { value: '482' } })
     fireEvent.click(screen.getByRole('button', { name: '保存' }))
     expect(onSubmit.mock.calls[0][1]).toEqual([]) // 未勾选参与人
     expect(onSubmit.mock.calls[0][2]).toBe('detail')

@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+﻿import { describe, expect, it } from 'vitest'
 import {
   selectMonthlyOverview,
   groupPayouts,
@@ -15,7 +15,7 @@ import type { Case, Customer, Payment, Referrer } from '../types/models'
 
 // 最小工厂（与 finance.test.ts 同款）
 const mkCase = (o: Partial<Case>): Case => ({
-  id: 'c1', case_number: '00000001', customer_id: 'cu1', visa_subclass: '482', visa_stream: null, current_stage: 'visa_lodged',
+  id: 'c1', case_number: '00000001', customer_id: 'cu1', visa_subclass: '482', visa_stream: null, case_category: null, current_stage: 'visa_lodged',
   currency: 'AUD', sync_tracking: true, trt_reminder_enabled: false, parent_case_id: null, parent_sync_progress: false, destination_country: 'Australia', sponsor_position: null, sponsor_employer_id: null, assigned_to: null, created_by: null,
   is_archived: false, created_at: '', updated_at: '', ...o,
 })

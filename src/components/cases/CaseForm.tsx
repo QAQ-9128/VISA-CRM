@@ -2,7 +2,9 @@ import { useState } from 'react'
 import type { FormEvent } from 'react'
 import { Button } from '../ui/Button'
 import { TextField } from '../ui/TextField'
+import { Select } from '../ui/Select'
 import { VisaSubclassField } from './VisaSubclassField'
+import { CASE_CATEGORIES } from '../../types/domain'
 import { EmployerSelect } from '../employers/EmployerSelect'
 import { useCustomers } from '../../hooks/queries/useCustomers'
 import { caseGroupCode } from '../../lib/caseGroups'
@@ -48,6 +50,8 @@ export function CaseForm({
 }: CaseFormProps) {
   const [visaSubclass, setVisaSubclass] = useState(initial?.visa_subclass ?? '')
   const [visaStream, setVisaStream] = useState<string | null>(initial?.visa_stream ?? null)
+  // 案件大类（粗分类，可空）：与「案件类型」相互独立，不级联过滤
+  const [caseCategory, setCaseCategory] = useState(initial?.case_category ?? '')
   const [sponsorPosition, setSponsorPosition] = useState(initial?.sponsor_position ?? '')
   const [sponsorEmployerId, setSponsorEmployerId] = useState(initial?.sponsor_employer_id ?? '')
   const [destination, setDestination] = useState(initial?.destination_country ?? 'Australia')
@@ -77,6 +81,7 @@ export function CaseForm({
     onSubmit(
       {
         customer_id: customerId,
+        case_category: caseCategory || null,
         visa_subclass: visaSubclass.trim(),
         visa_stream: visaStream && visaStream.trim() !== '' ? visaStream.trim() : null,
         sponsor_position: trimOrNull(sponsorPosition),
@@ -114,6 +119,15 @@ export function CaseForm({
           {customerLabel}
         </div>
       </div>
+
+      {/* 案件大类（粗）→ 案件类型（细）两级分类；大类可空、与类型不级联 */}
+      <Select
+        label="案件大类"
+        placeholder="— 请选择 —"
+        options={CASE_CATEGORIES.map((c) => ({ value: c, label: c }))}
+        value={caseCategory}
+        onChange={(e) => setCaseCategory(e.target.value)}
+      />
 
       <VisaSubclassField
         subclass={visaSubclass}

@@ -337,7 +337,7 @@ export function CustomerListPage() {
           )}
 
           {visaOptions.length > 0 && (
-            <FilterGroup label="签证类别">
+            <FilterGroup label="案件类型">
               {visaOptions.map((sc) => (
                 <Chip
                   key={sc}

@@ -21,7 +21,7 @@ import { getLodgementLodgedDate } from '../../../lib/lodgementStatus'
 import { isNominationApproved, isVisaGranted } from '../../../lib/approval'
 import { MilestoneCard } from './MilestoneCard'
 import { shouldShowTrtReminder, monthsSinceGrant } from '../../../lib/trt'
-import { formatVisaType } from '../../../lib/visa'
+import { formatVisaType, visaCategoryLabel } from '../../../lib/visa'
 import type { Case, Customer } from '../../../types/models'
 import type { LodgementType } from '../../../types/domain'
 
@@ -308,7 +308,7 @@ export function RelatedCasesCard({
                   to={`/cases/${selectedCase.id}/edit`}
                   state={backSource}
                   className="text-[12.5px] font-semibold text-brand hover:text-brand-600 hover:underline"
-                  title="编辑签证类别/担保/参与人等"
+                  title="编辑案件类型/担保/参与人等"
                 >
                   编辑案件 ›
                 </Link>
@@ -351,6 +351,29 @@ export function RelatedCasesCard({
 
               {/* 本案信息（2 列） */}
               <div className="grid grid-cols-1 gap-x-6 sm:grid-cols-2">
+                {/* 案件大类 = cases.case_category（四值枚举，可空）；旧案件未填退 — */}
+                <InfoRow label="案件大类">
+                  {selectedCase.case_category && (
+                    <span
+                      title={selectedCase.case_category}
+                      className="rounded-full bg-emerald-50 px-2.5 py-0.5 text-[12px] font-semibold text-emerald-700"
+                    >
+                      {selectedCase.case_category}
+                    </span>
+                  )}
+                </InfoRow>
+                {/* 签证大类 = 签证所属目录大类（VISA_CATALOG 枚举，visaCategoryLabel 派生）；目录外手填退 —
+                    lime 区分于上面的「案件大类」（手选枚举·绿），避免双绿标签语义混淆 */}
+                <InfoRow label="签证大类">
+                  {visaCategoryLabel(selectedCase.visa_subclass) && (
+                    <span
+                      title={visaCategoryLabel(selectedCase.visa_subclass)}
+                      className="rounded-full bg-[var(--color-lime-soft)] px-2.5 py-0.5 text-[12px] font-semibold text-[var(--color-lime-ink)]"
+                    >
+                      {visaCategoryLabel(selectedCase.visa_subclass)}
+                    </span>
+                  )}
+                </InfoRow>
                 <InfoRow label="签证子类别">{selectedCase.visa_stream || selectedCase.visa_subclass}</InfoRow>
                 <InfoRow label="担保职位">{sponsorPosition}</InfoRow>
                 <InfoRow label="担保雇主">

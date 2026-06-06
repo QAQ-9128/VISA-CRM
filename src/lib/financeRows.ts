@@ -124,7 +124,7 @@ const csvCell = (v: string | number): string => {
 
 /** 导出富表为 CSV 文本（客户/签证/应收/已收/待收/状态/分期/下一期到期）。 */
 export function financeRowsToCsv(rows: FinanceTableRow[]): string {
-  const header = ['客户', '签证类别', '应收', '已收', '待收', '状态', '分期', '下一期到期']
+  const header = ['客户', '案件类型', '应收', '已收', '待收', '状态', '分期', '下一期到期']
   const body = rows.map((e) =>
     [
       e.row.customerName,

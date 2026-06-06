@@ -1,4 +1,4 @@
-/* 只读预览：用预置 mock 数据（零网络）挂载真实页面，仅供截图验收，可随时删除。
+﻿/* 只读预览：用预置 mock 数据（零网络）挂载真实页面，仅供截图验收，可随时删除。
  *
  * 用法（dev server 下打开 /preview-customer.html）：
  *   ?page=customer|dashboard|finance|cases|archive   选页面（默认 customer）
@@ -51,7 +51,7 @@ const cust = (o: Partial<Customer>): Customer => ({
   created_at: '', updated_at: '', ...o,
 })
 const kase = (o: Partial<Case>): Case => ({
-  id: 'C', case_number: '10042X', customer_id: 'P', visa_subclass: '482', visa_stream: 'Core Skill',
+  id: 'C', case_number: '10042X', customer_id: 'P', visa_subclass: '482', visa_stream: 'Core Skill', case_category: null,
   destination_country: null, sponsor_position: null, sponsor_employer_id: null,
   current_stage: 'nomination_lodged', currency: 'AUD', sync_tracking: true,
   trt_reminder_enabled: false, parent_case_id: null, parent_sync_progress: false, assigned_to: null,

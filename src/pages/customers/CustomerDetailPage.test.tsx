@@ -1,4 +1,4 @@
-import { describe, expect, it, vi, beforeEach } from 'vitest'
+﻿import { describe, expect, it, vi, beforeEach } from 'vitest'
 import { render, screen, within, fireEvent } from '@testing-library/react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { MemoryRouter, Routes, Route } from 'react-router-dom'
@@ -55,7 +55,7 @@ import { listAllCaseApplicants, listCaseApplicants } from '../../api/caseApplica
 import { queryKeys } from '../../hooks/queries/keys'
 
 const mkCase = (o: Partial<Case>): Case => ({
-  id: 'ca1', case_number: '12345678', customer_id: 'cu1', visa_subclass: '482', visa_stream: 'Core Skill',
+  id: 'ca1', case_number: '12345678', customer_id: 'cu1', visa_subclass: '482', visa_stream: 'Core Skill', case_category: null,
   destination_country: null, sponsor_position: null, sponsor_employer_id: null,
   current_stage: 'nomination_lodged', currency: 'AUD', sync_tracking: true,
   trt_reminder_enabled: false, parent_case_id: null, parent_sync_progress: false, assigned_to: null,
@@ -211,6 +211,50 @@ describe('CustomerDetailPage（案件中心单页 · 无 tab）', () => {
     expect(screen.getByLabelText('本案更多操作')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /归档本案/ })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /彻底删除本案/ })).toBeInTheDocument()
+  })
+
+  // 案件详情显示「案件大类」：cases.case_category（四值枚举，可空）
+  it('本案信息显示「案件大类」（如 签证申请）', async () => {
+    vi.mocked(listCases).mockResolvedValue([
+      mkCase({ id: 'ca1', visa_subclass: '482', visa_stream: 'Core Skill', case_category: '签证申请' } as Partial<Case>),
+    ])
+    renderPage()
+    await screen.findAllByText('测试客户')
+    expect(await screen.findByText('案件大类')).toBeInTheDocument()
+    expect(screen.getByText('签证申请')).toBeInTheDocument()
+  })
+
+  it('未填案件大类（旧数据 null）：「案件大类」行退「—」，不报错', async () => {
+    vi.mocked(listCases).mockResolvedValue([
+      mkCase({ id: 'ca1', visa_subclass: '482', visa_stream: null }),
+    ])
+    renderPage()
+    await screen.findAllByText('测试客户')
+    expect(await screen.findByText('案件大类')).toBeInTheDocument()
+    expect(screen.queryByText('签证申请')).toBeNull()
+  })
+
+  // 案件详情显示「签证大类」：取值 = 该案签证所属目录大类（VISA_CATALOG 枚举，零新逻辑）
+  // 命名：案件大类(case_category·手选) / 签证大类(目录派生) / 签证子类别——三行各司其职
+  it('本案信息显示「签证大类」= 签证所属目录大类（如 482 → 工作 / 雇主担保）', async () => {
+    vi.mocked(listCases).mockResolvedValue([
+      mkCase({ id: 'ca1', visa_subclass: '482', visa_stream: 'Core Skill', current_stage: 'nomination_lodged' }),
+    ])
+    renderPage()
+    await screen.findAllByText('测试客户')
+    expect(await screen.findByText('签证大类')).toBeInTheDocument()
+    expect(screen.getByText('工作 / 雇主担保')).toBeInTheDocument()
+    expect(screen.queryByText('签证类别')).toBeNull() // 旧称谓不再出现
+  })
+
+  it('目录外手填签证（如 887）：「签证大类」行退「—」，不报错', async () => {
+    vi.mocked(listCases).mockResolvedValue([
+      mkCase({ id: 'ca1', visa_subclass: '887', visa_stream: null, current_stage: 'todo' }),
+    ])
+    renderPage()
+    await screen.findAllByText('测试客户')
+    expect(await screen.findByText('签证大类')).toBeInTheDocument()
+    expect(screen.queryByText('工作 / 雇主担保')).toBeNull()
   })
 
   it('费用记录卡标题带案件号 tag + 客户侧应收合计贴底（纯应收视图）', async () => {

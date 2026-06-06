@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+﻿import { describe, expect, it } from 'vitest'
 import { selectArchiveFiles, filterArchiveFiles, sortArchiveFiles } from './archive'
 import type { Case, CaseDocument, Customer, Payment, Profile } from '../types/models'
 
@@ -13,7 +13,7 @@ const mkPayment = (o: Partial<Payment>): Payment => ({
   from_client_customer_id: null, recorded_by: null, created_at: '2026-05-01T00:00:00Z', ...o,
 })
 const mkCase = (o: Partial<Case>): Case => ({
-  id: 'c1', case_number: '00000001', customer_id: 'cu1', visa_subclass: '482', visa_stream: null, current_stage: 'visa_lodged',
+  id: 'c1', case_number: '00000001', customer_id: 'cu1', visa_subclass: '482', visa_stream: null, case_category: null, current_stage: 'visa_lodged',
   currency: 'AUD', sync_tracking: true, trt_reminder_enabled: false, parent_case_id: null, parent_sync_progress: false, destination_country: 'Australia', sponsor_position: null, sponsor_employer_id: null, assigned_to: null, created_by: null,
   is_archived: false, created_at: '', updated_at: '', ...o,
 })

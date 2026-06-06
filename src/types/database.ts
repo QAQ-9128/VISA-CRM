@@ -179,6 +179,7 @@ export interface Database {
           customer_id: string
           visa_subclass: string
           visa_stream: string | null
+          case_category: string | null
           destination_country: string | null
           sponsor_position: string | null
           sponsor_employer_id: string | null
@@ -200,6 +201,7 @@ export interface Database {
           customer_id: string
           visa_subclass: string
           visa_stream?: string | null
+          case_category?: string | null
           destination_country?: string | null
           sponsor_position?: string | null
           sponsor_employer_id?: string | null

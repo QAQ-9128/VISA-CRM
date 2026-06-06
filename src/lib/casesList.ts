@@ -1,4 +1,4 @@
-import { CASE_STAGES } from '../types/domain'
+import { CASE_STAGES, CASE_CATEGORIES } from '../types/domain'
 import type { CaseStage } from '../types/domain'
 import { visaCategoryLabel } from './visa'
 import type { CaseRow } from './casesTable'
@@ -26,8 +26,10 @@ export interface CaseListRow {
   /** 签证子类别(visa_stream)，无则 '' */
   stream: string
   visaSubclass: string
-  /** 签证大类中文标签，目录外手填为 '' */
+  /** 签证大类中文标签（visaCategoryLabel 派生），目录外手填为 '' */
   visaCategory: string
+  /** 案件大类（cases.case_category，四值枚举），未填为 '' */
+  caseCategory: string
   employerId: string | null
   employerName: string
   referrerId: string | null
@@ -76,6 +78,7 @@ export function selectCaseListRows(
       stream: c?.visa_stream ?? '',
       visaSubclass: row.visaSubclass,
       visaCategory: visaCategoryLabel(row.visaSubclass),
+      caseCategory: c?.case_category ?? '',
       employerId,
       employerName,
       referrerId,
@@ -90,12 +93,14 @@ export function selectCaseListRows(
 }
 
 export interface CaseListFilter {
-  /** 文本搜索：参与人名 / 签证类别 / 大类 / 子类别 / 雇主 / 案件编号 */
+  /** 文本搜索：参与人名 / 签证类别 / 签证大类（visaCategoryLabel 派生，非 cases.case_category）/ 子类别 / 雇主 / 案件编号 */
   search: string
   /** 选中的阶段（空 = 不限），同维度内为「或」 */
   stages: ReadonlySet<CaseStage>
   /** 选中的签证子类别（空 = 不限） */
   subclasses: ReadonlySet<string>
+  /** 选中的案件大类（空 = 不限）；未填大类的行在选中任何大类时被排除 */
+  categories: ReadonlySet<string>
   /** 选中的雇主 id（空 = 不限） */
   employerIds: ReadonlySet<string>
   /** 选中的介绍人 id（空 = 不限） */
@@ -108,6 +113,7 @@ export const EMPTY_FILTER: CaseListFilter = {
   search: '',
   stages: new Set(),
   subclasses: new Set(),
+  categories: new Set(),
   employerIds: new Set(),
   referrerIds: new Set(),
   activeOnly: false,
@@ -118,6 +124,7 @@ function matchesSearch(row: CaseListRow, q: string): boolean {
     row.participantsLabel,
     row.visaSubclass,
     row.visaCategory,
+    row.caseCategory,
     row.stream,
     row.employerName,
     row.referrerName,
@@ -135,6 +142,7 @@ export function filterCaseListRows(rows: CaseListRow[], f: CaseListFilter): Case
     if (f.activeOnly && TERMINAL_STAGES.has(row.stage)) return false
     if (f.stages.size && !f.stages.has(row.stage)) return false
     if (f.subclasses.size && !f.subclasses.has(row.visaSubclass)) return false
+    if (f.categories.size && (!row.caseCategory || !f.categories.has(row.caseCategory))) return false
     if (f.employerIds.size && (!row.employerId || !f.employerIds.has(row.employerId))) return false
     if (f.referrerIds.size && (!row.referrerId || !f.referrerIds.has(row.referrerId))) return false
     if (q && !matchesSearch(row, q)) return false
@@ -145,9 +153,18 @@ export function filterCaseListRows(rows: CaseListRow[], f: CaseListFilter): Case
 export interface CaseListFacets {
   stages: CaseStage[]
   subclasses: string[]
+  /** 案件大类：只列出现过的，按 CASE_CATEGORIES 枚举序（库里手改的目录外值排末尾） */
+  categories: string[]
   employers: { id: string; name: string }[]
   referrers: { id: string; name: string }[]
 }
+
+const categoryRank = (c: string) => {
+  const i = (CASE_CATEGORIES as readonly string[]).indexOf(c)
+  return i === -1 ? 99 : i
+}
+const sortCategories = (set: ReadonlySet<string>) =>
+  [...set].sort((a, b) => categoryRank(a) - categoryRank(b) || a.localeCompare(b))
 
 /**
  * 案件筛选项：
@@ -161,11 +178,16 @@ export function caseFilterFacets(
   referrers: Referrer[],
 ): CaseListFacets {
   const subSet = new Set<string>()
-  for (const r of rows) if (r.visaSubclass) subSet.add(r.visaSubclass)
+  const catSet = new Set<string>()
+  for (const r of rows) {
+    if (r.visaSubclass) subSet.add(r.visaSubclass)
+    if (r.caseCategory) catSet.add(r.caseCategory)
+  }
   const byName = (a: { name: string }, b: { name: string }) => a.name.localeCompare(b.name)
   return {
     stages: [...CASE_STAGES],
     subclasses: [...subSet].sort((a, b) => a.localeCompare(b)),
+    categories: sortCategories(catSet),
     employers: employers.map((e) => ({ id: e.id, name: e.name })).sort(byName),
     referrers: referrers.map((r) => ({ id: r.id, name: r.name })).sort(byName),
   }
@@ -175,11 +197,13 @@ export function caseFilterFacets(
 export function caseListFacets(rows: CaseListRow[]): CaseListFacets {
   const stages = new Set<CaseStage>()
   const subclasses = new Set<string>()
+  const categories = new Set<string>()
   const employers = new Map<string, string>()
   const referrers = new Map<string, string>()
   for (const r of rows) {
     stages.add(r.stage)
     if (r.visaSubclass) subclasses.add(r.visaSubclass)
+    if (r.caseCategory) categories.add(r.caseCategory)
     if (r.employerId) employers.set(r.employerId, r.employerName)
     if (r.referrerId) referrers.set(r.referrerId, r.referrerName)
   }
@@ -187,6 +211,7 @@ export function caseListFacets(rows: CaseListRow[]): CaseListFacets {
   return {
     stages: [...stages].sort((a, b) => (STAGE_RANK[a] ?? 99) - (STAGE_RANK[b] ?? 99)),
     subclasses: [...subclasses].sort((a, b) => a.localeCompare(b)),
+    categories: sortCategories(categories),
     employers: [...employers].map(([id, name]) => ({ id, name })).sort(byName),
     referrers: [...referrers].map(([id, name]) => ({ id, name })).sort(byName),
   }

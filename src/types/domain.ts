@@ -228,6 +228,12 @@ export const GENDER_LABELS: Record<Gender, string> = {
   other: '其他',
 }
 
+// ── 案件大类（cases.case_category，可空 text）────────────────
+// 业务粗分类，与「案件类型」（visa_subclass）并存的两级分类；相互独立、不级联。
+// DB 不做枚举（存中文文本），取值由这里约束——增改选项免迁移。
+export const CASE_CATEGORIES = ['签证申请', '职业评估', 'De Facto 关系认定', '定制文件'] as const
+export type CaseCategory = (typeof CASE_CATEGORIES)[number]
+
 // ── 常用签证类别（DB 为 text，允许手填其他）────────────────
 export const COMMON_VISA_SUBCLASSES = [
   '482',

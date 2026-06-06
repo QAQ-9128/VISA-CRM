@@ -8,9 +8,10 @@ const inputCls =
   'block min-h-11 w-full rounded-lg border border-slate-300 bg-white px-3 text-base text-slate-900 outline-none transition-colors focus:border-brand focus:ring-2 focus:ring-brand-100'
 
 /**
- * 签证类别 + 子类别(stream) 选择：
- * - 类别：按业务类别 optgroup 分组的下拉 + 过滤搜索框（选项很多）。可选「其他(手填)」自由文本。
- * - 子类别：仅当所选类别有子类别时出现；可空、不强制；支持「其他(手填)」自由文本。
+ * 案件类型（visa_subclass）+ 子类别(stream) 选择：
+ * - 类型：单一标签「案件类型」+ 按业务大类 optgroup 分组的下拉 + 过滤搜索框（选项很多）。
+ *   选项/取值即 VISA_CATALOG 现有枚举，不变；可选「其他(手填)」自由文本。
+ * - 子类别：仅当所选类型有子类别时出现；可空、不强制；支持「其他(手填)」自由文本。
  */
 export function VisaSubclassField({
   subclass,
@@ -66,7 +67,7 @@ export function VisaSubclassField({
   return (
     <div className="space-y-3">
       <div className="space-y-1.5">
-        <label className="block text-sm font-medium text-slate-700">签证类别<span className="ml-0.5 text-rose-500">*</span></label>
+        <label className="block text-sm font-medium text-slate-700">案件类型<span className="ml-0.5 text-rose-500">*</span></label>
         <input
           type="text"
           value={query}
@@ -75,12 +76,12 @@ export function VisaSubclassField({
           className={inputCls}
         />
         <select
-          aria-label="签证类别"
+          aria-label="案件类型"
           className={inputCls}
           value={otherType ? OTHER_TYPE : subclass}
           onChange={(e) => pickType(e.target.value)}
         >
-          <option value="">选择签证类别</option>
+          <option value="">选择案件类型</option>
           {VISA_CATALOG.map((cat) => {
             const types = cat.types.filter(matches)
             if (types.length === 0) return null
@@ -102,7 +103,7 @@ export function VisaSubclassField({
 
       {otherType && (
         <TextField
-          label="自定义签证类别"
+          label="自定义案件类型"
           value={subclass}
           onChange={(e) => onChange(e.target.value, null)}
           placeholder="如 887 / 132 / 188A"
