@@ -11,11 +11,12 @@
 export type AppRole = 'admin' | 'staff'
 
 // ── 案件阶段（顺序即流程推进方向）──────────────
-// 存储键对齐 supabase/migrations/0004 + 0006 + 0016（case_stage 为 text + check）。
+// 存储键对齐 supabase/migrations/0004 + 0006 + 0016 + 0033（case_stage 为 text + check）。
 // CASE_STAGES = 下拉/流程展示用（不含已废弃 additional_docs）。
 export const CASE_STAGES = [
   'todo',
   'drafted',
+  'awaiting_payment',
   'nomination_lodged',
   'nomination_approved',
   'visa_lodged',
@@ -33,6 +34,7 @@ export type CaseStage = (typeof CASE_STAGES)[number] | (typeof LEGACY_CASE_STAGE
 export const CASE_STAGE_LABELS: Record<CaseStage, string> = {
   todo: '待办',
   drafted: '已草拟',
+  awaiting_payment: '等待付款',
   nomination_lodged: '提名递交',
   nomination_approved: '提名获批',
   visa_lodged: '签证递交',
@@ -49,6 +51,7 @@ export const CASE_STAGE_LABELS: Record<CaseStage, string> = {
 export const CASE_STAGE_STYLES: Record<CaseStage, string> = {
   todo: 'bg-slate-100 text-slate-700',
   drafted: 'bg-amber-100 text-amber-800',
+  awaiting_payment: 'bg-lime-100 text-lime-800',
   nomination_lodged: 'bg-blue-100 text-blue-800',
   nomination_approved: 'bg-cyan-100 text-cyan-800',
   visa_lodged: 'bg-indigo-100 text-indigo-800',
@@ -66,6 +69,7 @@ export const CASE_STAGE_STYLES: Record<CaseStage, string> = {
 export const CASE_STAGE_COLOR: Record<CaseStage, string> = {
   todo: '#9ba59b',
   drafted: '#e0a23c',
+  awaiting_payment: '#84a832', // lime：草拟(琥珀)与提名递交(蓝)之间的「等钱」黄绿
   nomination_lodged: '#3f7cb5',
   nomination_approved: '#36b3c2',
   visa_lodged: '#7c6fd6',
