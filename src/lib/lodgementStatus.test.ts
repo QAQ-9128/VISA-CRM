@@ -41,6 +41,23 @@ describe('getLodgementStatus — 拒签按历史最近一次涉及的 lodgement 
     expect(getLodgementStatus('refused', 'visa', [])).toBe('refused')
     expect(getLodgementStatus('refused', 'nomination', [])).toBe('pending')
   })
+  it('提名获批→签证被拒：提名仍显已批（历史明确获批兜底），签证已拒', () => {
+    const hist = [
+      h('nomination_lodged', '2026-01-01T00:00:00Z'),
+      h('nomination_approved', '2026-02-01T00:00:00Z'),
+      h('visa_lodged', '2026-03-01T00:00:00Z'),
+    ]
+    expect(getLodgementStatus('refused', 'nomination', hist)).toBe('approved')
+    expect(getLodgementStatus('refused', 'visa', hist)).toBe('refused')
+  })
+})
+
+describe('getLodgementStatus — 非拒签终态下提名历史获批兜底', () => {
+  it('当前阶段不在提名已批集合，但历史明确出现过提名获批 → 仍显已批', () => {
+    // 例：提名获批后案件被改回更早阶段，或走了集合外的终态
+    const hist = [h('nomination_lodged', '2026-01-01T00:00:00Z'), h('nomination_approved', '2026-02-01T00:00:00Z')]
+    expect(getLodgementStatus('drafted', 'nomination', hist)).toBe('approved')
+  })
 })
 
 describe('getLodgementLodgedDate — 递交日期从 stage_history 派生', () => {

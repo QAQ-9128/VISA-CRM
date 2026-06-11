@@ -37,10 +37,11 @@ function isTrt186(c: Pick<Case, 'visa_subclass' | 'visa_stream'>): boolean {
 
 /**
  * 是否对该案件显示「转 186 TRT」提醒。条件全满足才 true：
- *  1) case.trt_reminder_enabled = true
+ *  1) case.trt_reminder_enabled = true（且 case 必为 482 TSS——勾选框只在 482 TSS 渲染并写入）
  *  2) 该案 case_stage_history 有下签记录（取最近一条 effective_at 为起点）
- *  3) 距下签 ≥ 22 个月(660 天)
+ *  3) 距下签 ≥ 22 个月(660 天)——用 today 的本地日历日，与财年/到期口径一致（utcDayDiff 取本地 y/m/d）
  *  4) 同一客户名下没有任何 186 TRT 案（一旦开了 186 TRT，此提醒自动消失）
+ *  5) 未被手动停止（用户在提醒卡点「不再提醒」→ trt_reminder_dismissed=true）
  * caseStageHistory 应为该案件的历史（内部按 case_.id 过滤，传全量亦可）。
  */
 export function shouldShowTrtReminder(
@@ -50,6 +51,7 @@ export function shouldShowTrtReminder(
   today: Date = new Date(),
 ): boolean {
   if (!case_.trt_reminder_enabled) return false
+  if (case_.trt_reminder_dismissed) return false
   const ownHistory = caseStageHistory.filter((h) => h.case_id === case_.id)
   const g = latestGrantDate(ownHistory)
   if (!g) return false

@@ -49,3 +49,37 @@ describe('ArchivePage · 回收站对全员可见（恢复是 staff 的撤销路
     expect(screen.getByText('回收站内容占位')).toBeInTheDocument()
   })
 })
+
+describe('ArchivePage · 日期筛选禁未来', () => {
+  it('起始日期带 max=今天；手输未来日期被钳回今天（文件都是过去上传的，未来起始必空集）', () => {
+    renderPage()
+    const from = screen.getByLabelText('起始日期') as HTMLInputElement
+    expect(from.max).toMatch(/^\d{4}-\d{2}-\d{2}$/)
+    fireEvent.change(from, { target: { value: '2999-01-01' } })
+    expect(from.value).toBe(from.max) // 钳回今天
+    // 正常的过去日期照常生效
+    fireEvent.change(from, { target: { value: '2026-01-01' } })
+    expect(from.value).toBe('2026-01-01')
+  })
+
+  it('结束日期同样带 max=今天；手输未来日期被钳回今天', () => {
+    renderPage()
+    const to = screen.getByLabelText('结束日期') as HTMLInputElement
+    expect(to.max).toMatch(/^\d{4}-\d{2}-\d{2}$/)
+    fireEvent.change(to, { target: { value: '2999-01-01' } })
+    expect(to.value).toBe(to.max)
+  })
+
+  it('起止互锁：起始改到结束之后 → 结束跟上；结束改到起始之前 → 起始降下（不产生静默空集区间）', () => {
+    renderPage()
+    const from = screen.getByLabelText('起始日期') as HTMLInputElement
+    const to = screen.getByLabelText('结束日期') as HTMLInputElement
+    // 起始 > 结束 → 结束被带到起始
+    fireEvent.change(to, { target: { value: '2026-01-31' } })
+    fireEvent.change(from, { target: { value: '2026-03-01' } })
+    expect(to.value).toBe('2026-03-01')
+    // 结束 < 起始 → 起始被降到结束
+    fireEvent.change(to, { target: { value: '2026-02-01' } })
+    expect(from.value).toBe('2026-02-01')
+  })
+})

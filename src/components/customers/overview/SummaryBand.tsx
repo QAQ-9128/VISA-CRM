@@ -57,16 +57,16 @@ export function SummaryBand({
   const t = finance.receivableTotals
   const unpaidCount = finance.receivables.filter((r) => r.unpaid > 0).length
 
-  // 审理时间：仅当前案件阶段=提名递交/签证递交时显示「已 N 天」，N=今天−真实递交日（stage_history 派生）
+  // 审理时长：仅当前案件阶段=提名递交/签证递交时显示「已 N 天」，N=今天−真实递交日（stage_history 派生）
   const history = useCaseStageHistory(selectedCase?.id)
   const processing = selectedCase
     ? selectProcessingTime(selectedCase.current_stage, history.data ?? [])
     : null
 
   return (
-    <div className="flex flex-col gap-4 rounded-card bg-white p-[18px] shadow-soft lg:flex-row lg:items-center">
+    <div className="flex flex-col gap-4 rounded-card bg-white p-[18px] shadow-soft xl:flex-row xl:items-center">
       {/* 左：头像 + 姓名（不再标主/副申角色） */}
-      <div className="flex shrink-0 items-center gap-3 lg:w-56">
+      <div className="flex shrink-0 items-center gap-3 xl:w-56">
         <Avatar name={customer.full_name} seed={customer.id} size={48} />
         <div className="min-w-0">
           <div className="truncate font-serif text-[22px] font-bold tracking-[-0.01em] text-ink">{customer.full_name}</div>
@@ -74,8 +74,9 @@ export function SummaryBand({
         </div>
       </div>
 
-      {/* 中：四格（发丝分隔） */}
-      <div className="flex flex-1 flex-wrap divide-x divide-line border-y border-line py-2 lg:border-y-0 lg:py-0">
+      {/* 中：概要格。窄屏按断点降列堆叠（1 → 2 → 3 列，保留上下分隔线与间距）；
+          ≥xl 恢复原版单行 flex + 发丝竖分隔（宽屏外观不变） */}
+      <div className="grid flex-1 grid-cols-1 gap-y-3 border-y border-line py-2 sm:grid-cols-2 md:grid-cols-3 xl:flex xl:flex-wrap xl:gap-y-0 xl:border-y-0 xl:py-0 xl:divide-x xl:divide-line">
         <Cell label="参与案件" sub="一案一组 · 点击管理参与">
           <Link
             to={`/customers/${customer.id}/group`}
@@ -115,9 +116,9 @@ export function SummaryBand({
             </span>
           )}
         </Cell>
-        {/* 审理时间：只在提名递交/签证递交阶段出现，其余阶段整格不显示 */}
+        {/* 审理时长：只在提名递交/签证递交阶段出现，其余阶段整格不显示 */}
         {processing && (
-          <Cell label="审理时间" sub={processing.label}>
+          <Cell label="审理时长" sub={processing.label}>
             <span className="tabular-nums">已 {processing.days} 天</span>
           </Cell>
         )}

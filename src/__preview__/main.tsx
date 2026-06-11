@@ -3,7 +3,7 @@
  * 用法（dev server 下打开 /preview-customer.html）：
  *   ?page=customer|dashboard|finance|cases|archive   选页面（默认 customer）
  *   &scenario=single                                  客户页单人案件场景
- *   &admin=0                                          以 staff 视角渲染（彻底删除/回收站应消失）
+ *   &admin=0                                          以 staff 视角渲染（侧栏「账号」应消失；彻底删除 0031 起全员开放，仍显示）
  *
  * 种子数据特意埋了归档泄漏探针：
  *   - Zoe（已归档客户）名下文件、CARCH（已归档案件）的文件/发票/付款
@@ -24,6 +24,7 @@ import { RecycleBin } from '../pages/archive/RecycleBin'
 import { ReferrerListPage } from '../pages/referrers/ReferrerListPage'
 import { ReferrerFormPage } from '../pages/referrers/ReferrerFormPage'
 import { CustomerFormPage } from '../pages/customers/CustomerFormPage'
+import { GroupManagementPage } from '../pages/customers/GroupManagementPage'
 import { CaseFormPage } from '../pages/cases/CaseFormPage'
 import { CustomerListPage } from '../pages/customers/CustomerListPage'
 import { AuthContext } from '../providers/auth-context'
@@ -51,10 +52,10 @@ const cust = (o: Partial<Customer>): Customer => ({
   created_at: '', updated_at: '', ...o,
 })
 const kase = (o: Partial<Case>): Case => ({
-  id: 'C', case_number: '10042X', customer_id: 'P', visa_subclass: '482', visa_stream: 'Core Skill', case_category: null,
+  id: 'C', case_number: '10042X', customer_id: 'P', visa_subclass: '482', visa_stream: 'Core Skill', case_category: null, case_details: null,
   destination_country: null, sponsor_position: null, sponsor_employer_id: null,
   current_stage: 'nomination_lodged', currency: 'AUD', sync_tracking: true,
-  trt_reminder_enabled: false, parent_case_id: null, parent_sync_progress: false, assigned_to: null,
+  trt_reminder_enabled: false, trt_reminder_dismissed: false, cohab_reminder_enabled: false, cohab_reminder_last: null, parent_case_id: null, parent_sync_progress: false, assigned_to: null,
   created_by: null, is_archived: false, created_at: '2026-01-01T00:00:00Z', updated_at: '2026-06-01T00:00:00Z', ...o,
 })
 const plan = (o: Partial<PaymentPlan>): PaymentPlan => ({
@@ -233,6 +234,9 @@ seed(queryKeys.checklist.all, [
   chk({ id: 'k1', content: '2026/6/1 Guoywfan 提名' }),
   chk({ id: 'k2', content: '蒋青霞 482 合同未签', case_id: 'C482' }),
 ])
+// 编辑案件页（/cases/C482/edit）回填用
+seed(queryKeys.cases.detail('C482'), C482)
+seed(queryKeys.caseApplicants.byCase('C482'), applicantsAll.filter((a) => a.case_id === 'C482'))
 // 客户页选中案件的本案数据
 seed(queryKeys.caseApplicants.byCase(sel.id), applicantsAll.filter((a) => a.case_id === sel.id))
 seed(queryKeys.cases.stageHistory(sel.id), [
@@ -268,6 +272,8 @@ const ENTRY: Record<string, string> = {
   quick: '/customers/new', // 新建客户页（单张完整表单，组区含快速建同组人）
   newcase: '/cases/new?customer=P&with=S', // 建案表单：?with= 预选同组人（Ben）
   edit: '/customers/P/edit', // 编辑客户（完整表单，回填 Alice）
+  group: '/customers/P/group', // 案件参与管理（概要带「参与案件」链入）
+  editcase: '/cases/C482/edit', // 编辑案件（级联回填 482）
 }
 
 // 截图辅助：?focus=owner → 渲染后聚焦第一个归属人下拉，展开选项列表（无头截图点不了输入框）
@@ -276,10 +282,13 @@ if (params.get('focus') === 'owner') {
     document.querySelector<HTMLInputElement>('[role="combobox"]')?.focus()
   }, 600)
 }
-// ?focus=menu → 展开第一个 ⋯ 操作菜单（details）
-if (params.get('focus') === 'menu') {
+// ?focus=menu → 展开第一个 ⋯ 操作菜单（details）；menulast → 展开最后一个（验证列表末行弹层不被裁）
+if (params.get('focus') === 'menu' || params.get('focus') === 'menulast') {
+  const last = params.get('focus') === 'menulast'
   window.setTimeout(() => {
-    document.querySelector('details')?.setAttribute('open', '')
+    const all = document.querySelectorAll('details')
+    const target = last ? all[all.length - 1] : all[0]
+    target?.setAttribute('open', '')
   }, 600)
 }
 // ?click=<按钮文案片段> → 渲染后点击第一个匹配按钮（截图展开态用：静态截图点不了按钮）
@@ -315,6 +324,8 @@ createRoot(document.getElementById('root')!).render(
               <Route path="/cases/new" element={<CaseFormPage />} />
               <Route path="/customers" element={<CustomerListPage />} />
               <Route path="/customers/:id/edit" element={<CustomerFormPage />} />
+              <Route path="/customers/:id/group" element={<GroupManagementPage />} />
+              <Route path="/cases/:id/edit" element={<CaseFormPage />} />
               <Route path="/customers/:id" element={<CustomerDetailPage />} />
               <Route path="/finance" element={<FinancePage />} />
               <Route path="/cases" element={<CasesPage />} />

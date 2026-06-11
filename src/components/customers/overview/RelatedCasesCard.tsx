@@ -17,11 +17,15 @@ import { useReferrer } from '../../../hooks/queries/useReferrers'
 import { useArchiveCase, useCaseStageHistory, useDeleteCase } from '../../../hooks/queries/useCases'
 import { caseGroupCode, caseParticipantIds } from '../../../lib/caseGroups'
 import { useLodgements } from '../../../hooks/queries/useLodgements'
-import { getLodgementLodgedDate } from '../../../lib/lodgementStatus'
-import { isNominationApproved, isVisaGranted } from '../../../lib/approval'
+import { getLodgementStatus } from '../../../lib/lodgementStatus'
+import { flowProcessing } from '../../../lib/casesTable'
+import { useDetailsAutoClose } from '../../../hooks/useDetailsAutoClose'
 import { MilestoneCard } from './MilestoneCard'
+import { TrtReminderCard } from '../../cases/TrtReminderCard'
+import { CohabReminderCard } from '../../cases/CohabReminderCard'
 import { shouldShowTrtReminder, monthsSinceGrant } from '../../../lib/trt'
-import { formatVisaType, visaCategoryLabel } from '../../../lib/visa'
+import { shouldShowCohabReminder, monthsSinceCohabAnchor } from '../../../lib/cohab'
+import { formatVisaType } from '../../../lib/visa'
 import type { Case, Customer } from '../../../types/models'
 import type { LodgementType } from '../../../types/domain'
 
@@ -246,8 +250,14 @@ export function RelatedCasesCard({
   }, [selectedCase, memberIds, allCustomers.data])
 
   const hist = useMemo(() => history.data ?? [], [history.data])
-  const nomDate = getLodgementLodgedDate(hist, 'nomination')
-  const visaDate = getLodgementLodgedDate(hist, 'visa')
+  // 本案 ⋯ 菜单：点外部空白/Esc 自动收起（与客户列表 ⋯ 菜单同一行为）
+  const caseMenuRef = useDetailsAutoClose()
+  // 提名/签证审理时长 + 状态：与案件进度表同一来源口径（flowProcessing / getLodgementStatus）
+  const stage = selectedCase?.current_stage ?? 'todo'
+  const nomP = flowProcessing('nomination', stage, hist)
+  const visaP = flowProcessing('visa', stage, hist)
+  const nomStatus = nomP.lodged || nomP.approved ? getLodgementStatus(stage, 'nomination', hist) : null
+  const visaStatus = visaP.lodged || visaP.approved ? getLodgementStatus(stage, 'visa', hist) : null
   const dhaOf = (t: LodgementType) => (lodgements.data ?? []).find((l) => l.type === t)?.dha_processing_days ?? null
   const updatedAt = useMemo(() => {
     let best: string | null = null
@@ -260,6 +270,9 @@ export function RelatedCasesCard({
 
   const showTrt = selectedCase ? shouldShowTrtReminder(selectedCase, cases, hist) : false
   const trtMonths = showTrt ? monthsSinceGrant(hist) ?? 0 : 0
+  // 186/配偶签「3 个月更新同居材料」循环提醒（lib/cohab 派生：已勾选 + 满 3 个月 + 未到终态）
+  const showCohab = selectedCase ? shouldShowCohabReminder(selectedCase, hist) : false
+  const cohabMonths = showCohab && selectedCase ? monthsSinceCohabAnchor(selectedCase, hist) : 0
 
   return (
     <Card className="h-full">
@@ -302,6 +315,17 @@ export function RelatedCasesCard({
 
           {selectedCase && (
             <div className="space-y-5 pt-4">
+              {/* 482→186 TRT 永居提醒（清新绿）：下签满 22 个月 + 客户名下无 186 TRT 案 + 未手动停止时显示。
+                  「新建 186 TRT 案件」预填 186 ENS·TRT·该客户；「不再提醒」置 dismissed。客户详情=案件中心单页，
+                  此卡同时覆盖「案件页 / 客户页」两处语义面（另一处是概览的临近到期条）。 */}
+              {showTrt && (
+                <TrtReminderCard customerId={selectedCase.customer_id} caseId={selectedCase.id} months={trtMonths} />
+              )}
+
+              {/* 186/配偶签：每满 3 个月提醒更新同居材料；「本次已更新」顺延一个周期。
+                  客户详情=案件中心单页，此卡同时覆盖「案件页 / 客户页」两处语义面（另一处是概览的临近到期条）。 */}
+              {showCohab && <CohabReminderCard caseId={selectedCase.id} months={cohabMonths} />}
+
               {/* 本案操作：编辑案件 + ⋯ 菜单（归档/删除收纳于此，与页面底部的客户级操作彻底分开） */}
               <div className="-mb-2 flex items-center justify-end gap-2.5">
                 <Link
@@ -312,7 +336,7 @@ export function RelatedCasesCard({
                 >
                   编辑案件 ›
                 </Link>
-                <details className="relative">
+                <details ref={caseMenuRef} className="relative">
                   <summary
                     aria-label="本案更多操作"
                     title="本案更多操作（归档 / 删除）"
@@ -362,19 +386,19 @@ export function RelatedCasesCard({
                     </span>
                   )}
                 </InfoRow>
-                {/* 签证大类 = 签证所属目录大类（VISA_CATALOG 枚举，visaCategoryLabel 派生）；目录外手填退 —
-                    lime 区分于上面的「案件大类」（手选枚举·绿），避免双绿标签语义混淆 */}
-                <InfoRow label="签证大类">
-                  {visaCategoryLabel(selectedCase.visa_subclass) && (
-                    <span
-                      title={visaCategoryLabel(selectedCase.visa_subclass)}
-                      className="rounded-full bg-[var(--color-lime-soft)] px-2.5 py-0.5 text-[12px] font-semibold text-[var(--color-lime-ink)]"
-                    >
-                      {visaCategoryLabel(selectedCase.visa_subclass)}
-                    </span>
-                  )}
+                {/* 案件类型 = cases.visa_subclass（级联派生入库值，如 482/SBS/820/801）+ 子类别(visa_stream) */}
+                <InfoRow label="案件类型">
+                  {formatVisaType(selectedCase.visa_subclass, selectedCase.visa_stream)}
                 </InfoRow>
-                <InfoRow label="签证子类别">{selectedCase.visa_stream || selectedCase.visa_subclass}</InfoRow>
+                {/* 级联子字段（cases.case_details JSON：评估机构/评估职位/用途/文件类型/ABN/就读院校…）逐键展示 */}
+                {Object.entries(selectedCase.case_details ?? {}).map(
+                  ([k, v]) =>
+                    v && (
+                      <InfoRow key={k} label={k}>
+                        <span title={v}>{v}</span>
+                      </InfoRow>
+                    ),
+                )}
                 <InfoRow label="担保职位">{sponsorPosition}</InfoRow>
                 <InfoRow label="担保雇主">
                   {sponsorEmployerId ? employer.data?.name ?? '…' : null}
@@ -407,27 +431,19 @@ export function RelatedCasesCard({
                     <span className="text-[12.5px] font-medium text-faint">· 全员进度一致</span>
                   )}
                 </div>
-                <div className="grid grid-cols-2 gap-3">
-                  <MilestoneCard
-                    title="提名递交"
-                    date={nomDate}
-                    dhaDays={dhaOf('nomination')}
-                    approvedLabel={isNominationApproved(selectedCase.current_stage, hist) ? '提名获批' : null}
-                  />
-                  <MilestoneCard
-                    title="签证递交"
-                    date={visaDate}
-                    dhaDays={dhaOf('visa')}
-                    approvedLabel={isVisaGranted(selectedCase.current_stage) ? '签证获批' : null}
-                  />
+                {/* 两里程碑卡（窄屏堆叠，≥sm 并排）：审理时长 + 状态，与进度表同一来源（flowProcessing/statusColor） */}
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                  <MilestoneCard title="提名递交" dhaDays={dhaOf('nomination')} processing={nomP} status={nomStatus} />
+                  <MilestoneCard title="签证递交" dhaDays={dhaOf('visa')} processing={visaP} status={visaStatus} />
                 </div>
               </div>
 
               {/* 阶段进展（与案件详情页同一组件，UI 完全一致）：真实阶段链 + 推进阶段 + 阶段流转记录 */}
               <StageProgressCard caseRow={selectedCase} key={selectedCase.id} />
 
-              {/* 本案待办（与案件详情页同一组件，功能完全一致：+添加 / 完成 / 删除 / 近期跟进） */}
-              <CaseTodosCard caseRow={selectedCase} trt={{ show: showTrt, months: trtMonths }} key={`todos-${selectedCase.id}`} />
+              {/* 本案待办（与案件详情页同一组件，功能完全一致：+添加 / 完成 / 删除 / 近期跟进）。
+                  TRT 已升级为上方独立绿卡（带新建/不再提醒按钮），此处不再以待办行重复展示。 */}
+              <CaseTodosCard caseRow={selectedCase} trt={{ show: false, months: 0 }} key={`todos-${selectedCase.id}`} />
 
               {/* 归档本案（可逆）：案件是整体，归档对所有参与人同时生效 */}
               <ConfirmDialog

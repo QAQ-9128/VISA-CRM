@@ -5,6 +5,8 @@ import { useBackSource } from '../../hooks/useBackSource'
 import { clusterRowsByGroup, groupPositions, sortCaseRows } from '../../lib/casesTable'
 import type { CaseRow, CaseSortKey } from '../../lib/casesTable'
 import { selectCaseTodoPreviews } from '../../lib/tasks'
+import type { LodgementDerivedStatus } from '../../lib/lodgementStatus'
+import { FLOW_STATUS_LABELS, flowStatusBadgeClass } from '../../lib/statusColor'
 import { StageBadge } from './StageBadge'
 import { Avatar } from '../ui/Avatar'
 import { Card } from '../ui/Card'
@@ -24,20 +26,22 @@ interface Column {
   /** 表头额外类（分组底色 / 左分隔线） */
   head?: string
 }
-// 提名两列浅蓝(表头 #e7eefc)、签证两列浅紫(表头 #efeafe)；组首列加 2px 左分隔线
+// 提名三列浅蓝(表头 #e7eefc)、签证三列浅紫(表头 #efeafe)；组首列加 2px 左分隔线
 const COLUMNS: Column[] = [
   { key: 'caseNumber', label: '案件编号' },
   { key: 'primary', label: '参与人1' },
   { key: 'secondary', label: '参与人2' },
-  { key: 'visa', label: '签证类型' },
+  { key: 'visa', label: '案件类型' },
   { key: 'stage', label: '状态' },
   { key: 'nomDate', label: '提名递交时间', head: 'bg-[#e7eefc] border-l-2 border-line-2' },
-  { key: 'nomElapsed', label: '提名距今', head: 'bg-[#e7eefc]' },
+  { key: 'nomElapsed', label: '提名审理时长', head: 'bg-[#e7eefc]' },
+  { key: 'nomStatus', label: '提名状态', head: 'bg-[#e7eefc]' },
   { key: 'visaDate', label: '签证递交时间', head: 'bg-[#efeafe] border-l-2 border-line-2' },
-  { key: 'visaElapsed', label: '签证距今', head: 'bg-[#efeafe]' },
+  { key: 'visaElapsed', label: '签证审理时长', head: 'bg-[#efeafe]' },
+  { key: 'visaStatus', label: '签证状态', head: 'bg-[#efeafe]' },
 ]
 
-/** 递交进度宽表：参与人1/2 两列（名字截 5 字、无主副角色）、提名蓝/签证紫分组、距今只显时间、待办行标「待递交」。 */
+/** 递交进度宽表：参与人1/2 两列（名字截 5 字、无主副角色）、提名蓝/签证紫分组（递交时间/审理时长/状态各三列）、待办行标「待递交」。 */
 export function LodgementProgressTable({ rows, tasks }: { rows: CaseRow[]; tasks: RecordRow[] }) {
   const [sortKey, setSortKey] = useState<CaseSortKey>('nomDate')
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc')
@@ -64,7 +68,7 @@ export function LodgementProgressTable({ rows, tasks }: { rows: CaseRow[]; tasks
   return (
     <Card pad={false}>
       <div className="overflow-x-auto">
-        <table className="w-full min-w-[1180px] border-separate border-spacing-0 text-sm">
+        <table className="w-full min-w-[1380px] border-separate border-spacing-0 text-sm">
           <thead>
             <tr className="text-left text-[11.5px] font-bold tracking-[0.05em] text-muted uppercase">
               {COLUMNS.map((col, i) => (
@@ -106,20 +110,22 @@ export function LodgementProgressTable({ rows, tasks }: { rows: CaseRow[]; tasks
 }
 
 /**
- * 「距今」单元格：获批 → 绿色获批标签（待审时长已无意义）；未获批 → 时长文字统一绿（#357a52）；
- * 未递交 → 中性灰「—」。不再按时长分级橙/红，终态(拒签)冻结值也为绿。
+ * 「审理时长」单元格：常显时长文字（统一绿 #357a52）——获批后定格仍显示，selector 已把终点
+ * 定在获批日；未递交 → 中性灰「—」。不按时长分级橙/红，终态(拒签)冻结值也为绿。
  */
-function WaitCell({
-  elapsed,
-  approvedLabel,
-}: {
-  elapsed: { months: number; days: number } | null
-  /** 已获批时的替代标签（「提名获批」/「签证获批」）；未获批传 null */
-  approvedLabel: string | null
-}) {
-  if (approvedLabel) return <span className="text-[13px] font-bold text-emerald-700">{approvedLabel}</span>
+function WaitCell({ elapsed }: { elapsed: { months: number; days: number } | null }) {
   if (!elapsed) return <span className="text-faint">—</span>
   return <span className="text-[13.5px] font-bold tabular-nums text-emerald-700">{fmtElapsed(elapsed)}</span>
+}
+
+// 「提名状态/签证状态」徽章：文案与颜色都走 statusColor 单一来源（审理中=灰、获批=绿、已拒=红）；无此流程 → 「—」
+function FlowStatusCell({ status }: { status: LodgementDerivedStatus | null }) {
+  if (!status) return <span className="text-faint">—</span>
+  return (
+    <span className={`inline-flex items-center rounded-full px-2.5 py-1 text-[12.5px] font-bold ${flowStatusBadgeClass(status)}`}>
+      {FLOW_STATUS_LABELS[status]}
+    </span>
+  )
 }
 
 /** 组小节头行：浅底细行 = 组码 chip + 件数；一案一组（同参与人集合的案件共用一个组头）。 */
@@ -226,7 +232,7 @@ function CaseRowView({ row, tasks }: { row: CaseRow; tasks: RecordRow[] }) {
         <span className="inline-flex items-center rounded-full bg-[var(--color-lime-soft)] px-2.5 py-1 text-[13px] font-bold tracking-[0.01em] text-[var(--color-lime-ink)]">
           {vSub}
         </span>
-        <div className="mt-1 text-[12px] font-medium text-faint">{vStream || '—'}</div>
+        {vStream && <div className="mt-1 text-[12px] font-medium text-faint">{vStream}</div>}
       </td>
       <td className={`${td} ${plainBg}`}>
         <StageBadge stage={row.currentStage} />
@@ -244,7 +250,10 @@ function CaseRowView({ row, tasks }: { row: CaseRow; tasks: RecordRow[] }) {
         )}
       </td>
       <td className={`${td} ${nomBg}`}>
-        {todo ? null : <WaitCell elapsed={row.nomElapsed} approvedLabel={row.nomApproved ? '提名获批' : null} />}
+        {todo ? null : <WaitCell elapsed={row.nomElapsed} />}
+      </td>
+      <td className={`${td} ${nomBg}`}>
+        {todo ? null : <FlowStatusCell status={row.nomStatus} />}
       </td>
 
       {/* 签证组（浅紫）：待办行与提名列对称标「待递交」，避免被误读成"只差提名" */}
@@ -259,7 +268,10 @@ function CaseRowView({ row, tasks }: { row: CaseRow; tasks: RecordRow[] }) {
         )}
       </td>
       <td className={`${td} ${visaBg}`}>
-        <WaitCell elapsed={row.visaElapsed} approvedLabel={row.visaGranted ? '签证获批' : null} />
+        <WaitCell elapsed={row.visaElapsed} />
+      </td>
+      <td className={`${td} ${visaBg}`}>
+        {todo ? null : <FlowStatusCell status={row.visaStatus} />}
       </td>
 
       {/* 待办 */}

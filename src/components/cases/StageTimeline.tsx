@@ -9,7 +9,8 @@ import { todayYmd, isFutureYmd } from '../../lib/dateRules'
 import { toastError } from '../../store/ui'
 import { StageBadge } from './StageBadge'
 import { TrashIcon } from '../ui/icons'
-import { CASE_STAGE_COLOR, CASE_STAGE_LABELS } from '../../types/domain'
+import { stageSolidColor } from '../../lib/statusColor'
+import { CASE_STAGE_LABELS } from '../../types/domain'
 import type { CaseStageHistory } from '../../types/models'
 
 function HistoryRow({
@@ -25,10 +26,10 @@ function HistoryRow({
 
   return (
     <li className="group flex gap-3">
-      {/* 时间线圆点按目标阶段着色（与徽章/阶段链同一套逐阶段配色） */}
+      {/* 时间线圆点按目标阶段的状态类别着色（statusColor 6 类，与徽章同一来源） */}
       <div
         className="mt-1.5 size-2 shrink-0 rounded-full"
-        style={{ backgroundColor: CASE_STAGE_COLOR[h.to_stage] ?? '#94a3b8' }}
+        style={{ backgroundColor: stageSolidColor(h.to_stage) }}
       />
       <div className="min-w-0 flex-1">
         <div className="flex items-start justify-between gap-2">

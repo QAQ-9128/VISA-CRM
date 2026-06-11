@@ -3,6 +3,7 @@ import {
   addCaseApplicant,
   listAllCaseApplicants,
   listCaseApplicants,
+  removeCaseApplicant,
   removeSelfFromCase,
   setCaseApplicants,
 } from '../../api/caseApplicants'
@@ -58,5 +59,24 @@ export function useAddCaseApplicant() {
       addCaseApplicant(caseId, customerId),
     onSuccess: () => qc.invalidateQueries({ queryKey: queryKeys.caseApplicants.all }),
     meta: { success: '已加入案件', errorPrefix: '加入案件失败' },
+  })
+}
+
+/**
+ * 移除某案件的指定成员（增量单条；编辑案件表单「组」里删减成员用）。
+ * 仅删该成员的 case_applicants 行，**不动案件客户(cases.customer_id)**——移出案件客户=过户，另走 useRemoveSelfFromCase。
+ * 失效 caseApplicants 前缀（连带 byCase 列表）+ cases/dashboard，让全站参与人/组码视图同步。
+ */
+export function useRemoveCaseApplicant() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ caseId, customerId }: { caseId: string; customerId: string }) =>
+      removeCaseApplicant(caseId, customerId),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: queryKeys.caseApplicants.all })
+      qc.invalidateQueries({ queryKey: queryKeys.cases.all })
+      qc.invalidateQueries({ queryKey: queryKeys.dashboard.activeCases })
+    },
+    meta: { success: '已移出参与人', errorPrefix: '移出失败' },
   })
 }

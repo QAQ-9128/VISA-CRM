@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react'
 
-/** 小标签/徽章。className 传入配色（如 CASE_STAGE_STYLES[...]）。 */
+/** 小标签/徽章。className 传入配色（如 lib/statusColor 的 stageBadgeClass(...)）。 */
 export function Badge({ children, className = '' }: { children: ReactNode; className?: string }) {
   return (
     <span

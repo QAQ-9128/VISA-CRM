@@ -26,7 +26,7 @@ export function CustomerPaymentsSection({ customerId }: { customerId: string }) 
     [f.receivables, f.instByPlan, f.caseNumberByCaseId],
   )
   const t = f.receivableTotals
-  const paidOut = f.payouts.toCompanyTotal + f.payouts.toReferrerTotal
+  const paidOut = f.payouts.toCompanyTotal + f.payouts.toReferrerTotal + f.payouts.miscTotal
 
   if (f.isPending) return <p className="text-sm text-faint">加载付款数据…</p>
   if (f.isError) return <p className="text-sm text-rose-600">付款数据加载失败，请刷新重试</p>
@@ -35,7 +35,7 @@ export function CustomerPaymentsSection({ customerId }: { customerId: string }) 
 
   return (
     <div className="space-y-4">
-      {/* ① 双流摘要：总应收 / 已收 / 未收 / 已付出（付主代理＋付介绍人） */}
+      {/* ① 双流摘要：总应收 / 已收 / 未收 / 已付出（付主代理＋付介绍人＋垫付杂项） */}
       <div className="grid grid-cols-2 gap-2.5 lg:grid-cols-4">
         {[
           { label: '总应收', value: formatMoney(t.receivable), cls: 'text-ink', sub: '' },
@@ -45,7 +45,7 @@ export function CustomerPaymentsSection({ customerId }: { customerId: string }) 
             label: '已付出',
             value: formatMoney(paidOut),
             cls: 'text-amber-600',
-            sub: `主代理 ${formatMoney(f.payouts.toCompanyTotal)} · 介绍人 ${formatMoney(f.payouts.toReferrerTotal)}`,
+            sub: `主代理 ${formatMoney(f.payouts.toCompanyTotal)} · 介绍人 ${formatMoney(f.payouts.toReferrerTotal)} · 垫付 ${formatMoney(f.payouts.miscTotal)}`,
           },
         ].map((m) => (
           <div key={m.label} className="rounded-[14px] border border-line-2 bg-surface-2 px-4 py-3">

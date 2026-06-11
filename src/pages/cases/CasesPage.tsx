@@ -47,8 +47,7 @@ export function CasesPage() {
     stages: new Set<CaseStage>(),
     subclasses: new Set<string>(),
     categories: new Set<string>(),
-    employerIds: new Set<string>(),
-    referrerIds: new Set<string>(),
+    ownerIds: new Set<string>(),
     activeOnly: false,
   })
 
@@ -82,11 +81,8 @@ export function CasesPage() {
       ),
     [caseRows, cases.data, customers.data, employers.data, referrers.data],
   )
-  // 筛选项：阶段=全部；案件类型/案件大类=只列已有案件的；雇主/介绍人=主数据全集
-  const facets = useMemo(
-    () => caseFilterFacets(listRows, employers.data ?? [], referrers.data ?? []),
-    [listRows, employers.data, referrers.data],
-  )
+  // 筛选项：阶段=全部；案件类型/案件大类=只列已有案件的；客户归属人=现有归属值 distinct
+  const facets = useMemo(() => caseFilterFacets(listRows), [listRows])
   const filteredList = useMemo(() => filterCaseListRows(listRows, filter), [listRows, filter])
   // 进度表按相同筛选：取筛选后命中的 caseId
   const allowedIds = useMemo(() => new Set(filteredList.map((r) => r.caseId)), [filteredList])
@@ -99,8 +95,7 @@ export function CasesPage() {
     filter.stages.size +
     filter.subclasses.size +
     filter.categories.size +
-    filter.employerIds.size +
-    filter.referrerIds.size +
+    filter.ownerIds.size +
     (filter.activeOnly ? 1 : 0)
 
   const isPending =
@@ -119,8 +114,7 @@ export function CasesPage() {
       stages: new Set(),
       subclasses: new Set(),
       categories: new Set(),
-      employerIds: new Set(),
-      referrerIds: new Set(),
+      ownerIds: new Set(),
       activeOnly: false,
     }))
   }
@@ -140,7 +134,7 @@ export function CasesPage() {
             type="search"
             value={filter.search}
             onChange={(e) => setFilter((f) => ({ ...f, search: e.target.value }))}
-            placeholder="搜索客户 / 案件类型 / 案件大类 / 雇主 / 案件编号"
+            placeholder="搜索客户 / 案件类型 / 案件大类 / 雇主 / 介绍人 / 归属人 / 案件编号"
             className="h-full w-full bg-transparent text-[15px] text-ink outline-none placeholder:text-faint"
           />
         </div>
@@ -207,29 +201,16 @@ export function CasesPage() {
             </FilterGroup>
           )}
 
-          {facets.employers.length > 0 && (
-            <FilterGroup label="担保雇主">
-              {facets.employers.map((e) => (
+          {/* 客户归属人（customers.owner_referrer_id）：选项=现有归属值 distinct；替代旧的担保雇主/介绍人筛选 */}
+          {facets.owners.length > 0 && (
+            <FilterGroup label="客户归属人">
+              {facets.owners.map((o) => (
                 <Chip
-                  key={e.id}
-                  active={filter.employerIds.has(e.id)}
-                  onClick={() => setFilter((f) => ({ ...f, employerIds: toggle(f.employerIds, e.id) }))}
+                  key={o.id}
+                  active={filter.ownerIds.has(o.id)}
+                  onClick={() => setFilter((f) => ({ ...f, ownerIds: toggle(f.ownerIds, o.id) }))}
                 >
-                  {e.name}
-                </Chip>
-              ))}
-            </FilterGroup>
-          )}
-
-          {facets.referrers.length > 0 && (
-            <FilterGroup label="介绍人">
-              {facets.referrers.map((r) => (
-                <Chip
-                  key={r.id}
-                  active={filter.referrerIds.has(r.id)}
-                  onClick={() => setFilter((f) => ({ ...f, referrerIds: toggle(f.referrerIds, r.id) }))}
-                >
-                  {r.name}
+                  {o.name}
                 </Chip>
               ))}
             </FilterGroup>

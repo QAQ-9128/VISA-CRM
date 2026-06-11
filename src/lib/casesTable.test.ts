@@ -4,6 +4,7 @@ import {
   clusterRowsByGroup,
   groupPositions,
   elapsedMonthsDays,
+  flowProcessing,
   formatElapsed,
   selectCaseRows,
   sortCaseRows,
@@ -13,8 +14,8 @@ import type { Case, CaseApplicant, CaseStageHistory, Customer, Lodgement } from 
 const TODAY = new Date(2026, 4, 29) // 2026-05-29
 
 const mkCase = (o: Partial<Case>): Case => ({
-  id: 'c1', case_number: '00000001', customer_id: 'cu1', visa_subclass: '482', visa_stream: null, case_category: null, current_stage: 'visa_lodged',
-  currency: 'AUD', sync_tracking: true, trt_reminder_enabled: false, parent_case_id: null, parent_sync_progress: false, destination_country: 'Australia', sponsor_position: null, sponsor_employer_id: null, assigned_to: null, created_by: null,
+  id: 'c1', case_number: '00000001', customer_id: 'cu1', visa_subclass: '482', visa_stream: null, case_category: null, case_details: null, current_stage: 'visa_lodged',
+  currency: 'AUD', sync_tracking: true, trt_reminder_enabled: false, trt_reminder_dismissed: false, cohab_reminder_enabled: false, cohab_reminder_last: null, parent_case_id: null, parent_sync_progress: false, destination_country: 'Australia', sponsor_position: null, sponsor_employer_id: null, assigned_to: null, created_by: null,
   is_archived: false, created_at: '', updated_at: '2026-05-20T00:00:00Z', ...o,
 })
 const mkCustomer = (o: Partial<Customer>): Customer => ({
@@ -324,6 +325,126 @@ describe('selectCaseRows', () => {
     const none = rows.find((r) => r.caseId === 'none')!
     expect(none).toMatchObject({ lodged: false, nomLodgedDate: null, visaLodgedDate: null, currentStage: 'drafted' })
     expect(rows.find((r) => r.caseId === 'old')!.lodged).toBe(true)
+  })
+})
+
+describe('flowProcessing（单流程审理时长——进度表与案件单页里程碑卡共用的单一来源）', () => {
+  it('审理中：时长 = 递交 → 今天，实时累计；approved=false', () => {
+    const hist = [lodgedH('c1', 'visa', '2026-03-01')]
+    const p = flowProcessing('visa', 'visa_lodged', hist, TODAY)
+    expect(p).toMatchObject({ lodged: '2026-03-01', approved: false, daysSince: 89 })
+    expect(p.elapsed).toEqual({ months: 2, days: 29 })
+    // 实时增长：换更晚的今天数值变大
+    expect(flowProcessing('visa', 'visa_lodged', hist, new Date(2026, 5, 28)).daysSince).toBe(119)
+  })
+
+  it('已获批定格：提名 = 递交 → 提名获批日；签证 = 递交 → 下签日；仍有值（常显）', () => {
+    const hist = [
+      lodgedH('c1', 'nomination', '2026-01-01'),
+      mkHistory({ id: 'na', case_id: 'c1', to_stage: 'nomination_approved', effective_at: '2026-02-15T00:00:00Z' }),
+      lodgedH('c1', 'visa', '2026-02-20'),
+      mkHistory({ id: 'g', case_id: 'c1', to_stage: 'granted', effective_at: '2026-04-01T00:00:00Z' }),
+    ]
+    const nom = flowProcessing('nomination', 'granted', hist, TODAY)
+    expect(nom).toMatchObject({ approved: true, daysSince: 45 }) // 1/1 → 2/15 定格
+    const visa = flowProcessing('visa', 'granted', hist, TODAY)
+    expect(visa).toMatchObject({ approved: true, daysSince: 40 }) // 2/20 → 4/1 定格
+    // 定格：今天再晚也不变
+    expect(flowProcessing('nomination', 'granted', hist, new Date(2026, 11, 1)).daysSince).toBe(45)
+  })
+
+  it('无递交日 → lodged null、时长 null（UI 显 —）', () => {
+    const p = flowProcessing('visa', 'todo', [], TODAY)
+    expect(p).toMatchObject({ lodged: null, approved: false, daysSince: null, elapsed: null })
+  })
+
+  it('纯签证案件（无提名证据）下签：提名 approved=false（不冒充获批）', () => {
+    const hist = [
+      lodgedH('c1', 'visa', '2026-01-01'),
+      mkHistory({ id: 'g', case_id: 'c1', to_stage: 'granted', effective_at: '2026-02-01T00:00:00Z' }),
+    ]
+    expect(flowProcessing('nomination', 'granted', hist, TODAY).approved).toBe(false)
+  })
+
+  it('拒签冻结：未获批流程时长冻结到拒签日', () => {
+    const hist = [
+      lodgedH('c1', 'nomination', '2026-01-01'),
+      mkHistory({ id: 'rf', case_id: 'c1', to_stage: 'refused', effective_at: '2026-03-01T00:00:00Z' }),
+    ]
+    const p = flowProcessing('nomination', 'refused', hist, TODAY)
+    expect(p.daysSince).toBe(59) // 1/1 → 3/1
+    expect(p.approved).toBe(false)
+  })
+})
+
+describe('审理时长（按流程各自定格）+ 提名/签证状态', () => {
+  const cu = [mkCustomer({ id: 'cu1', full_name: '李' })]
+
+  it('提名已获批：提名时长 = 递交 → 提名获批日，定格；签证未决 = 递交 → 今天，实时累计', () => {
+    const cases = [mkCase({ id: 'c1', customer_id: 'cu1', current_stage: 'visa_lodged' })]
+    const history = [
+      lodgedH('c1', 'nomination', '2026-01-01'),
+      mkHistory({ id: 'na', case_id: 'c1', to_stage: 'nomination_approved', effective_at: '2026-02-15T00:00:00Z' }),
+      lodgedH('c1', 'visa', '2026-03-01'),
+    ]
+    const r = selectCaseRows(cases, [], [], cu, TODAY, history)[0]
+    expect(r.nomDaysSince).toBe(45) // 1/1 → 2/15（获批日）定格
+    expect(r.visaDaysSince).toBe(89) // 3/1 → 5/29（今天）实时
+    // 换更晚的「今天」：提名定格不变，签证继续增长
+    const later = selectCaseRows(cases, [], [], cu, new Date(2026, 5, 28), history)[0] // 2026-06-28
+    expect(later.nomDaysSince).toBe(45)
+    expect(later.visaDaysSince).toBe(119)
+  })
+
+  it('下签：签证时长 = 递交 → 下签日定格；提名时长 = 递交 → 提名获批日（不是下签日）；时长仍有值（UI 常显）', () => {
+    const cases = [mkCase({ id: 'c1', customer_id: 'cu1', current_stage: 'granted' })]
+    const history = [
+      lodgedH('c1', 'nomination', '2026-01-01'),
+      mkHistory({ id: 'na', case_id: 'c1', to_stage: 'nomination_approved', effective_at: '2026-02-01T00:00:00Z' }),
+      lodgedH('c1', 'visa', '2026-02-10'),
+      mkHistory({ id: 'g', case_id: 'c1', to_stage: 'granted', effective_at: '2026-04-01T00:00:00Z' }),
+    ]
+    const r = selectCaseRows(cases, [], [], cu, TODAY, history)[0]
+    expect(r.nomDaysSince).toBe(31) // 1/1 → 2/1 提名获批日
+    expect(r.visaDaysSince).toBe(50) // 2/10 → 4/1 下签日
+    expect(r.nomElapsed).toEqual({ months: 1, days: 1 })
+    expect(r.visaElapsed).toEqual({ months: 1, days: 20 })
+    expect(r.nomStatus).toBe('approved')
+    expect(r.visaStatus).toBe('approved')
+  })
+
+  it('状态：审理中流程 pending；未递交流程 null（UI 显 —）', () => {
+    const cases = [mkCase({ id: 'c1', customer_id: 'cu1', current_stage: 'nomination_lodged' })]
+    const r = selectCaseRows(cases, [], [], cu, TODAY, [lodgedH('c1', 'nomination', '2026-01-01')])[0]
+    expect(r.nomStatus).toBe('pending')
+    expect(r.visaStatus).toBeNull() // 签证未递交
+  })
+
+  it('拒签：被拒流程状态 refused，时长冻结到拒签日（不再增长）', () => {
+    const cases = [mkCase({ id: 'c1', customer_id: 'cu1', current_stage: 'refused' })]
+    const history = [
+      lodgedH('c1', 'nomination', '2026-01-01'),
+      mkHistory({ id: 'rf', case_id: 'c1', to_stage: 'refused', effective_at: '2026-03-01T00:00:00Z' }),
+    ]
+    const r = selectCaseRows(cases, [], [], cu, TODAY, history)[0]
+    expect(r.nomStatus).toBe('refused')
+    expect(r.nomDaysSince).toBe(59) // 1/1 → 3/1 拒签日冻结
+    expect(r.visaStatus).toBeNull()
+  })
+
+  it('可按提名/签证状态排序（null 排末，pending < refused < approved 升序）', () => {
+    const cs = [
+      mkCase({ id: 'a', case_number: '1', customer_id: 'cu1', current_stage: 'granted' }),
+      mkCase({ id: 'b', case_number: '2', customer_id: 'cu1', current_stage: 'visa_lodged' }),
+    ]
+    const history = [
+      lodgedH('a', 'visa', '2026-01-01'),
+      mkHistory({ id: 'g', case_id: 'a', to_stage: 'granted', effective_at: '2026-02-01T00:00:00Z' }),
+      lodgedH('b', 'visa', '2026-01-01'),
+    ]
+    const rows = selectCaseRows(cs, [], [], cu, TODAY, history)
+    expect(sortCaseRows(rows, 'visaStatus', 'asc').map((r) => r.caseId)).toEqual(['b', 'a'])
+    expect(sortCaseRows(rows, 'visaStatus', 'desc').map((r) => r.caseId)).toEqual(['a', 'b'])
   })
 })
 

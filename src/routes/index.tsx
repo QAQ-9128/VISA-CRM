@@ -1,4 +1,5 @@
 import { createBrowserRouter } from 'react-router-dom'
+import type { RouteObject } from 'react-router-dom'
 import { AuthLayout } from '../layouts/AuthLayout'
 import { AppLayout } from '../layouts/AppLayout'
 import { ProtectedRoute } from './ProtectedRoute'
@@ -20,7 +21,8 @@ import { ArchivePage } from '../pages/archive/ArchivePage'
 import { UserManagementPage } from '../pages/admin/UserManagementPage'
 import { NotFoundPage } from '../pages/NotFoundPage'
 
-export const router = createBrowserRouter([
+/** 路由表（导出供 linkCoverage 测试做「全站链接都有路由承接」校验）。 */
+export const appRoutes: RouteObject[] = [
   {
     element: <AuthLayout />,
     children: [{ path: '/login', element: <LoginPage /> }],
@@ -63,4 +65,6 @@ export const router = createBrowserRouter([
     ],
   },
   { path: '*', element: <NotFoundPage /> },
-])
+]
+
+export const router = createBrowserRouter(appRoutes)

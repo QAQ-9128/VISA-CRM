@@ -35,7 +35,7 @@ const payout = (o: Record<string, unknown>) => ({
   customerId: 'cu', referrerName: null, paidAt: '2026-06-03', note: null, caseId: 'c1', ...o,
 })
 const empty = { items: [], total: 0 }
-const emptyPayouts = { items: [], toCompanyTotal: 0, toReferrerTotal: 0 }
+const emptyPayouts = { items: [], toCompanyTotal: 0, toReferrerTotal: 0, miscTotal: 0 }
 
 function setData(over: Record<string, unknown> = {}) {
   state.data = {
@@ -50,16 +50,18 @@ function setData(over: Record<string, unknown> = {}) {
     payouts: {
       toCompanyTotal: 4200,
       toReferrerTotal: 2300,
+      miscTotal: 350,
       items: [
         payout({ paymentId: 'x1', amount: 3000, customerName: '张三', note: '提名代理费', paidAt: '2026-06-05' }),
         payout({ paymentId: 'x2', amount: 1200, customerName: '李四', note: null, paidAt: '2026-06-10', caseId: 'c2' }),
         payout({ paymentId: 'x3', direction: 'to_referrer', amount: 800, customerName: '张三', referrerName: '王某', note: '介绍佣金', paidAt: '2026-06-15' }),
         payout({ paymentId: 'x4', direction: 'to_referrer', amount: 1500, customerName: '李四', referrerName: 'RV Design', note: null, paidAt: '2026-06-22', caseId: 'c2' }),
+        payout({ paymentId: 'x5', direction: 'misc_expense', amount: 350, customerName: '张三', note: '体检费垫付', paidAt: '2026-06-18' }),
       ],
     },
-    // 上月：净额 14000 → 本月 15700，较上月 +1700 (+12%)
+    // 上月：净额 14000 → 本月 15350，较上月 +1350 (+10%)
     prevReceipts: { total: 17000, items: [receipt({ paymentId: 'pp', amount: 17000, paidAt: '2026-05-02' })] },
-    prevPayouts: { toCompanyTotal: 2000, toReferrerTotal: 1000, items: [payout({ paymentId: 'xp', amount: 2000, paidAt: '2026-05-03' })] },
+    prevPayouts: { toCompanyTotal: 2000, toReferrerTotal: 1000, miscTotal: 0, items: [payout({ paymentId: 'xp', amount: 2000, paidAt: '2026-05-03' })] },
     visaByCaseId: { c1: '482', c2: '600' },
     ...over,
   }
@@ -86,25 +88,25 @@ describe('FinancePage · 月度账目（mockup 重做）', () => {
     expect(screen.getByText('收入 / 支出 双流对照')).toBeInTheDocument()
   })
 
-  it('三 KPI：本月收入 / 本月支出 / 本月净额，数值来自现有聚合', () => {
+  it('三 KPI：本月收入 / 本月支出 / 本月净额，数值来自现有聚合（支出含垫付杂项三流）', () => {
     renderPage()
     expect(screen.getByText('本月收入 · 客户已收')).toBeInTheDocument()
-    expect(screen.getByText('本月支出 · 付主代理 + 付介绍人')).toBeInTheDocument()
+    expect(screen.getByText('本月支出 · 付主代理 + 介绍人 + 垫付')).toBeInTheDocument()
     expect(screen.getByText('本月净额')).toBeInTheDocument()
     // 收入 22,200（KPI + 收入栏小计 + 小计条 + 净额条公式，多处出现）
     expect(screen.getAllByText('22,200.00').length).toBeGreaterThan(1)
-    expect(screen.getAllByText('6,500.00').length).toBeGreaterThan(0) // 支出 = 4200 + 2300
-    expect(screen.getAllByText('15,700.00').length).toBeGreaterThan(1) // 净额（KPI + 净额条）
+    expect(screen.getAllByText('6,850.00').length).toBeGreaterThan(0) // 支出 = 4200 + 2300 + 350
+    expect(screen.getAllByText('15,350.00').length).toBeGreaterThan(1) // 净额（KPI + 净额条）
   })
 
-  it('净额 == 收入 − 付主代理 − 付介绍人（双流恒等，22200−4200−2300=15700）', () => {
+  it('净额 == 收入 − 付主代理 − 付介绍人 − 垫付杂项（三流恒等，22200−4200−2300−350=15350）', () => {
     renderPage()
-    expect(screen.getAllByText('15,700.00').length).toBeGreaterThan(0)
+    expect(screen.getAllByText('15,350.00').length).toBeGreaterThan(0)
   })
 
-  it('支出 KPI 小字 = 真实分组和「付主代理 4,200.00 · 付介绍人 2,300.00」', () => {
+  it('支出 KPI 小字 = 真实分组和「付主代理 4,200.00 · 付介绍人 2,300.00 · 垫付杂项 350.00」', () => {
     renderPage()
-    expect(screen.getByText(/付主代理 4,200\.00 · 付介绍人 2,300\.00/)).toBeInTheDocument()
+    expect(screen.getByText(/付主代理 4,200\.00 · 付介绍人 2,300\.00 · 垫付杂项 350\.00/)).toBeInTheDocument()
   })
 
   it('收入 KPI 不显示「开票应收 / 已收率」（无真实来源 → 整行省略）', () => {
@@ -113,12 +115,12 @@ describe('FinancePage · 月度账目（mockup 重做）', () => {
     expect(screen.queryByText(/已收率/)).toBeNull()
   })
 
-  it('净额 KPI / 净额条：较上月 +AUD 1,700.00（+12%）', () => {
+  it('净额 KPI / 净额条：较上月 +AUD 1,350.00（+10%）', () => {
     renderPage()
     const deltas = screen.getAllByText(/较上月/)
     expect(deltas.length).toBeGreaterThan(0)
-    expect(screen.getAllByText(/1,700\.00/).length).toBeGreaterThan(0)
-    expect(screen.getAllByText(/\+12%/).length).toBeGreaterThan(0)
+    expect(screen.getAllByText(/1,350\.00/).length).toBeGreaterThan(0)
+    expect(screen.getAllByText(/\+10%/).length).toBeGreaterThan(0)
   })
 
   it('收入栏：客户名 + 签证 tag + 款项 + 金额 + 日期；小计条（2 笔）', () => {
@@ -130,21 +132,23 @@ describe('FinancePage · 月度账目（mockup 重做）', () => {
     expect(screen.getByText('客户已收（from_client）')).toBeInTheDocument()
   })
 
-  it('支出栏：分「付主代理 / 付介绍人」两组；介绍人行显示介绍人名；小计条（4 笔）', () => {
+  it('支出栏：分「付主代理 / 付介绍人 / 垫付杂项」三组；介绍人行显示介绍人名；小计条（5 笔）', () => {
     renderPage()
     expect(screen.getByText('付主代理（to_company）')).toBeInTheDocument()
     expect(screen.getByText('付介绍人（to_referrer）')).toBeInTheDocument()
+    expect(screen.getByText('垫付杂项（misc_expense）')).toBeInTheDocument()
     expect(screen.getByText('王某')).toBeInTheDocument()
     expect(screen.getByText('RV Design')).toBeInTheDocument()
     expect(screen.getByText('提名代理费')).toBeInTheDocument()
-    expect(screen.getByText(/支出小计（4 笔）/)).toBeInTheDocument()
+    expect(screen.getByText('体检费垫付')).toBeInTheDocument()
+    expect(screen.getByText(/支出小计（5 笔）/)).toBeInTheDocument()
   })
 
-  it('净额结算条：本月净额（双流恒等）+ 公式 收入 − 支出', () => {
+  it('净额结算条：本月净额（双流恒等）+ 公式 收入 − 支出（含垫付杂项）', () => {
     renderPage()
     expect(screen.getByText('本月净额（双流恒等）')).toBeInTheDocument()
     expect(screen.getByText(/收入 22,200\.00/)).toBeInTheDocument()
-    expect(screen.getByText(/支出 6,500\.00/)).toBeInTheDocument()
+    expect(screen.getByText(/支出 6,850\.00/)).toBeInTheDocument()
   })
 
   it('月份切换：默认当前月（2026年6月 + 本月 chip），‹ 切到 2026年5月并重新取数', () => {
@@ -215,19 +219,19 @@ describe('FinancePage · 财年模式（月度 / 财年 段控）', () => {
     renderPage()
     toFy()
     expect(screen.getByText('本财年收入 · 客户已收')).toBeInTheDocument()
-    expect(screen.getByText('本财年支出 · 付主代理 + 付介绍人')).toBeInTheDocument()
+    expect(screen.getByText('本财年支出 · 付主代理 + 介绍人 + 垫付')).toBeInTheDocument()
     expect(screen.getByText('本财年净额')).toBeInTheDocument()
     expect(screen.getAllByText('本财年小计').length).toBe(2)
     expect(screen.getByText('本财年净额（双流恒等）')).toBeInTheDocument()
   })
 
-  it('财年汇总双流恒等：净额 = 收入 − 付主代理 − 付介绍人（同一套聚合，只换窗口）', () => {
+  it('财年汇总三流恒等：净额 = 收入 − 付主代理 − 付介绍人 − 垫付杂项（同一套聚合，只换窗口）', () => {
     renderPage()
     toFy()
-    // 22200 − (4200 + 2300) = 15700，KPI + 净额条都出现
-    expect(screen.getAllByText('15,700.00').length).toBeGreaterThan(1)
+    // 22200 − (4200 + 2300 + 350) = 15350，KPI + 净额条都出现
+    expect(screen.getAllByText('15,350.00').length).toBeGreaterThan(1)
     expect(screen.getByText(/收入 22,200\.00/)).toBeInTheDocument()
-    expect(screen.getByText(/支出 6,500\.00/)).toBeInTheDocument()
+    expect(screen.getByText(/支出 6,850\.00/)).toBeInTheDocument()
     // 较上财年（上一财年有流水 → 真实对比）
     expect(screen.getAllByText(/较上财年/).length).toBeGreaterThan(0)
   })

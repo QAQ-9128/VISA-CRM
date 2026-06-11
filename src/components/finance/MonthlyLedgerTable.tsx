@@ -38,15 +38,15 @@ import { toastError } from '../../store/ui'
 
 const td = 'px-3 py-2.5 align-middle'
 
-// 类型标签配色（按用户规格：收款=绿 / 付主代理=紫 / 付介绍人=橙）
+// 类型标签配色（按用户规格：收款=绿 / 付主代理=紫 / 付介绍人=橙 / 垫付杂项=玫红）
 function TypeBadge({ row }: { row: LedgerRow }) {
   if (row.kind === 'receipt') return <Badge className="bg-emerald-50 text-emerald-600">收款</Badge>
   const dir = row.item.direction
-  return dir === 'to_company' ? (
-    <Badge className="bg-violet-50 text-violet-700">{PAYMENT_DIRECTION_LABELS.to_company}</Badge>
-  ) : (
-    <Badge className="bg-amber-50 text-amber-700">{PAYMENT_DIRECTION_LABELS.to_referrer}</Badge>
-  )
+  if (dir === 'to_company')
+    return <Badge className="bg-violet-50 text-violet-700">{PAYMENT_DIRECTION_LABELS.to_company}</Badge>
+  if (dir === 'to_referrer')
+    return <Badge className="bg-amber-50 text-amber-700">{PAYMENT_DIRECTION_LABELS.to_referrer}</Badge>
+  return <Badge className="bg-rose-50 text-rose-700">{PAYMENT_DIRECTION_LABELS.misc_expense}</Badge>
 }
 
 /** 收款行——复用 useUpdate/Delete/SetInvoice + PaymentEntryForm（与 ReceiptsList 同套 flow）。 */
@@ -135,7 +135,7 @@ function ReceiptRow({ item, color }: { item: ReceiptItem; color: CustomerPayment
   )
 }
 
-/** 支出行（付主代理/付介绍人）——复用 useUpdate/Delete + PaymentEntryForm（与 ExpensesPanel 同套 flow）。 */
+/** 支出行（付主代理/付介绍人/垫付杂项）——复用 useUpdate/Delete + PaymentEntryForm（与 ExpenseAddForm 同套 flow）。 */
 function PayoutRow({ item }: { item: PayoutItem }) {
   const update = useUpdatePayment(item.caseId)
   const del = useDeletePayment(item.caseId)
@@ -236,6 +236,7 @@ export function MonthlyLedgerTable({
         <span>收入合计 <b className="tabular-nums text-emerald-600">+{formatMoney(receipts.total)}</b></span>
         <span>付主代理合计 <b className="tabular-nums text-violet-700">{formatMoney(payouts.toCompanyTotal)}</b></span>
         <span>付介绍人合计 <b className="tabular-nums text-amber-700">{formatMoney(payouts.toReferrerTotal)}</b></span>
+        <span>垫付杂项合计 <b className="tabular-nums text-rose-700">{formatMoney(payouts.miscTotal)}</b></span>
       </div>
 
       {recording && <RecordReceiptForm rows={receivables} onDone={() => setRecording(false)} />}

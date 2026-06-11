@@ -1,6 +1,6 @@
+import { matchesOwnerFilter, ownerFacetOptions } from './ownerFilter'
 import { CASE_STAGES, CASE_CATEGORIES } from '../types/domain'
 import type { CaseStage } from '../types/domain'
-import { visaCategoryLabel } from './visa'
 import type { CaseRow } from './casesTable'
 import type { Case, Customer, Employer, Referrer } from '../types/models'
 
@@ -26,14 +26,15 @@ export interface CaseListRow {
   /** 签证子类别(visa_stream)，无则 '' */
   stream: string
   visaSubclass: string
-  /** 签证大类中文标签（visaCategoryLabel 派生），目录外手填为 '' */
-  visaCategory: string
   /** 案件大类（cases.case_category，四值枚举），未填为 '' */
   caseCategory: string
   employerId: string | null
   employerName: string
   referrerId: string | null
   referrerName: string
+  /** 客户归属人（customers.owner_referrer_id，与介绍人同表 kind=owner）；无归属 → null/'' */
+  ownerId: string | null
+  ownerName: string
   stage: CaseStage
   updatedAt: string
   /** 紧急：未决且任一递交已超过 DHA 预估处理天数 */
@@ -66,6 +67,8 @@ export function selectCaseListRows(
     const employerName = employerId ? employerById.get(employerId)?.name ?? '' : ''
     const referrerId = customer?.referrer_id ?? null
     const referrerName = referrerId ? referrerById.get(referrerId)?.name ?? '' : ''
+    const ownerId = customer?.owner_referrer_id ?? null
+    const ownerName = ownerId ? referrerById.get(ownerId)?.name ?? '' : ''
     return {
       caseId: row.caseId,
       caseNumber: row.caseNumber,
@@ -77,12 +80,13 @@ export function selectCaseListRows(
         : row.primaryName,
       stream: c?.visa_stream ?? '',
       visaSubclass: row.visaSubclass,
-      visaCategory: visaCategoryLabel(row.visaSubclass),
       caseCategory: c?.case_category ?? '',
       employerId,
       employerName,
       referrerId,
       referrerName,
+      ownerId,
+      ownerName,
       stage: row.currentStage,
       updatedAt: row.updatedAt,
       urgent:
@@ -93,7 +97,7 @@ export function selectCaseListRows(
 }
 
 export interface CaseListFilter {
-  /** 文本搜索：参与人名 / 签证类别 / 签证大类（visaCategoryLabel 派生，非 cases.case_category）/ 子类别 / 雇主 / 案件编号 */
+  /** 文本搜索：参与人名 / 签证类别 / 案件大类（case_category）/ 子类别 / 雇主 / 介绍人 / 归属人 / 案件编号 */
   search: string
   /** 选中的阶段（空 = 不限），同维度内为「或」 */
   stages: ReadonlySet<CaseStage>
@@ -101,10 +105,8 @@ export interface CaseListFilter {
   subclasses: ReadonlySet<string>
   /** 选中的案件大类（空 = 不限）；未填大类的行在选中任何大类时被排除 */
   categories: ReadonlySet<string>
-  /** 选中的雇主 id（空 = 不限） */
-  employerIds: ReadonlySet<string>
-  /** 选中的介绍人 id（空 = 不限） */
-  referrerIds: ReadonlySet<string>
+  /** 选中的客户归属人 id（空 = 不限）；担保雇主/介绍人已不再作为筛选维度（字段数据不动） */
+  ownerIds: ReadonlySet<string>
   /** 只看进行中：排除终态阶段 */
   activeOnly: boolean
 }
@@ -114,8 +116,7 @@ export const EMPTY_FILTER: CaseListFilter = {
   stages: new Set(),
   subclasses: new Set(),
   categories: new Set(),
-  employerIds: new Set(),
-  referrerIds: new Set(),
+  ownerIds: new Set(),
   activeOnly: false,
 }
 
@@ -123,11 +124,11 @@ function matchesSearch(row: CaseListRow, q: string): boolean {
   const hay = [
     row.participantsLabel,
     row.visaSubclass,
-    row.visaCategory,
     row.caseCategory,
     row.stream,
     row.employerName,
     row.referrerName,
+    row.ownerName,
     row.caseNumber,
   ]
     .join(' ')
@@ -143,8 +144,7 @@ export function filterCaseListRows(rows: CaseListRow[], f: CaseListFilter): Case
     if (f.stages.size && !f.stages.has(row.stage)) return false
     if (f.subclasses.size && !f.subclasses.has(row.visaSubclass)) return false
     if (f.categories.size && (!row.caseCategory || !f.categories.has(row.caseCategory))) return false
-    if (f.employerIds.size && (!row.employerId || !f.employerIds.has(row.employerId))) return false
-    if (f.referrerIds.size && (!row.referrerId || !f.referrerIds.has(row.referrerId))) return false
+    if (!matchesOwnerFilter(f.ownerIds, row.ownerId)) return false
     if (q && !matchesSearch(row, q)) return false
     return true
   })
@@ -155,8 +155,8 @@ export interface CaseListFacets {
   subclasses: string[]
   /** 案件大类：只列出现过的，按 CASE_CATEGORIES 枚举序（库里手改的目录外值排末尾） */
   categories: string[]
-  employers: { id: string; name: string }[]
-  referrers: { id: string; name: string }[]
+  /** 客户归属人：行里实际出现的归属值 distinct，按名排序（替代旧的担保雇主/介绍人筛选） */
+  owners: { id: string; name: string }[]
 }
 
 const categoryRank = (c: string) => {
@@ -170,26 +170,20 @@ const sortCategories = (set: ReadonlySet<string>) =>
  * 案件筛选项：
  *  - 阶段：全部流程阶段（固定枚举）。
  *  - 签证类别：**只列已有案件出现过的**子类（没案件的不显示）。
- *  - 雇主 / 介绍人：未归档主数据全集（暂无案件也列出，便于按人筛）。
+ *  - 客户归属人：行里实际出现的归属值 distinct（选某归属人即筛出其名下案件）。
  */
-export function caseFilterFacets(
-  rows: CaseListRow[],
-  employers: Employer[],
-  referrers: Referrer[],
-): CaseListFacets {
+export function caseFilterFacets(rows: CaseListRow[]): CaseListFacets {
   const subSet = new Set<string>()
   const catSet = new Set<string>()
   for (const r of rows) {
     if (r.visaSubclass) subSet.add(r.visaSubclass)
     if (r.caseCategory) catSet.add(r.caseCategory)
   }
-  const byName = (a: { name: string }, b: { name: string }) => a.name.localeCompare(b.name)
   return {
     stages: [...CASE_STAGES],
     subclasses: [...subSet].sort((a, b) => a.localeCompare(b)),
     categories: sortCategories(catSet),
-    employers: employers.map((e) => ({ id: e.id, name: e.name })).sort(byName),
-    referrers: referrers.map((r) => ({ id: r.id, name: r.name })).sort(byName),
+    owners: ownerFacetOptions(rows),
   }
 }
 
@@ -198,21 +192,15 @@ export function caseListFacets(rows: CaseListRow[]): CaseListFacets {
   const stages = new Set<CaseStage>()
   const subclasses = new Set<string>()
   const categories = new Set<string>()
-  const employers = new Map<string, string>()
-  const referrers = new Map<string, string>()
   for (const r of rows) {
     stages.add(r.stage)
     if (r.visaSubclass) subclasses.add(r.visaSubclass)
     if (r.caseCategory) categories.add(r.caseCategory)
-    if (r.employerId) employers.set(r.employerId, r.employerName)
-    if (r.referrerId) referrers.set(r.referrerId, r.referrerName)
   }
-  const byName = (a: { name: string }, b: { name: string }) => a.name.localeCompare(b.name)
   return {
     stages: [...stages].sort((a, b) => (STAGE_RANK[a] ?? 99) - (STAGE_RANK[b] ?? 99)),
     subclasses: [...subclasses].sort((a, b) => a.localeCompare(b)),
     categories: sortCategories(categories),
-    employers: [...employers].map(([id, name]) => ({ id, name })).sort(byName),
-    referrers: [...referrers].map(([id, name]) => ({ id, name })).sort(byName),
+    owners: ownerFacetOptions(rows),
   }
 }

@@ -16,6 +16,7 @@ import { TextField } from '../../components/ui/TextField'
 import { LoadingBlock, ErrorBlock } from '../../components/ui/states'
 import { RecycleBin } from './RecycleBin'
 import { toastError } from '../../store/ui'
+import { todayYmd, isFutureYmd } from '../../lib/dateRules'
 
 // 类型只区分「发票 / 其他」：细分 doc_type 对档案库没用（2026-06 用户反馈），
 // 列里只给发票打标，其余不显示类型徽章。
@@ -108,6 +109,18 @@ export function ArchivePage() {
   }
   const arrow = (key: ArchiveSortKey) => (sortKey === key ? (sortDir === 'asc' ? ' ▲' : ' ▼') : '')
 
+  // 起止互锁：改一端导致区间倒置时，把另一端带到一致——避免 起>止 静默筛出空列表无提示
+  function changeDateFrom(v: string) {
+    const next = isFutureYmd(v) ? todayYmd() : v
+    setDateFrom(next)
+    if (next && dateTo && next > dateTo) setDateTo(next)
+  }
+  function changeDateTo(v: string) {
+    const next = isFutureYmd(v) ? todayYmd() : v
+    setDateTo(next)
+    if (next && dateFrom && dateFrom > next) setDateFrom(next)
+  }
+
   if (isPending) return <LoadingBlock />
   if (isError) return <ErrorBlock error={new Error('档案数据加载失败，请刷新重试')} />
 
@@ -164,8 +177,22 @@ export function ArchivePage() {
         </div>
         <Select label="类型" options={TYPE_OPTIONS} value={typeKey} onChange={(e) => setTypeKey(e.target.value)} />
         <Select label="客户" options={customerOptions} value={customerId} onChange={(e) => setCustomerId(e.target.value)} />
-        <TextField label="起始日期" type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} />
-        <TextField label="结束日期" type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)} />
+        {/* 起止都禁未来（文件都是过去上传的）：max 拦选择器 + 钳手输；起止互锁防倒置 */}
+        <TextField
+          label="起始日期"
+          type="date"
+          max={todayYmd()}
+          value={dateFrom}
+          onChange={(e) => changeDateFrom(e.target.value)}
+        />
+        <TextField
+          label="结束日期"
+          type="date"
+          min={dateFrom || undefined}
+          max={todayYmd()}
+          value={dateTo}
+          onChange={(e) => changeDateTo(e.target.value)}
+        />
       </div>
 
       {rows.length === 0 ? (

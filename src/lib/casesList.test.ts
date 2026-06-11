@@ -37,6 +37,8 @@ function caseRow(over: Partial<CaseRow> & Pick<CaseRow, 'caseId'>): CaseRow {
     frozen: false,
     nomApproved: false,
     visaGranted: false,
+    nomStatus: 'pending',
+    visaStatus: null,
     nomDhaDays: 120,
     visaDhaDays: null,
     updatedAt: '2025-05-01',
@@ -52,13 +54,13 @@ const employer = (id: string, name: string): Employer => ({ id, name }) as Emplo
 const referrer = (id: string, name: string): Referrer => ({ id, name }) as Referrer
 
 describe('selectCaseListRows', () => {
-  it('补齐雇主名 / 介绍人名 / 签证大类 / stream / 紧急(未决且超 DHA)', () => {
+  it('补齐雇主名 / 介绍人名 / 客户归属人 / stream / 紧急(未决且超 DHA)', () => {
     const rows = selectCaseListRows(
       [caseRow({ caseId: 'c1', nomDaysSince: 130, nomDhaDays: 120 })], // 130 > 120 → 超期
       [kase({ id: 'c1', customer_id: 'cu1', visa_stream: 'Core Skills' })],
-      [customer({ id: 'cu1', full_name: '张伟', sponsor_employer_id: 'e1', referrer_id: 'r1' })],
+      [customer({ id: 'cu1', full_name: '张伟', sponsor_employer_id: 'e1', referrer_id: 'r1', owner_referrer_id: 'o1' })],
       [employer('e1', '金煌餐饮集团')],
-      [referrer('r1', '林老师')],
+      [referrer('r1', '林老师'), referrer('o1', '王老板')],
     )
     expect(rows[0]).toMatchObject({
       caseId: 'c1',
@@ -66,13 +68,25 @@ describe('selectCaseListRows', () => {
       participantsLabel: '张伟', // 单参与人 → 只写一个名
       stream: 'Core Skills',
       visaSubclass: '482',
-      visaCategory: '工作 / 雇主担保',
       employerId: 'e1',
       employerName: '金煌餐饮集团',
       referrerId: 'r1',
       referrerName: '林老师',
+      ownerId: 'o1',
+      ownerName: '王老板', // 客户归属人（owner_referrer_id，与介绍人同表 kind=owner）
       urgent: true,
     })
+  })
+
+  it('客户无归属人 → ownerId null / ownerName 空串', () => {
+    const rows = selectCaseListRows(
+      [caseRow({ caseId: 'c1' })],
+      [kase({ id: 'c1' })],
+      [customer({ id: 'cu1', owner_referrer_id: null })],
+      [],
+    )
+    expect(rows[0].ownerId).toBeNull()
+    expect(rows[0].ownerName).toBe('')
   })
 
   it('多参与人 → participantsLabel 拼接案件客户 + 同案参与客户', () => {
@@ -121,9 +135,9 @@ describe('selectCaseListRows', () => {
 
 describe('filterCaseListRows', () => {
   const rows: CaseListRow[] = [
-    { caseId: 'c1', caseNumber: 'AA1', groupCode: 'G-0001', customerId: 'cu1', customerName: '张伟', participantsLabel: '张伟', stream: 'Core Skills', visaSubclass: '482', visaCategory: '工作 / 雇主担保', caseCategory: '签证申请', employerId: 'e1', employerName: '金煌餐饮', referrerId: 'r1', referrerName: '林老师', stage: 'nomination_lodged', updatedAt: '2025-05-01', urgent: false },
-    { caseId: 'c2', caseNumber: 'BB2', groupCode: 'G-0002', customerId: 'cu2', customerName: '王强', participantsLabel: '王强、刘梅', stream: 'Direct Entry', visaSubclass: '186', visaCategory: '工作 / 雇主担保', caseCategory: '职业评估', employerId: 'e2', employerName: '澳信科技', referrerId: 'r2', referrerName: '陈姐', stage: 'granted', updatedAt: '2025-04-01', urgent: false },
-    { caseId: 'c3', caseNumber: 'CC3', groupCode: 'G-0003', customerId: 'cu3', customerName: '陈静', participantsLabel: '陈静', stream: '', visaSubclass: '500', visaCategory: '学生 / 毕业生', caseCategory: '', employerId: null, employerName: '', referrerId: null, referrerName: '', stage: 'docs_requested', updatedAt: '2025-03-01', urgent: true },
+    { caseId: 'c1', caseNumber: 'AA1', groupCode: 'G-0001', customerId: 'cu1', customerName: '张伟', participantsLabel: '张伟', stream: 'Core Skills', visaSubclass: '482', caseCategory: '签证申请', employerId: 'e1', employerName: '金煌餐饮', referrerId: 'r1', referrerName: '林老师', ownerId: 'o1', ownerName: '王老板', stage: 'nomination_lodged', updatedAt: '2025-05-01', urgent: false },
+    { caseId: 'c2', caseNumber: 'BB2', groupCode: 'G-0002', customerId: 'cu2', customerName: '王强', participantsLabel: '王强、刘梅', stream: 'Direct Entry', visaSubclass: '186', caseCategory: '职业评估', employerId: 'e2', employerName: '澳信科技', referrerId: 'r2', referrerName: '陈姐', ownerId: 'o2', ownerName: '李老板', stage: 'granted', updatedAt: '2025-04-01', urgent: false },
+    { caseId: 'c3', caseNumber: 'CC3', groupCode: 'G-0003', customerId: 'cu3', customerName: '陈静', participantsLabel: '陈静', stream: '', visaSubclass: '500', caseCategory: '', employerId: null, employerName: '', referrerId: null, referrerName: '', ownerId: null, ownerName: '', stage: 'docs_requested', updatedAt: '2025-03-01', urgent: true },
   ]
 
   it('空筛选 = 原样返回', () => {
@@ -144,25 +158,33 @@ describe('filterCaseListRows', () => {
     expect(out.map((r) => r.caseId)).toEqual(['c3']) // 阶段命中 c1/c3，再叠加 500 只剩 c3
   })
 
-  it('按雇主筛；无雇主的行被排除', () => {
-    const out = filterCaseListRows(rows, { ...EMPTY_FILTER, employerIds: new Set(['e1']) })
+  it('按客户归属人筛（同维度或）；无归属的行被排除', () => {
+    const out = filterCaseListRows(rows, { ...EMPTY_FILTER, ownerIds: new Set(['o1']) })
     expect(out.map((r) => r.caseId)).toEqual(['c1'])
+    const both = filterCaseListRows(rows, { ...EMPTY_FILTER, ownerIds: new Set(['o1', 'o2']) })
+    expect(both.map((r) => r.caseId)).toEqual(['c1', 'c2']) // c3 无归属 → 排除
   })
 
-  it('按介绍人筛；无介绍人的行被排除', () => {
-    const out = filterCaseListRows(rows, { ...EMPTY_FILTER, referrerIds: new Set(['r2']) })
-    expect(out.map((r) => r.caseId)).toEqual(['c2'])
+  it('担保雇主 / 介绍人 不再是筛选维度（筛选器上已无这两个键）', () => {
+    expect('employerIds' in EMPTY_FILTER).toBe(false)
+    expect('referrerIds' in EMPTY_FILTER).toBe(false)
+    expect('ownerIds' in EMPTY_FILTER).toBe(true)
   })
 
   it('搜索匹配介绍人名', () => {
     expect(filterCaseListRows(rows, { ...EMPTY_FILTER, search: '林老师' }).map((r) => r.caseId)).toEqual(['c1'])
   })
 
-  it('搜索匹配参与人名 / 雇主 / 大类 / 案件编号（大小写不敏感）', () => {
+  it('搜索匹配客户归属人名（归属人是主筛选维度，搜索框也要能直达）', () => {
+    expect(filterCaseListRows(rows, { ...EMPTY_FILTER, search: '王老板' }).map((r) => r.caseId)).toEqual(['c1'])
+    expect(filterCaseListRows(rows, { ...EMPTY_FILTER, search: '李老板' }).map((r) => r.caseId)).toEqual(['c2'])
+  })
+
+  it('搜索匹配参与人名 / 雇主 / 子类别 / 案件编号（大小写不敏感）', () => {
     expect(filterCaseListRows(rows, { ...EMPTY_FILTER, search: '王强' }).map((r) => r.caseId)).toEqual(['c2'])
     expect(filterCaseListRows(rows, { ...EMPTY_FILTER, search: '刘梅' }).map((r) => r.caseId)).toEqual(['c2']) // 同案参与人也可搜
     expect(filterCaseListRows(rows, { ...EMPTY_FILTER, search: '澳信' }).map((r) => r.caseId)).toEqual(['c2'])
-    expect(filterCaseListRows(rows, { ...EMPTY_FILTER, search: '学生' }).map((r) => r.caseId)).toEqual(['c3'])
+    expect(filterCaseListRows(rows, { ...EMPTY_FILTER, search: 'Direct' }).map((r) => r.caseId)).toEqual(['c2']) // 子类别(stream)可搜
     expect(filterCaseListRows(rows, { ...EMPTY_FILTER, search: 'cc3' }).map((r) => r.caseId)).toEqual(['c3'])
   })
 
@@ -188,54 +210,54 @@ describe('filterCaseListRows', () => {
 })
 
 describe('caseListFacets', () => {
-  it('收集出现过的阶段(按流程序)/子类别/雇主(去重排序)', () => {
+  it('收集出现过的阶段(按流程序)/子类别/归属人(去重排序)', () => {
     const rows: CaseListRow[] = [
-      { caseId: 'c1', caseNumber: 'A', groupCode: 'G-0001', customerId: '1', customerName: 'x', participantsLabel: 'x', stream: '', visaSubclass: '186', visaCategory: '', caseCategory: '职业评估', employerId: 'e2', employerName: '乙', referrerId: 'r2', referrerName: '介乙', stage: 'visa_lodged', updatedAt: '', urgent: false },
-      { caseId: 'c2', caseNumber: 'B', groupCode: 'G-0002', customerId: '2', customerName: 'y', participantsLabel: 'y', stream: '', visaSubclass: '482', visaCategory: '', caseCategory: '签证申请', employerId: 'e1', employerName: '甲', referrerId: 'r1', referrerName: '介甲', stage: 'todo', updatedAt: '', urgent: false },
-      { caseId: 'c3', caseNumber: 'C', groupCode: 'G-0003', customerId: '3', customerName: 'z', participantsLabel: 'z', stream: '', visaSubclass: '482', visaCategory: '', caseCategory: '', employerId: 'e1', employerName: '甲', referrerId: 'r1', referrerName: '介甲', stage: 'todo', updatedAt: '', urgent: false },
+      { caseId: 'c1', caseNumber: 'A', groupCode: 'G-0001', customerId: '1', customerName: 'x', participantsLabel: 'x', stream: '', visaSubclass: '186', caseCategory: '职业评估', employerId: 'e2', employerName: '乙', referrerId: 'r2', referrerName: '介乙', ownerId: 'o2', ownerName: '归乙', stage: 'visa_lodged', updatedAt: '', urgent: false },
+      { caseId: 'c2', caseNumber: 'B', groupCode: 'G-0002', customerId: '2', customerName: 'y', participantsLabel: 'y', stream: '', visaSubclass: '482', caseCategory: '签证申请', employerId: 'e1', employerName: '甲', referrerId: 'r1', referrerName: '介甲', ownerId: 'o1', ownerName: '归甲', stage: 'todo', updatedAt: '', urgent: false },
+      { caseId: 'c3', caseNumber: 'C', groupCode: 'G-0003', customerId: '3', customerName: 'z', participantsLabel: 'z', stream: '', visaSubclass: '482', caseCategory: '', employerId: 'e1', employerName: '甲', referrerId: 'r1', referrerName: '介甲', ownerId: 'o1', ownerName: '归甲', stage: 'todo', updatedAt: '', urgent: false },
     ]
     const f = caseListFacets(rows)
     expect(f.stages).toEqual(['todo', 'visa_lodged']) // 按 CASE_STAGES 顺序
     expect(f.subclasses).toEqual(['186', '482'])
     expect(f.categories).toEqual(['签证申请', '职业评估']) // 只列出现过的，按 CASE_CATEGORIES 枚举序
-    expect(f.employers).toEqual([{ id: 'e1', name: '甲' }, { id: 'e2', name: '乙' }])
-    expect(f.referrers).toEqual([{ id: 'r1', name: '介甲' }, { id: 'r2', name: '介乙' }])
+    expect(f.owners).toEqual([{ id: 'o1', name: '归甲' }, { id: 'o2', name: '归乙' }]) // 去重 + 按名排序
   })
 })
 
-describe('caseFilterFacets（阶段全列 · 签证只列已有 · 雇主/介绍人全集）', () => {
-  const listRow = (caseId: string, sub: string, cat = ''): CaseListRow => ({
+describe('caseFilterFacets（阶段全列 · 签证只列已有 · 归属人=现有归属值 distinct）', () => {
+  const listRow = (caseId: string, sub: string, cat = '', ownerId: string | null = null, ownerName = ''): CaseListRow => ({
     caseId, caseNumber: caseId, groupCode: 'G-0001', customerId: 'cu', customerName: 'x', participantsLabel: 'x', stream: '', visaSubclass: sub,
-    visaCategory: '', caseCategory: cat, employerId: null, employerName: '', referrerId: null, referrerName: '',
+    caseCategory: cat, employerId: null, employerName: '', referrerId: null, referrerName: '', ownerId, ownerName,
     stage: 'todo', updatedAt: '', urgent: false,
   })
 
-  it('签证类别只取案件里出现过的（没案件的不显示）', () => {
-    const f = caseFilterFacets(
-      [listRow('c1', '482'), listRow('c2', '186'), listRow('c3', '482')],
-      [employer('e2', '乙公司'), employer('e1', '甲公司')],
-      [referrer('r1', '林老师')],
-    )
+  it('签证类别只取案件里出现过的；归属人 = 行里出现过的归属值去重', () => {
+    const f = caseFilterFacets([
+      listRow('c1', '482', '', 'o1', '王老板'),
+      listRow('c2', '186', '', 'o2', '李老板'),
+      listRow('c3', '482', '', 'o1', '王老板'),
+      listRow('c4', '500'), // 无归属 → 不产出选项
+    ])
     expect(f.stages).toEqual([...CASE_STAGES]) // 阶段仍全列
-    expect(f.subclasses).toEqual(['186', '482']) // 只有出现过的、去重排序
-    expect(f.employers).toEqual([{ id: 'e1', name: '甲公司' }, { id: 'e2', name: '乙公司' }]) // 雇主全集
-    expect(f.referrers).toEqual([{ id: 'r1', name: '林老师' }])
+    expect(f.subclasses).toEqual(['186', '482', '500']) // 只有出现过的、去重排序
+    expect(f.owners).toEqual([{ id: 'o2', name: '李老板' }, { id: 'o1', name: '王老板' }]) // distinct + 按名排序
+    // 担保雇主 / 介绍人不再是筛选维度
+    expect('employers' in f).toBe(false)
+    expect('referrers' in f).toBe(false)
   })
 
   it('案件大类只取出现过的，按枚举序去重；未填不产出选项', () => {
-    const f = caseFilterFacets(
-      [listRow('c1', '482', '定制文件'), listRow('c2', '186', '签证申请'), listRow('c3', '482', ''), listRow('c4', '500', '签证申请')],
-      [],
-      [],
-    )
+    const f = caseFilterFacets([
+      listRow('c1', '482', '定制文件'), listRow('c2', '186', '签证申请'), listRow('c3', '482', ''), listRow('c4', '500', '签证申请'),
+    ])
     expect(f.categories).toEqual(['签证申请', '定制文件'])
   })
 
-  it('无案件 → 签证类别为空；雇主/介绍人仍按主数据全列', () => {
-    const f = caseFilterFacets([], [employer('e1', '甲')], [])
+  it('无案件 → 签证类别/归属人为空；阶段仍全列', () => {
+    const f = caseFilterFacets([])
     expect(f.subclasses).toEqual([])
     expect(f.categories).toEqual([])
-    expect(f.employers).toEqual([{ id: 'e1', name: '甲' }])
+    expect(f.owners).toEqual([])
     expect(f.stages.length).toBe(CASE_STAGES.length)
   })
 })

@@ -1,10 +1,11 @@
 import { utcDayDiff } from './dateDiff'
 import { formatVisaType } from './visa'
-import { getLodgementLodgedDate } from './lodgementStatus'
+import { getLodgementLodgedDate, getLodgementStatus } from './lodgementStatus'
+import type { LodgementDerivedStatus } from './lodgementStatus'
 import { isNominationApproved, isVisaGranted } from './approval'
 import { caseGroupCode } from './caseGroups'
 import { CASE_STAGES } from '../types/domain'
-import type { CaseStage } from '../types/domain'
+import type { CaseStage, LodgementType } from '../types/domain'
 import type { Case, CaseApplicant, CaseStageHistory, Customer, Lodgement } from '../types/models'
 
 const STAGE_RANK: Record<string, number> = Object.fromEntries(CASE_STAGES.map((s, i) => [s, i]))
@@ -131,18 +132,21 @@ export interface CaseRow {
   /** 最近一次递交到今天的整天数（取较晚的提名/签证日期），用于默认排序 */
   daysSince: number
   elapsed: { months: number; days: number }
-  /** 提名递交至今（未递交提名为 null） */
+  /** 提名审理时长（天）：递交 → 提名获批日（已获批，定格）/ 今天（审理中，实时累计）；未递交提名为 null */
   nomDaysSince: number | null
   nomElapsed: { months: number; days: number } | null
-  /** 签证递交至今（未递交签证为 null） */
+  /** 签证审理时长（天）：递交 → 下签日（已获批，定格）/ 今天（审理中，实时累计）；未递交签证为 null */
   visaDaysSince: number | null
   visaElapsed: { months: number; days: number } | null
   /** 案件是否已决（下签/拒签）→ 等待天数已冻结 */
   frozen: boolean
-  /** 提名已获批（且本案确有提名）→ 距今列显示绿色「提名获批」替代时长 */
+  /** 提名已获批（且本案确有提名）→ 提名审理时长定格在获批日 */
   nomApproved: boolean
-  /** 签证已获批（下签）→ 距今列显示绿色「签证获批」替代时长 */
+  /** 签证已获批（下签）→ 签证审理时长定格在下签日 */
   visaGranted: boolean
+  /** 提名/签证流程状态（「提名状态/签证状态」列）：审理中 pending / 获批 approved / 已拒 refused；本案无此流程为 null */
+  nomStatus: LodgementDerivedStatus | null
+  visaStatus: LodgementDerivedStatus | null
   /** 提名 / 签证各自的 DHA 处理天数（用于「超期」红色提示），无则 null */
   nomDhaDays: number | null
   visaDhaDays: number | null
@@ -156,11 +160,75 @@ function latestLodged(nom: string | null, visa: string | null): string | null {
   return nom ?? visa
 }
 
+/** 历史里最近一次到达某阶段的 effective 日期（YYYY-MM-DD），无则 null。 */
+function latestStageDay(history: CaseStageHistory[], stage: CaseStage): string | null {
+  let best: string | null = null
+  for (const h of history) {
+    if (h.to_stage !== stage) continue
+    const d = (h.effective_at ?? h.changed_at).slice(0, 10)
+    if (!best || d > best) best = d
+  }
+  return best
+}
+
+/** 终态阶段（审理时长冻结到决定日）。 */
+const isTerminal = (s: CaseStage) => s === 'granted' || s === 'refused'
+
+export interface FlowProcessing {
+  /** 该流程的递交日（case_stage_history 派生）；无 → null（时长/状态显示 —） */
+  lodged: string | null
+  /** 该流程已获批（提名 = 到/越过提名获批且本案确有提名证据；签证 = 下签） */
+  approved: boolean
+  /** 审理时长整天数；未递交 → null */
+  daysSince: number | null
+  /** 审理时长 月/天（/30 近似）；未递交 → null */
+  elapsed: { months: number; days: number } | null
+}
+
+/**
+ * 单流程（提名/签证）「审理时长」——案件进度表与案件单页里程碑卡共用的**单一来源**：
+ *  - 审理中：递交日 → 今天（实时累计，本地日历日）；
+ *  - 已获批：递交日 → 该流程获批日（提名=提名获批日、签证=下签日；缺记录回退案件决定日），定格仍显示；
+ *  - 拒签等终态：未获批流程冻结到决定日；
+ *  - 无递交日 → 时长 null（UI 显 —）。
+ * caseHistory 传该案件自己的阶段历史。
+ */
+export function flowProcessing(
+  type: LodgementType,
+  currentStage: CaseStage,
+  caseHistory: CaseStageHistory[],
+  today: Date = new Date(),
+): FlowProcessing {
+  const lodged = getLodgementLodgedDate(caseHistory, type)
+  // 提名获批需「本案确有提名」证据（有提名递交日或历史出现提名获批），防止纯签证案件冒充
+  const approved =
+    type === 'nomination'
+      ? (lodged != null || caseHistory.some((h) => h.to_stage === 'nomination_approved')) &&
+        isNominationApproved(currentStage, caseHistory)
+      : isVisaGranted(currentStage)
+  const grantDay = latestStageDay(caseHistory, 'granted')
+  const refuseDay = latestStageDay(caseHistory, 'refused')
+  const decisionDay = isTerminal(currentStage)
+    ? grantDay && refuseDay
+      ? grantDay > refuseDay
+        ? grantDay
+        : refuseDay
+      : grantDay ?? refuseDay
+    : null
+  const approvalDay = approved
+    ? latestStageDay(caseHistory, type === 'nomination' ? 'nomination_approved' : 'granted')
+    : null
+  const end: string | Date = (approved ? approvalDay ?? decisionDay : decisionDay) ?? today
+  const daysSince = lodged ? utcDayDiff(lodged, end) : null
+  return { lodged, approved, daysSince, elapsed: daysSince != null ? splitWaitDays(daysSince) : null }
+}
+
 /**
  * 递交进度 Excel 式表格行：含全部案件（未递交案件 lodged=false、日期为 null、距今 -1 排末）。
  * 进度追踪始终同步 → 一案件一行（主申 + 副申同列）。sync_tracking 只影响财务核算，不影响此表。
- * 距今口径：终态(下签/拒签)冻结 = 递交日 → 决定日（取 case_stage_history 的 effective_at）；
- * 未决 = 递交日 → 今天（继续增长）。默认按「距今多久」降序（递交最久在前）。
+ * 审理时长口径（按流程各自定格）：提名 = 提名递交 → 提名获批日；签证 = 签证递交 → 下签日；
+ * 未获批 = 递交 → 今天（实时累计；拒签等终态冻结到决定日）。日期取 case_stage_history 的 effective_at。
+ * 默认按「最近一次递交距今」降序（递交最久在前）。
  */
 export function selectCaseRows(
   cases: Case[],
@@ -191,14 +259,14 @@ export function selectCaseRows(
       if (!prev || d > prev) decisionByCase.set(h.case_id, d)
     }
   }
-  const isTerminal = (s: Case['current_stage']) => s === 'granted' || s === 'refused'
-
   const rows: CaseRow[] = []
   for (const c of cases) {
     const caseHist = histByCase.get(c.id) ?? []
-    // 递交日期从 stage_history 派生（不再读 lodgements.lodged_date）
-    const nom = getLodgementLodgedDate(caseHist, 'nomination')
-    const visa = getLodgementLodgedDate(caseHist, 'visa')
+    // 提名/签证各自的审理时长（递交日派生 + 获批定格）：flowProcessing 单一来源（里程碑卡共用）
+    const nomP = flowProcessing('nomination', c.current_stage, caseHist, today)
+    const visaP = flowProcessing('visa', c.current_stage, caseHist, today)
+    const nom = nomP.lodged
+    const visa = visaP.lodged
     // lodgement 行仅用于取 DHA 处理天数（超期红色提示）
     const nomL = lodgements.find((l) => l.case_id === c.id && l.type === 'nomination')
     const visaL = lodgements.find((l) => l.case_id === c.id && l.type === 'visa')
@@ -211,11 +279,9 @@ export function selectCaseRows(
     // 月/天换算统一用 /30 近似法（splitWaitDays），与 lodgement 卡片等待天数同源、对齐客户 Excel
     const daysSince = lodged ? utcDayDiff(latest, endRef) : -1
     const elapsed = lodged ? splitWaitDays(daysSince) : { months: 0, days: 0 }
-    // 提名/签证各自的距今（缺哪边哪边为 null）；终态冻结、未决到今天
-    const nomDaysSince = nom ? utcDayDiff(nom, endRef) : null
-    const nomElapsed = nomDaysSince != null ? splitWaitDays(nomDaysSince) : null
-    const visaDaysSince = visa ? utcDayDiff(visa, endRef) : null
-    const visaElapsed = visaDaysSince != null ? splitWaitDays(visaDaysSince) : null
+    // 流程状态（「提名状态/签证状态」列）：本案没有该流程（无递交且无获批证据）→ null（UI 显 —）
+    const nomStatus = nom != null || nomP.approved ? getLodgementStatus(c.current_stage, 'nomination', caseHist) : null
+    const visaStatus = visa != null || visaP.approved ? getLodgementStatus(c.current_stage, 'visa', caseHist) : null
     const subIds = subsByCase.get(c.id) ?? []
     // 在册参与人重排（customerById 来自未归档客户）：案件客户在册则居首；
     // 案件客户归档 → 首位在册参与人顶上（显示与链接都切到没被归档的人），归档者不再显示
@@ -245,17 +311,15 @@ export function selectCaseRows(
       visaLodgedDate: visa,
       daysSince,
       elapsed,
-      nomDaysSince,
-      nomElapsed,
-      visaDaysSince,
-      visaElapsed,
+      nomDaysSince: nomP.daysSince,
+      nomElapsed: nomP.elapsed,
+      visaDaysSince: visaP.daysSince,
+      visaElapsed: visaP.elapsed,
       frozen: isTerminal(c.current_stage),
-      // 获批标记（纯展示）：提名获批需「本案确有提名」证据（有提名递交日或历史出现提名获批），
-      // 防止纯签证案件（如 600）下签后提名列冒充「提名获批」
-      nomApproved:
-        (nom != null || caseHist.some((h) => h.to_stage === 'nomination_approved')) &&
-        isNominationApproved(c.current_stage, caseHist),
-      visaGranted: isVisaGranted(c.current_stage),
+      nomApproved: nomP.approved,
+      visaGranted: visaP.approved,
+      nomStatus,
+      visaStatus,
       nomDhaDays: nomL?.dha_processing_days ?? null,
       visaDhaDays: visaL?.dha_processing_days ?? null,
       updatedAt: c.updated_at,
@@ -290,7 +354,13 @@ export type CaseSortKey =
   | 'elapsed'
   | 'nomElapsed'
   | 'visaElapsed'
+  | 'nomStatus'
+  | 'visaStatus'
   | 'updated'
+
+// 状态排序权重：审理中 < 已拒 < 获批；无此流程(null) 排末（升序最前/降序最后用 -1）
+const FLOW_STATUS_RANK: Record<LodgementDerivedStatus, number> = { pending: 0, refused: 1, approved: 2 }
+const statusRank = (s: LodgementDerivedStatus | null) => (s ? FLOW_STATUS_RANK[s] : -1)
 
 export function sortCaseRows(rows: CaseRow[], key: CaseSortKey, dir: 'asc' | 'desc'): CaseRow[] {
   const sign = dir === 'asc' ? 1 : -1
@@ -318,6 +388,10 @@ export function sortCaseRows(rows: CaseRow[], key: CaseSortKey, dir: 'asc' | 'de
         return (a.nomDaysSince ?? -1) - (b.nomDaysSince ?? -1)
       case 'visaElapsed':
         return (a.visaDaysSince ?? -1) - (b.visaDaysSince ?? -1)
+      case 'nomStatus':
+        return statusRank(a.nomStatus) - statusRank(b.nomStatus)
+      case 'visaStatus':
+        return statusRank(a.visaStatus) - statusRank(b.visaStatus)
       case 'updated':
         return a.updatedAt.localeCompare(b.updatedAt)
     }

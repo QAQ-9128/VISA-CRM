@@ -30,6 +30,7 @@ import {
   type CustomerFilter,
   type SourceFilterValue,
 } from '../../lib/customersFilter'
+import { ownerFacetOptions } from '../../lib/ownerFilter'
 import { CUSTOMER_PAYMENT_TEXT_CLASS } from '../../lib/finance'
 import type { CustomerPaymentColor } from '../../lib/finance'
 import { CLIENT_SOURCES, CLIENT_SOURCE_DOT, CLIENT_SOURCE_LABELS } from '../../types/domain'
@@ -216,15 +217,17 @@ export function CustomerListPage() {
     [cases.data],
   )
 
-  // 筛选项 = 全部雇主 / 介绍人主数据（暂无客户也列出），按名排序
-  const sortedEmployers = useMemo(
-    () => (employers.data ?? []).map((e) => ({ id: e.id, name: e.name })).sort((a, b) => a.name.localeCompare(b.name)),
-    [employers.data],
-  )
-  const sortedReferrers = useMemo(
-    () => (referrers.data ?? []).map((r) => ({ id: r.id, name: r.name })).sort((a, b) => a.name.localeCompare(b.name)),
-    [referrers.data],
-  )
+  // 客户归属人筛选项 = 现有归属值 distinct（与案件筛选栏共用 lib/ownerFilter 同一套逻辑）；
+  // 名字从介绍人同表（kind=owner）解析；取全量客户，避免搜索时选项跟着缩水
+  const ownerOptions = useMemo(() => {
+    const nameById = new Map((referrers.data ?? []).map((r) => [r.id, r.name]))
+    return ownerFacetOptions(
+      (allCustomers.data ?? []).map((c) => ({
+        ownerId: c.owner_referrer_id,
+        ownerName: c.owner_referrer_id ? nameById.get(c.owner_referrer_id) ?? '' : '',
+      })),
+    )
+  }, [allCustomers.data, referrers.data])
   const filterCount = customerFilterCount(filter)
   // 担保雇主 id → name（每行显示「担保雇主」用）
   const employerNameById = useMemo(() => {
@@ -286,7 +289,7 @@ export function CustomerListPage() {
         />
       </div>
 
-      {/* 筛选面板：来源 / 担保雇主 / 介绍人 / 星标，自由点选组合 */}
+      {/* 筛选面板：优先(星标) / 来源 / 客户归属人 / 案件类型，自由点选组合 */}
       {showFilters && (
         <Card className="space-y-3.5">
           <FilterGroup label="优先">
@@ -308,29 +311,16 @@ export function CustomerListPage() {
             ))}
           </FilterGroup>
 
-          {sortedEmployers.length > 0 && (
-            <FilterGroup label="担保雇主">
-              {sortedEmployers.map((e) => (
+          {/* 客户归属人（customers.owner_referrer_id）：选项=现有归属值 distinct；替代旧的担保雇主/介绍人筛选 */}
+          {ownerOptions.length > 0 && (
+            <FilterGroup label="客户归属人">
+              {ownerOptions.map((o) => (
                 <Chip
-                  key={e.id}
-                  active={filter.employerIds.has(e.id)}
-                  onClick={() => setFilter((f) => ({ ...f, employerIds: toggleIn(f.employerIds, e.id) }))}
+                  key={o.id}
+                  active={filter.ownerIds.has(o.id)}
+                  onClick={() => setFilter((f) => ({ ...f, ownerIds: toggleIn(f.ownerIds, o.id) }))}
                 >
-                  {e.name}
-                </Chip>
-              ))}
-            </FilterGroup>
-          )}
-
-          {sortedReferrers.length > 0 && (
-            <FilterGroup label="介绍人">
-              {sortedReferrers.map((r) => (
-                <Chip
-                  key={r.id}
-                  active={filter.referrerIds.has(r.id)}
-                  onClick={() => setFilter((f) => ({ ...f, referrerIds: toggleIn(f.referrerIds, r.id) }))}
-                >
-                  {r.name}
+                  {o.name}
                 </Chip>
               ))}
             </FilterGroup>
@@ -386,7 +376,8 @@ export function CustomerListPage() {
           <SourceBoard columns={boardColumns} casesOf={displayCasesOf} employerNameOf={employerNameOf} />
         ) : (
           // 平铺客户（一案一组：组随案件走，客户列表不再按组出卡）；每行=客户名 + TA 参与的案件
-          <div className="overflow-hidden rounded-card bg-white px-[18px] shadow-soft">
+          // 注意：容器不能 overflow-hidden——行尾「⋯」菜单（归档/彻底删除）是 absolute 弹层，会被裁掉看不见
+          <div className="rounded-card bg-white px-[18px] shadow-soft">
             <ul>
               {visibleCustomers.map((m) => (
                 <CustomerRow

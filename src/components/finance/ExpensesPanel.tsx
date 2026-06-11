@@ -22,10 +22,12 @@ export interface FinanceCaseOption {
 const DIR_STYLE: Record<PayoutItem['direction'], string> = {
   to_company: 'bg-amber-100 text-amber-800',
   to_referrer: 'bg-violet-100 text-violet-800',
+  misc_expense: 'bg-rose-100 text-rose-800',
 }
 const CATEGORY_OPTIONS = [
   { value: 'to_company', label: PAYMENT_DIRECTION_LABELS.to_company },
   { value: 'to_referrer', label: PAYMENT_DIRECTION_LABELS.to_referrer },
+  { value: 'misc_expense', label: PAYMENT_DIRECTION_LABELS.misc_expense },
 ]
 
 /** 加支出表单（付主代理 / 付介绍人）；复用于支出栏与月度合并流水表。复用现有 useCreatePayment。 */

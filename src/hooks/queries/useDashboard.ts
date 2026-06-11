@@ -10,7 +10,7 @@ import {
 } from '../../api/dashboard'
 import { getAllPlanItems } from '../../api/payments'
 import {
-  caseStageDistribution,
+  caseCategoryDistribution,
   computeDebtTotals,
   countActiveCases,
   selectCustomerDebts,
@@ -22,6 +22,7 @@ import {
 import { listAllCaseApplicants } from '../../api/caseApplicants'
 import { listAllStageHistory } from '../../api/cases'
 import { selectTrtReminders } from '../../lib/trt'
+import { selectCohabReminders } from '../../lib/cohab'
 import { visibleCaseIds } from '../../lib/visibility'
 import { queryKeys } from './keys'
 
@@ -112,10 +113,20 @@ export function useDashboard() {
     () => selectTrtReminders(visibleCases, stageHistory.data ?? [], customerById),
     [visibleCases, stageHistory.data, customerById],
   )
+  // 186/配偶签「3 个月更新同居材料」循环提醒：同口径
+  const cohabReminders = useMemo(
+    () => selectCohabReminders(visibleCases, stageHistory.data ?? [], customerById),
+    [visibleCases, stageHistory.data, customerById],
+  )
 
   // ── 概览统计卡（全真实数据；计数/分布与递交进度同一可见性口径）──────
   const activeCaseCount = useMemo(() => countActiveCases(visibleCases), [visibleCases])
-  const stageDistribution = useMemo(() => caseStageDistribution(visibleCases), [visibleCases])
+  // 环图按状态 6 类聚合（每段一类一色）；已下签数单独给（环图标题用）
+  const categoryDistribution = useMemo(() => caseCategoryDistribution(visibleCases), [visibleCases])
+  const grantedCount = useMemo(
+    () => visibleCases.filter((c) => !c.is_archived && c.current_stage === 'granted').length,
+    [visibleCases],
+  )
   // 本月收款（按 paid_at 落月，from_client 方向；归档案件已被 visiblePayments 过滤）
   const thisMonthReceipts = useMemo(() => {
     const now = new Date()
@@ -136,9 +147,11 @@ export function useDashboard() {
     customerDebts,
     todoCases,
     trtReminders,
+    cohabReminders,
     // 统计卡 / 阶段分布（全真实数据派生）
     activeCaseCount,
-    stageDistribution,
+    categoryDistribution,
+    grantedCount,
     thisMonthReceipts,
     expiringDocItems,
     // 供卡片按 customer_id 显示并链接客户名

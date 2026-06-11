@@ -1,7 +1,7 @@
 /**
  * 领域枚举与中文映射。与 Supabase 数据库 enum 一一对应（见 supabase/migrations/0001_init.sql），
  * 并依据《数据模型规格.md》定义（澳洲移民/签证中介 CRM）。
- * UI 统一从这里取标签/顺序/配色，避免散落的魔法字符串。
+ * UI 统一从这里取标签/顺序，避免散落的魔法字符串（状态配色见 lib/statusColor.ts）。
  *
  * 注意：visa_subclass（签证类别，如 '482'/'189'）在 DB 用 text 存储，不做枚举；
  * 这里只提供「常用类别」下拉项，前端允许手填任意值。
@@ -47,40 +47,8 @@ export const CASE_STAGE_LABELS: Record<CaseStage, string> = {
   additional_docs: '补件', // 旧数据兼容（已被要求补件/补件完毕替代）
 }
 
-/** Tailwind 类名片段，用于 StageBadge */
-export const CASE_STAGE_STYLES: Record<CaseStage, string> = {
-  todo: 'bg-slate-100 text-slate-700',
-  drafted: 'bg-amber-100 text-amber-800',
-  awaiting_payment: 'bg-lime-100 text-lime-800',
-  nomination_lodged: 'bg-blue-100 text-blue-800',
-  nomination_approved: 'bg-cyan-100 text-cyan-800',
-  visa_lodged: 'bg-indigo-100 text-indigo-800',
-  docs_requested: 'bg-orange-100 text-orange-800',
-  docs_completed: 'bg-teal-100 text-teal-800',
-  granted: 'bg-emerald-100 text-emerald-800',
-  refused: 'bg-rose-100 text-rose-800',
-  appeal: 'bg-purple-100 text-purple-800',
-  withdrawn: 'bg-zinc-200 text-zinc-600',
-  additional_docs: 'bg-orange-100 text-orange-800', // 旧数据兼容
-}
-
-/** 阶段实心十六进制色（图表条/圆点用；与 CASE_STAGE_STYLES 同语义，供非 Tailwind 场景）。
- *  主流程六色 = 2026-06 概览 mockup 定稿（薄荷设计；环图/进展链/流转记录共用）。 */
-export const CASE_STAGE_COLOR: Record<CaseStage, string> = {
-  todo: '#9ba59b',
-  drafted: '#e0a23c',
-  awaiting_payment: '#84a832', // lime：草拟(琥珀)与提名递交(蓝)之间的「等钱」黄绿
-  nomination_lodged: '#3f7cb5',
-  nomination_approved: '#36b3c2',
-  visa_lodged: '#7c6fd6',
-  docs_requested: '#f97316',
-  docs_completed: '#14b8a6',
-  granted: '#4e9a6b',
-  refused: '#ef4444',
-  appeal: '#a855f7',
-  withdrawn: '#71717a',
-  additional_docs: '#f97316', // 旧数据兼容
-}
+// 阶段配色：已收口到 lib/statusColor.ts（状态 → 6 类配色的单一来源），
+// 旧的逐阶段 CASE_STAGE_STYLES / CASE_STAGE_COLOR 已删——UI 一律查 stageBadgeClass/stageSolidColor。
 
 // ── 递交类型 ─────────────────────────────────────────
 export const LODGEMENT_TYPES = ['nomination', 'visa'] as const
@@ -102,15 +70,20 @@ export const LODGEMENT_OUTCOME_LABELS: Record<LodgementOutcome, string> = {
   withdrawn: '撤回',
 }
 
-// ── 付款方向（双流账目核心 + 付介绍人佣金）────────────────
-export const PAYMENT_DIRECTIONS = ['from_client', 'to_company', 'to_referrer'] as const
+// ── 付款方向（双流账目核心 + 付介绍人佣金 + 垫付杂项，0034）────────────────
+export const PAYMENT_DIRECTIONS = ['from_client', 'to_company', 'to_referrer', 'misc_expense'] as const
 export type PaymentDirection = (typeof PAYMENT_DIRECTIONS)[number]
 
 export const PAYMENT_DIRECTION_LABELS: Record<PaymentDirection, string> = {
   from_client: '客户付款',
   to_company: '付主代理',
   to_referrer: '付介绍人',
+  misc_expense: '垫付杂项',
 }
+
+/** 支出三流（案件支出区 / 账目支出栏共用；顺序即展示顺序）。 */
+export const EXPENSE_DIRECTIONS = ['to_company', 'to_referrer', 'misc_expense'] as const
+export type ExpenseDirection = (typeof EXPENSE_DIRECTIONS)[number]
 
 // ── 付款方式（advance = 垫付，0002 新增）──────────────────
 export const PAYMENT_METHODS = ['cash', 'transfer', 'advance', 'wechat', 'alipay', 'card', 'other'] as const
@@ -237,14 +210,3 @@ export const GENDER_LABELS: Record<Gender, string> = {
 // DB 不做枚举（存中文文本），取值由这里约束——增改选项免迁移。
 export const CASE_CATEGORIES = ['签证申请', '职业评估', 'De Facto 关系认定', '定制文件'] as const
 export type CaseCategory = (typeof CASE_CATEGORIES)[number]
-
-// ── 常用签证类别（DB 为 text，允许手填其他）────────────────
-export const COMMON_VISA_SUBCLASSES = [
-  '482',
-  '186',
-  '189',
-  '190',
-  '494',
-  '485',
-  '500',
-] as const

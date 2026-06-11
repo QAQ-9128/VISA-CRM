@@ -5,7 +5,6 @@ import { TextField } from '../ui/TextField'
 import { Textarea } from '../ui/Textarea'
 import { Select } from '../ui/Select'
 import { Checkbox } from '../ui/Checkbox'
-import { EmployerSelect } from '../employers/EmployerSelect'
 import { ReferrerSelect } from '../referrers/ReferrerSelect'
 import { OwnerSelect } from './OwnerSelect'
 import { CaseJoinPicker } from './CaseJoinPicker'
@@ -142,16 +141,7 @@ export function CustomerForm({ initial, submitting, error, onSubmit, onCancel }:
         </div>
       </Section>
 
-      {/* 担保信息 */}
-      <Section title="担保信息">
-        <EmployerSelect value={state.sponsor_employer_id} onChange={(id) => set('sponsor_employer_id')(id)} />
-        <TextField
-          label="担保职位"
-          value={state.sponsor_position}
-          onChange={(e) => set('sponsor_position')(e.target.value)}
-          placeholder="如：Senior Cook、Marketing Manager"
-        />
-      </Section>
+      {/* 担保信息（担保雇主/担保职位已移到案件级，由案件表单录入）：客户表单不再录入 */}
 
       {/* 关系 */}
       <Section title="关系">

@@ -17,7 +17,6 @@ import {
 import { CUSTOMER_PAYMENT_TEXT_CLASS } from '../lib/finance'
 import { countOwingCustomers, displayCustomerName, pickGreetingName } from '../lib/dashboardView'
 import { formatAmount, formatMoney } from '../lib/money'
-import type { CaseStage } from '../types/domain'
 
 /*
  * 概览（mockup「精简案件优先」1:1）：精简到 5 块——
@@ -31,9 +30,6 @@ import type { CaseStage } from '../types/domain'
 /** DHA 官方签证处理时间页（全球） */
 const VISA_PROCESSING_TIMES_URL =
   'https://immi.homeaffairs.gov.au/visas/getting-a-visa/visa-processing-times/global-visa-processing-times'
-
-/** 终态阶段（不计入「在办」；环图只收在办 + 已下签）。 */
-const TERMINAL_STAGES: ReadonlySet<CaseStage> = new Set<CaseStage>(['granted', 'refused', 'withdrawn'])
 
 const CARD = 'rounded-[20px] bg-white [box-shadow:0_14px_34px_-20px_rgba(40,90,60,.22)]'
 const CORAL_D = 'text-[#c25a52]'
@@ -145,15 +141,14 @@ export function DashboardPage() {
   if (d.isPending) return <LoadingBlock />
   if (d.isError) return <ErrorBlock error={new Error('部分概览数据加载失败，请刷新重试')} />
 
-  // 待办 = 待办清单未完成条数（与清单卡一致）；临近到期 = 文档/签证 + TRT
+  // 待办 = 待办清单未完成条数（与清单卡一致）；临近到期 = 文档/签证 + TRT + 同居材料更新
   const checklistOpen = checklist.openCount
-  const dueCount = d.expiringDocItems.length + d.trtReminders.length
+  const dueCount = d.expiringDocItems.length + d.trtReminders.length + d.cohabReminders.length
 
-  // 阶段分布：在办（不含终态）+ 已下签入环；环心 = 在办数
-  const activeStages = d.stageDistribution.filter((s) => !TERMINAL_STAGES.has(s.stage))
-  const grantedDatum = d.stageDistribution.find((s) => s.stage === 'granted')
-  const grantedN = grantedDatum?.count ?? 0
-  const ringStages = grantedDatum && grantedN > 0 ? [...activeStages, grantedDatum] : activeStages
+  // 案件分布环：按状态 6 类聚合（lib/dashboard caseCategoryDistribution——每段一类一色，
+  // 终止类已被 selector 排除）；环心 = 在办数
+  const ringStages = d.categoryDistribution
+  const grantedN = d.grantedCount
 
   const owingCount = countOwingCustomers(d.customerDebts)
 
@@ -161,10 +156,10 @@ export function DashboardPage() {
   const dueStrip = (
     <div className="mx-[22px] mt-0.5 mb-1.5 rounded-[11px] border border-[#e3eecb] bg-[#eef7d6] px-[13px] py-[9px] text-[12.5px] text-[#7d9e36]">
       {dueCount === 0 ? (
-        <span>⏰ 临近到期（签证 / 文件 / TRT）：近 30 天无临近到期</span>
+        <span>⏰ 临近到期（签证 / 文件 / TRT / 同居材料）：近 30 天无临近到期</span>
       ) : (
         <>
-          <span className="font-semibold">⏰ 临近到期（签证 / 文件 / TRT）</span>
+          <span className="font-semibold">⏰ 临近到期（签证 / 文件 / TRT / 同居材料）</span>
           <ul className="mt-1 space-y-0.5">
             {d.expiringDocItems.map((e) => (
               <li key={e.id}>
@@ -178,6 +173,14 @@ export function DashboardPage() {
               <li key={t.caseId}>
                 <Link to={`/customers/${t.customerId}`} state={source} className="hover:underline">
                   {displayCustomerName(t.customerName)} · 186 TRT 可办 · 下签 {t.monthsSinceGrant} 个月
+                </Link>
+              </li>
+            ))}
+            {/* 186/配偶签 3 个月循环提醒：更新同居材料（点击进客户页，在案件卡上「本次已更新」顺延） */}
+            {d.cohabReminders.map((t) => (
+              <li key={`cohab-${t.caseId}`}>
+                <Link to={`/customers/${t.customerId}?case=${t.caseId}`} state={source} className="hover:underline">
+                  {displayCustomerName(t.customerName)} · 更新同居材料 · 距上次 {t.monthsSince} 个月
                 </Link>
               </li>
             ))}
@@ -265,14 +268,11 @@ export function DashboardPage() {
               <div className="min-w-[170px] flex-1">
                 {ringStages.map((s) => (
                   <div
-                    key={s.stage}
+                    key={s.category}
                     className="flex items-center gap-[9px] border-b border-surface-2 py-1.5 text-[13.5px] text-muted last:border-b-0"
                   >
                     <span className="size-[9px] shrink-0 rounded-[3px]" style={{ background: s.color }} />
-                    <span className="flex-1">
-                      {s.label}
-                      {s.stage === 'granted' && ' · 已完成'}
-                    </span>
+                    <span className="flex-1">{s.label}</span>
                     <span className="text-sm font-bold tabular-nums text-ink">{s.count}</span>
                   </div>
                 ))}

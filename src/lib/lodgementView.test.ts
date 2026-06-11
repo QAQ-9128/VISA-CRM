@@ -7,18 +7,18 @@ const lg = (o: Partial<Lodgement>): Lodgement =>
 const sh = (o: Partial<CaseStageHistory>): CaseStageHistory =>
   ({ id: 'h', case_id: 'c1', from_stage: null, to_stage: 'todo', note: null, changed_by: null, changed_at: '', effective_at: '', ...o }) as CaseStageHistory
 
-describe('lodgementCardStatus', () => {
-  it('未递交 → 待递交(橙)', () => {
-    expect(lodgementCardStatus(null, 'pending')).toMatchObject({ lodged: false, label: '待递交', tone: 'amber' })
+describe('lodgementCardStatus（颜色类别走 statusColor 6 类）', () => {
+  it('未递交 → 待递交（紫=未开始）', () => {
+    expect(lodgementCardStatus(null, 'pending')).toMatchObject({ lodged: false, label: '待递交', category: 'todo' })
   })
-  it('已递交·待决 → 已递交(绿)', () => {
+  it('已递交·待决 → 已递交（灰=进行中）', () => {
     expect(lodgementCardStatus('2026-02-10', 'pending', lg({ updated_at: '2026-03-01T00:00:00Z' }))).toMatchObject({
-      lodged: true, label: '已递交', tone: 'emerald', lastUpdated: '2026-03-01',
+      lodged: true, label: '已递交', category: 'inProgress', lastUpdated: '2026-03-01',
     })
   })
-  it('已批 → 已获批(绿)；已拒 → 已拒签(红)', () => {
-    expect(lodgementCardStatus('2026-02-10', 'approved')).toMatchObject({ label: '已获批', tone: 'emerald' })
-    expect(lodgementCardStatus('2026-02-10', 'refused')).toMatchObject({ label: '已拒签', tone: 'rose' })
+  it('已批 → 已获批（绿）；已拒 → 已拒签（红）', () => {
+    expect(lodgementCardStatus('2026-02-10', 'approved')).toMatchObject({ label: '已获批', category: 'done' })
+    expect(lodgementCardStatus('2026-02-10', 'refused')).toMatchObject({ label: '已拒签', category: 'terminated' })
   })
   it('无 lodgement → lastUpdated 为 null（不显假日期）', () => {
     expect(lodgementCardStatus(null, 'pending').lastUpdated).toBeNull()

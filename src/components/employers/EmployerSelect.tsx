@@ -4,13 +4,16 @@ import { Select } from '../ui/Select'
 import { TextField } from '../ui/TextField'
 import { useCreateEmployer, useEmployers } from '../../hooks/queries/useEmployers'
 
-/** 担保雇主选择器：下拉选已有 + 内联新建。用于客户表单（嵌在 form 内，按钮均 type=button）。 */
+/** 担保雇主选择器：下拉选已有 + 内联新建。用于客户/案件表单（嵌在 form 内，按钮均 type=button）。 */
 export function EmployerSelect({
   value,
   onChange,
+  label = '担保雇主',
 }: {
   value: string
   onChange: (employerId: string) => void
+  /** 显示标签（默认「担保雇主」；482 SBS 场景传「雇主名称」） */
+  label?: string
 }) {
   const employers = useEmployers()
   const create = useCreateEmployer()
@@ -55,7 +58,7 @@ export function EmployerSelect({
     <div className="flex items-end gap-2">
       <div className="flex-1">
         <Select
-          label="担保雇主"
+          label={label}
           placeholder="无 / 未指定"
           options={options}
           value={value}

@@ -8,7 +8,8 @@ import { LoadingBlock } from '../ui/states'
 import { BellIcon, ClockIcon, DocIcon, PassportIcon } from '../ui/icons'
 import { getLodgementLodgedDate, getLodgementStatus } from '../../lib/lodgementStatus'
 import { lodgementCardStatus, selectLodgementTimeline } from '../../lib/lodgementView'
-import type { LodgementCardStatus, LodgementCardTone } from '../../lib/lodgementView'
+import type { LodgementCardStatus } from '../../lib/lodgementView'
+import { STATUS_CATEGORY_META } from '../../lib/statusColor'
 import { LODGEMENT_TYPE_LABELS } from '../../types/domain'
 import type { CaseStage, LodgementType } from '../../types/domain'
 import type { CaseStageHistory, Lodgement } from '../../types/models'
@@ -16,19 +17,6 @@ import type { ReactNode } from 'react'
 
 /** DHA 官方签证处理时间页 */
 const DHA_PROCESSING_TIMES_URL = 'https://immi.homeaffairs.gov.au/visas/getting-a-visa/visa-processing-times'
-
-const TONE_DOT: Record<LodgementCardTone, string> = {
-  amber: 'bg-amber-500',
-  emerald: 'bg-emerald-500',
-  rose: 'bg-rose-500',
-  slate: 'bg-slate-400',
-}
-const TONE_PILL: Record<LodgementCardTone, string> = {
-  amber: 'bg-amber-50 text-amber-700',
-  emerald: 'bg-emerald-50 text-emerald-600',
-  rose: 'bg-rose-50 text-rose-600',
-  slate: 'bg-slate-100 text-slate-600',
-}
 
 const TIMELINE_LIMIT = 6
 
@@ -42,7 +30,8 @@ function StatusCard({ icon, title, status }: { icon: ReactNode; title: string; s
       </div>
       <div className="mt-3 text-[12px] text-muted">当前状态</div>
       <div className="mt-1 flex items-center gap-2">
-        <span className={`size-2.5 rounded-full ${TONE_DOT[status.tone]}`} />
+        {/* 圆点按状态类别着色（statusColor 6 类单一来源） */}
+        <span className="size-2.5 rounded-full" style={{ backgroundColor: STATUS_CATEGORY_META[status.category].solid }} />
         <span className="text-[18px] font-bold text-ink">{status.label}</span>
       </div>
       <div className="mt-2.5 text-[12px] text-faint">最后更新：{status.lastUpdated ?? '—'}</div>
@@ -113,7 +102,7 @@ function RecordTable({
                   <td className="px-2 py-2.5 whitespace-nowrap tabular-nums text-body">{lodgedDate || '—'}</td>
                   <td className="px-2 py-2.5 whitespace-nowrap text-body">{r.reference_number || '—'}</td>
                   <td className="px-2 py-2.5">
-                    <span className={`inline-block rounded-full px-2 py-0.5 text-xs font-semibold ${TONE_PILL[status.tone]}`}>
+                    <span className={`inline-block rounded-full px-2 py-0.5 text-xs font-semibold ${STATUS_CATEGORY_META[status.category].badge}`}>
                       {status.label}
                     </span>
                   </td>

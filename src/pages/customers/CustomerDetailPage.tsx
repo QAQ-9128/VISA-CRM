@@ -113,8 +113,9 @@ export function CustomerDetailPage() {
         />
       </div>
 
-      {/* ② 相关案件卡（左，主） + ③ 费用记录卡（右，本案） */}
-      <div className="grid grid-cols-1 items-stretch gap-5 lg:grid-cols-[minmax(0,1.6fr)_minmax(0,1fr)]">
+      {/* ② 相关案件卡（左，主） + ③ 费用记录卡（右，本案）。
+          双栏分界用 xl（≥1280）：小屏笔记本（1024–1280，如 MacBook）单列堆叠不挤压；宽屏外观不变 */}
+      <div className="grid grid-cols-1 items-stretch gap-5 xl:grid-cols-[minmax(0,1.6fr)_minmax(0,1fr)]">
         <div id="cases" className="h-full min-w-0 scroll-mt-16">
           <RelatedCasesCard customer={c} cases={caseList} selectedCase={selectedCase} onSelectCase={setPicked} />
         </div>

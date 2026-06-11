@@ -180,6 +180,7 @@ export interface Database {
           visa_subclass: string
           visa_stream: string | null
           case_category: string | null
+          case_details: Record<string, string> | null
           destination_country: string | null
           sponsor_position: string | null
           sponsor_employer_id: string | null
@@ -187,6 +188,9 @@ export interface Database {
           currency: string
           sync_tracking: boolean
           trt_reminder_enabled: boolean
+          trt_reminder_dismissed: boolean
+          cohab_reminder_enabled: boolean
+          cohab_reminder_last: DateStr | null
           parent_case_id: string | null
           parent_sync_progress: boolean
           assigned_to: string | null
@@ -202,6 +206,7 @@ export interface Database {
           visa_subclass: string
           visa_stream?: string | null
           case_category?: string | null
+          case_details?: Record<string, string> | null
           destination_country?: string | null
           sponsor_position?: string | null
           sponsor_employer_id?: string | null
@@ -209,6 +214,9 @@ export interface Database {
           currency?: string
           sync_tracking?: boolean
           trt_reminder_enabled?: boolean
+          trt_reminder_dismissed?: boolean
+          cohab_reminder_enabled?: boolean
+          cohab_reminder_last?: DateStr | null
           parent_case_id?: string | null
           parent_sync_progress?: boolean
           assigned_to?: string | null

@@ -342,10 +342,10 @@ export function selectFinanceReceipts(
   return { items, total: round2(total) }
 }
 
-// ── 支出/付款明细（付主代理 + 付介绍人；负数不计入合计）──────────────────────
+// ── 支出/付款明细（付主代理 + 付介绍人 + 垫付杂项；负数不计入合计）──────────────
 export interface PayoutItem {
   paymentId: string
-  direction: 'to_company' | 'to_referrer'
+  direction: 'to_company' | 'to_referrer' | 'misc_expense'
   amount: number
   method: PaymentMethod
   customerName: string
@@ -362,6 +362,8 @@ export interface FinancePayouts {
   items: PayoutItem[]
   toCompanyTotal: number
   toReferrerTotal: number
+  /** 垫付杂项合计（misc_expense，0034 第三支出流） */
+  miscTotal: number
 }
 
 export function selectFinancePayouts(
@@ -373,8 +375,9 @@ export function selectFinancePayouts(
   const items: PayoutItem[] = []
   let toCompanyTotal = 0
   let toReferrerTotal = 0
+  let miscTotal = 0
   for (const p of payments) {
-    if (p.direction !== 'to_company' && p.direction !== 'to_referrer') continue
+    if (p.direction !== 'to_company' && p.direction !== 'to_referrer' && p.direction !== 'misc_expense') continue
     // 同收款明细：无发票的 0 元行不进明细（合计不受影响），负数冲红保留
     if (num(p.amount) === 0 && !p.invoice_path) continue
     const c = caseById[p.case_id]
@@ -387,7 +390,8 @@ export function selectFinancePayouts(
         : undefined
     const positive = Math.max(0, num(p.amount))
     if (p.direction === 'to_company') toCompanyTotal += positive
-    else toReferrerTotal += positive
+    else if (p.direction === 'to_referrer') toReferrerTotal += positive
+    else miscTotal += positive
     items.push({
       paymentId: p.id,
       direction: p.direction,
@@ -402,7 +406,12 @@ export function selectFinancePayouts(
     })
   }
   items.sort((a, b) => (b.paidAt ?? '').localeCompare(a.paidAt ?? ''))
-  return { items, toCompanyTotal: round2(toCompanyTotal), toReferrerTotal: round2(toReferrerTotal) }
+  return {
+    items,
+    toCompanyTotal: round2(toCompanyTotal),
+    toReferrerTotal: round2(toReferrerTotal),
+    miscTotal: round2(miscTotal),
+  }
 }
 
 // ── 按客户聚合（客户详情页用）：复用上面三个选择器，仅把数据限定到该客户的案件 ──

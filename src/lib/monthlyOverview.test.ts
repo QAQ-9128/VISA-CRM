@@ -15,8 +15,8 @@ import type { Case, Customer, Payment, Referrer } from '../types/models'
 
 // 最小工厂（与 finance.test.ts 同款）
 const mkCase = (o: Partial<Case>): Case => ({
-  id: 'c1', case_number: '00000001', customer_id: 'cu1', visa_subclass: '482', visa_stream: null, case_category: null, current_stage: 'visa_lodged',
-  currency: 'AUD', sync_tracking: true, trt_reminder_enabled: false, parent_case_id: null, parent_sync_progress: false, destination_country: 'Australia', sponsor_position: null, sponsor_employer_id: null, assigned_to: null, created_by: null,
+  id: 'c1', case_number: '00000001', customer_id: 'cu1', visa_subclass: '482', visa_stream: null, case_category: null, case_details: null, current_stage: 'visa_lodged',
+  currency: 'AUD', sync_tracking: true, trt_reminder_enabled: false, trt_reminder_dismissed: false, cohab_reminder_enabled: false, cohab_reminder_last: null, parent_case_id: null, parent_sync_progress: false, destination_country: 'Australia', sponsor_position: null, sponsor_employer_id: null, assigned_to: null, created_by: null,
   is_archived: false, created_at: '', updated_at: '', ...o,
 })
 const mkCustomer = (o: Partial<Customer>): Customer => ({
@@ -36,8 +36,8 @@ const mkReferrer = (o: Partial<Referrer>): Referrer => ({
 })
 
 const receipts = (total: number): FinanceReceipts => ({ items: [], total })
-const payouts = (toCompanyTotal: number, toReferrerTotal: number): FinancePayouts => ({
-  items: [], toCompanyTotal, toReferrerTotal,
+const payouts = (toCompanyTotal: number, toReferrerTotal: number, miscTotal = 0): FinancePayouts => ({
+  items: [], toCompanyTotal, toReferrerTotal, miscTotal,
 })
 const mkPayout = (o: Partial<PayoutItem>): PayoutItem => ({
   paymentId: 'x1', direction: 'to_company', amount: 0, method: 'transfer', customerName: '张三',
@@ -112,6 +112,33 @@ describe('selectMonthlyOverview · 恒等式与对账', () => {
     expect(o.net).toBe(Math.round((o.income - o.expense) * 100) / 100)
   })
 
+  it('三流支出：支出 = 付主代理 + 付介绍人 + 垫付杂项，净额随之（恒等式扩展）', () => {
+    const o = selectMonthlyOverview(receipts(10000), payouts(3000, 1000, 500))
+    expect(o.toCompany).toBe(3000)
+    expect(o.toReferrer).toBe(1000)
+    expect(o.misc).toBe(500)
+    expect(o.expense).toBe(4500)
+    expect(o.net).toBe(5500)
+  })
+
+  it('对账（含垫付杂项）：经 selectFinancePayouts 聚合后，支出 == Σ三流、净额恒等', () => {
+    const cases = { c1: mkCase({}) }
+    const customers = { cu1: mkCustomer({ referrer_id: 'r1' }) }
+    const referrers = { r1: mkReferrer({}) }
+    const pays = [
+      mkPayment({ id: 'a', direction: 'from_client', amount: 9000, paid_at: '2026-05-03' }),
+      mkPayment({ id: 'b', direction: 'to_company', amount: 3000, paid_at: '2026-05-05' }),
+      mkPayment({ id: 'c', direction: 'to_referrer', amount: 800, paid_at: '2026-05-15' }),
+      mkPayment({ id: 'd', direction: 'misc_expense', amount: 350.55, paid_at: '2026-05-16', note: '体检费垫付' }),
+    ]
+    const r = selectFinanceReceipts(pays, cases, customers)
+    const p = selectFinancePayouts(pays, cases, customers, referrers)
+    const o = selectMonthlyOverview(r, p)
+    expect(o.misc).toBe(350.55)
+    expect(o.expense).toBe(Math.round((3000 + 800 + 350.55) * 100) / 100)
+    expect(o.net).toBe(Math.round((9000 - o.expense) * 100) / 100)
+  })
+
   it('空月：全 0，无 delta 时为 null（UI 省略该行）', () => {
     const o = selectMonthlyOverview(receipts(0), payouts(0, 0))
     expect(o).toMatchObject({ income: 0, toCompany: 0, toReferrer: 0, expense: 0, net: 0, delta: null })
@@ -135,15 +162,17 @@ describe('selectMonthlyOverview · 恒等式与对账', () => {
 })
 
 describe('groupPayouts', () => {
-  it('按 direction 分成 付主代理 / 付介绍人 两组，保持原顺序', () => {
+  it('按 direction 分成 付主代理 / 付介绍人 / 垫付杂项 三组，保持原顺序', () => {
     const items = [
       mkPayout({ paymentId: 'x1', direction: 'to_company' }),
       mkPayout({ paymentId: 'x2', direction: 'to_referrer' }),
       mkPayout({ paymentId: 'x3', direction: 'to_company' }),
+      mkPayout({ paymentId: 'x4', direction: 'misc_expense' }),
     ]
     const g = groupPayouts(items)
     expect(g.toCompany.map((i) => i.paymentId)).toEqual(['x1', 'x3'])
     expect(g.toReferrer.map((i) => i.paymentId)).toEqual(['x2'])
+    expect(g.misc.map((i) => i.paymentId)).toEqual(['x4'])
   })
 })
 

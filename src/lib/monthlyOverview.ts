@@ -17,7 +17,9 @@ export interface MonthlyOverview {
   toCompany: number
   /** 付介绍人合计 = payouts.toReferrerTotal */
   toReferrer: number
-  /** 支出小计 = toCompany + toReferrer */
+  /** 垫付杂项合计 = payouts.miscTotal（0034 第三支出流） */
+  misc: number
+  /** 支出小计 = toCompany + toReferrer + misc */
   expense: number
   /** 净额 = income − expense（双流恒等） */
   net: number
@@ -25,17 +27,19 @@ export interface MonthlyOverview {
   delta: { amount: number; pct: number | null } | null
 }
 
+const expenseOf = (p: FinancePayouts) => round2(p.toCompanyTotal + p.toReferrerTotal + p.miscTotal)
+
 export function selectMonthlyOverview(
   receipts: FinanceReceipts,
   payouts: FinancePayouts,
   prevReceipts?: FinanceReceipts,
   prevPayouts?: FinancePayouts,
 ): MonthlyOverview {
-  const expense = round2(payouts.toCompanyTotal + payouts.toReferrerTotal)
+  const expense = expenseOf(payouts)
   const net = round2(receipts.total - expense)
   let delta: MonthlyOverview['delta'] = null
   if (prevReceipts && prevPayouts) {
-    const prevNet = round2(prevReceipts.total - round2(prevPayouts.toCompanyTotal + prevPayouts.toReferrerTotal))
+    const prevNet = round2(prevReceipts.total - expenseOf(prevPayouts))
     const amount = round2(net - prevNet)
     delta = { amount, pct: prevNet === 0 ? null : Math.round((amount / Math.abs(prevNet)) * 100) }
   }
@@ -43,17 +47,23 @@ export function selectMonthlyOverview(
     income: receipts.total,
     toCompany: payouts.toCompanyTotal,
     toReferrer: payouts.toReferrerTotal,
+    misc: payouts.miscTotal,
     expense,
     net,
     delta,
   }
 }
 
-/** 支出明细按 direction 分组（付主代理 / 付介绍人），保持 selector 给定的日期倒序。 */
-export function groupPayouts(items: PayoutItem[]): { toCompany: PayoutItem[]; toReferrer: PayoutItem[] } {
+/** 支出明细按 direction 分组（付主代理 / 付介绍人 / 垫付杂项），保持 selector 给定的日期倒序。 */
+export function groupPayouts(items: PayoutItem[]): {
+  toCompany: PayoutItem[]
+  toReferrer: PayoutItem[]
+  misc: PayoutItem[]
+} {
   return {
     toCompany: items.filter((i) => i.direction === 'to_company'),
     toReferrer: items.filter((i) => i.direction === 'to_referrer'),
+    misc: items.filter((i) => i.direction === 'misc_expense'),
   }
 }
 

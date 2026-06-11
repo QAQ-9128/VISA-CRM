@@ -5,12 +5,9 @@ import { getCustomerPaymentColor } from './finance'
 import type { CustomerPaymentColor } from './finance'
 import { utcDayDiff } from './dateDiff'
 import { computeExpiryStatus } from './expiry'
-import {
-  CASE_STAGES,
-  CASE_STAGE_COLOR,
-  CASE_STAGE_LABELS,
-  DOC_TYPE_LABELS,
-} from '../types/domain'
+import { STATUS_CATEGORY_META, stageCategory } from './statusColor'
+import type { StatusCategory } from './statusColor'
+import { DOC_TYPE_LABELS } from '../types/domain'
 import type { CaseStage } from '../types/domain'
 import type {
   Case,
@@ -35,27 +32,32 @@ export function countActiveCases(cases: Case[]): number {
   return cases.filter((c) => !c.is_archived && !TERMINAL_STAGES.has(c.current_stage)).length
 }
 
-// ── 案件阶段分布：按 current_stage 统计未归档案件 ────────────────
-export interface StageDatum {
-  stage: CaseStage
+// ── 案件分布（概览环图）：按状态 6 类聚合，不再逐阶段出段 ────────────────
+// 6 色统一后「提名递交/签证递交」等同类阶段共色，逐阶段出段会让环上相邻段同色不可分；
+// 改为类别聚合：每段一类一色（紫待办/蓝等待/灰进行中/黄需行动/绿完成），终止类(拒签/撤签)不入环。
+export interface CategoryDatum {
+  category: StatusCategory
   label: string
   count: number
-  /** 十六进制实心色，用于条形/圆点填充 */
+  /** 十六进制实心色，用于环段/圆点填充 */
   color: string
 }
 
-/** 按 CASE_STAGES 流程顺序返回有案件的阶段（count>0）。 */
-export function caseStageDistribution(cases: Case[]): StageDatum[] {
-  const counts = new Map<CaseStage, number>()
+const RING_CATEGORY_ORDER: readonly StatusCategory[] = ['todo', 'waiting', 'inProgress', 'action', 'done']
+
+export function caseCategoryDistribution(cases: Case[]): CategoryDatum[] {
+  const counts = new Map<StatusCategory, number>()
   for (const c of cases) {
     if (c.is_archived) continue
-    counts.set(c.current_stage, (counts.get(c.current_stage) ?? 0) + 1)
+    const cat = stageCategory(c.current_stage)
+    if (cat === 'terminated') continue
+    counts.set(cat, (counts.get(cat) ?? 0) + 1)
   }
-  return CASE_STAGES.filter((s) => (counts.get(s) ?? 0) > 0).map((s) => ({
-    stage: s,
-    label: CASE_STAGE_LABELS[s],
-    count: counts.get(s) ?? 0,
-    color: CASE_STAGE_COLOR[s],
+  return RING_CATEGORY_ORDER.filter((k) => (counts.get(k) ?? 0) > 0).map((k) => ({
+    category: k,
+    label: STATUS_CATEGORY_META[k].label,
+    count: counts.get(k) ?? 0,
+    color: STATUS_CATEGORY_META[k].solid,
   }))
 }
 

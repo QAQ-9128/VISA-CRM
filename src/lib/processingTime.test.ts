@@ -9,22 +9,22 @@ const h = (o: Partial<CaseStageHistory>): CaseStageHistory => ({
   changed_by: null, changed_at: '2026-05-01T00:00:00Z', effective_at: '2026-05-01T00:00:00Z', ...o,
 })
 
-describe('selectProcessingTime（概要带「审理时间」格）', () => {
-  it('当前阶段=提名递交 → 提名审理时间 · 已 N 天（N=今天−真实提名递交日）', () => {
+describe('selectProcessingTime（概要带「审理时长」格）', () => {
+  it('当前阶段=提名递交 → 提名审理时长 · 已 N 天（N=今天−真实提名递交日）', () => {
     const history = [h({ to_stage: 'nomination_lodged', effective_at: '2026-05-05T00:00:00Z' })]
     expect(selectProcessingTime('nomination_lodged', history, TODAY)).toEqual({
-      label: '提名审理时间',
+      label: '提名审理时长',
       days: 30, // 5-05 → 6-04
     })
   })
 
-  it('当前阶段=签证递交 → 签证审理时间（取签证递交日，不看提名）', () => {
+  it('当前阶段=签证递交 → 签证审理时长（取签证递交日，不看提名）', () => {
     const history = [
       h({ id: 'h1', to_stage: 'nomination_lodged', effective_at: '2026-01-01T00:00:00Z' }),
       h({ id: 'h2', to_stage: 'visa_lodged', effective_at: '2026-06-01T00:00:00Z' }),
     ]
     expect(selectProcessingTime('visa_lodged', history, TODAY)).toEqual({
-      label: '签证审理时间',
+      label: '签证审理时长',
       days: 3,
     })
   })
@@ -49,7 +49,7 @@ describe('selectProcessingTime（概要带「审理时间」格）', () => {
       h({ id: 'h2', to_stage: 'visa_lodged', effective_at: '2026-06-04T00:00:00Z' }),
     ]
     expect(selectProcessingTime('visa_lodged', history, TODAY)).toEqual({
-      label: '签证审理时间',
+      label: '签证审理时长',
       days: 0,
     })
   })

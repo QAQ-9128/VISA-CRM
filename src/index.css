@@ -103,3 +103,15 @@ body {
 #root {
   min-height: 100svh;
 }
+
+/* 新建案件级联卡淡入（照 new_case.html 的 fadeUp；用法：animate-[fadeUp_.3s_ease_both]） */
+@keyframes fadeUp {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}

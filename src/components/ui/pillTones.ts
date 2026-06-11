@@ -5,7 +5,7 @@
  * 仅含「底色 + 文字色」，与现有 Badge shell(`rounded-full px-2 py-0.5 text-xs font-medium`)组合使用。
  * 本步只建常量、先不替换任何现有 pill（零视觉变化）。
  *
- * 注意：案件阶段(case_stage)有 12 种语义色，仍用 domain.ts 的 CASE_STAGE_STYLES，不并入 tone。
+ * 注意：案件阶段/流程状态的徽章色不在此处——统一走 lib/statusColor.ts 的 6 类映射。
  */
 export type PillTone = 'neutral' | 'muted' | 'success' | 'warning' | 'danger' | 'info' | 'accent'
 

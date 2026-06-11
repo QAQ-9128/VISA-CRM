@@ -4,9 +4,9 @@ import type { Case } from '../types/models'
 import type { CaseStageHistory } from '../types/models'
 
 const mkCase = (o: Partial<Case>): Case => ({
-  id: 'c1', case_number: '48200001', customer_id: 'cu1', visa_subclass: '482', visa_stream: null, case_category: null,
+  id: 'c1', case_number: '48200001', customer_id: 'cu1', visa_subclass: '482', visa_stream: null, case_category: null, case_details: null,
   current_stage: 'granted', currency: 'AUD', sync_tracking: true, destination_country: null, sponsor_position: null, sponsor_employer_id: null,
-  assigned_to: null, created_by: null, is_archived: false, trt_reminder_enabled: true, parent_case_id: null, parent_sync_progress: false,
+  assigned_to: null, created_by: null, is_archived: false, trt_reminder_enabled: true, trt_reminder_dismissed: false, cohab_reminder_enabled: false, cohab_reminder_last: null, parent_case_id: null, parent_sync_progress: false,
   created_at: '', updated_at: '', ...o,
 })
 const mkHist = (case_id: string, to_stage: CaseStageHistory['to_stage'], effective_at: string, id = `${case_id}-${to_stage}`): CaseStageHistory => ({
@@ -33,6 +33,10 @@ describe('shouldShowTrtReminder', () => {
   it('下签未满 22 个月(660 天) → false', () => {
     const recent = [mkHist('c1', 'granted', '2025-08-01T00:00:00Z')] // ~153 天
     expect(shouldShowTrtReminder(base, [base], recent, TODAY)).toBe(false)
+  })
+  it('已手动停止(dismissed) → false（点了「不再提醒」）', () => {
+    const dismissed = mkCase({ id: 'c1', customer_id: 'cu1', trt_reminder_enabled: true, trt_reminder_dismissed: true })
+    expect(shouldShowTrtReminder(dismissed, [dismissed], grantedLongAgo, TODAY)).toBe(false)
   })
   it('客户已开 186 TRT 案 → false（提醒消失）', () => {
     const trt = mkCase({ id: 'c2', customer_id: 'cu1', visa_subclass: '186', visa_stream: 'Temporary Residence Transition' })
@@ -63,11 +67,13 @@ describe('selectTrtReminders', () => {
     expect(r[0]).toMatchObject({ customerId: 'cu1', customerName: '王芳', caseId: 'c1', caseNumber: '48200001' })
     expect(r[0].monthsSinceGrant).toBeGreaterThanOrEqual(22)
   })
-  it('不符合条件的不列出（未勾选 / 已开 186TRT）', () => {
+  it('不符合条件的不列出（未勾选 / 已开 186TRT / 已手动停止）', () => {
     const off = mkCase({ id: 'c1', customer_id: 'cu1', trt_reminder_enabled: false })
     expect(selectTrtReminders([off], grantedLongAgo, customerById, TODAY)).toEqual([])
     const c1 = mkCase({ id: 'c1', customer_id: 'cu1', visa_subclass: '482', trt_reminder_enabled: true })
     const trt = mkCase({ id: 'c2', customer_id: 'cu1', visa_subclass: '186', visa_stream: 'Temporary Residence Transition' })
     expect(selectTrtReminders([c1, trt], grantedLongAgo, customerById, TODAY)).toEqual([])
+    const dismissed = mkCase({ id: 'c1', customer_id: 'cu1', visa_subclass: '482', trt_reminder_enabled: true, trt_reminder_dismissed: true })
+    expect(selectTrtReminders([dismissed], grantedLongAgo, customerById, TODAY)).toEqual([])
   })
 })

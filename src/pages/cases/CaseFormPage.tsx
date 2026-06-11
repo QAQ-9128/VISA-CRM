@@ -1,12 +1,13 @@
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { CaseForm } from '../../components/cases/CaseForm'
 import type { CaseFormNext, CaseFormValues } from '../../components/cases/CaseForm'
+import { EMPTY_CASCADE } from '../../lib/caseTypeCascade'
+import type { CascadeValue } from '../../lib/caseTypeCascade'
 import { useCase, useCreateCase, useUpdateCase } from '../../hooks/queries/useCases'
 import { useCustomer } from '../../hooks/queries/useCustomers'
 import { useCaseApplicants, useSetCaseApplicants } from '../../hooks/queries/useCaseApplicants'
 import type { Case } from '../../types/models'
 import { BackLink } from '../../components/ui/BackLink'
-import { Card } from '../../components/ui/Card'
 import { LoadingBlock, ErrorBlock } from '../../components/ui/states'
 import { useSmartBack } from '../../hooks/useSmartBack'
 
@@ -27,6 +28,12 @@ export function CaseFormPage() {
   const withIds = [...new Set(params.get('with')?.split(',').filter(Boolean) ?? [])].filter(
     (cid) => cid !== customerId,
   )
+  // ?prefill=186trt（从 482→186 TRT 提醒卡进来）：预填 大类=签证申请 / 类型=186 ENS / Stream=TRT。
+  // visa_stream 值必须为 'Temporary Residence Transition'（与目录一致，lib/trt 精确匹配 186 TRT 检测靠它）。
+  const prefill: CascadeValue | undefined =
+    !editing && params.get('prefill') === '186trt'
+      ? { ...EMPTY_CASCADE, category: '签证申请', visaType: '186', stream: 'Temporary Residence Transition' }
+      : undefined
   const createM = useCreateCase()
   const updateM = useUpdateCase()
   const setApplicantsM = useSetCaseApplicants()
@@ -76,26 +83,40 @@ export function CaseFormPage() {
     }
   }
 
+  const form = (
+    <CaseForm
+      customerId={customerId as string}
+      customerLabel={customer.data?.full_name ?? '…'}
+      initial={editing ? existing.data ?? undefined : undefined}
+      prefill={prefill}
+      initialApplicantIds={editing ? (existingApplicants.data ?? []).map((a) => a.customer_id) : withIds}
+      submitting={submitting}
+      error={errorMsg}
+      onSubmit={handleSubmit}
+      onCancel={goBack}
+    />
+  )
+
   return (
     <section className="w-full">
       <div className="mb-3">
         <BackLink to={`/customers/${customerId ?? ''}`} label="返回客户档案" />
       </div>
       <h1 className="text-2xl font-bold tracking-[-0.02em] text-ink">
-        {editing ? '编辑案件' : '新建案件'}
+        {editing ? '编辑案件' : '新增案件'}
       </h1>
-      <Card className="mt-5">
-        <CaseForm
-          customerId={customerId as string}
-          customerLabel={customer.data?.full_name ?? '…'}
-          initial={editing ? existing.data ?? undefined : undefined}
-          initialApplicantIds={editing ? (existingApplicants.data ?? []).map((a) => a.customer_id) : withIds}
-          submitting={submitting}
-          error={errorMsg}
-          onSubmit={handleSubmit}
-          onCancel={goBack}
-        />
-      </Card>
+      {/* 客户 pill（照 new_case.html client-tag）：新建模式在页头标识案件客户 */}
+      {!editing && (
+        <div className="mt-2.5 inline-flex items-center gap-1.5 rounded-full bg-brand-50 px-3 py-1.5 text-[13px] font-semibold text-brand-700">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="size-[13px]" aria-hidden>
+            <circle cx="12" cy="8" r="4" />
+            <path d="M4 20c0-4 3.6-7 8-7s8 3 8 7" />
+          </svg>
+          {customer.data?.full_name ?? '…'}
+        </div>
+      )}
+      {/* 新建/编辑均用级联自带分卡（案件类型 → 详情 → Group/操作），不再套外卡（避免卡中卡） */}
+      <div className="mt-5">{form}</div>
     </section>
   )
 }

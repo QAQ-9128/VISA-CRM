@@ -66,11 +66,15 @@ describe('matchesCustomerFilter', () => {
     expect(matchesCustomerFilter(cust({ client_source: 'red' }), f)).toBe(false)
   })
 
-  it('按雇主 / 介绍人；缺该字段被排除', () => {
-    expect(matchesCustomerFilter(cust({ sponsor_employer_id: 'e1' }), filter({ employerIds: new Set(['e1']) }))).toBe(true)
-    expect(matchesCustomerFilter(cust({ sponsor_employer_id: null }), filter({ employerIds: new Set(['e1']) }))).toBe(false)
-    expect(matchesCustomerFilter(cust({ referrer_id: 'r1' }), filter({ referrerIds: new Set(['r1']) }))).toBe(true)
-    expect(matchesCustomerFilter(cust({ referrer_id: null }), filter({ referrerIds: new Set(['r1']) }))).toBe(false)
+  it('按客户归属人（owner_referrer_id）；无归属被排除', () => {
+    expect(matchesCustomerFilter(cust({ owner_referrer_id: 'o1' }), filter({ ownerIds: new Set(['o1']) }))).toBe(true)
+    expect(matchesCustomerFilter(cust({ owner_referrer_id: 'o2' }), filter({ ownerIds: new Set(['o1']) }))).toBe(false)
+    expect(matchesCustomerFilter(cust({ owner_referrer_id: null }), filter({ ownerIds: new Set(['o1']) }))).toBe(false)
+  })
+
+  it('担保雇主 / 介绍人不再是筛选维度（数据字段不影响命中）', () => {
+    // 即使客户带这两个字段，空筛选下照常命中——它们不再参与过滤
+    expect(matchesCustomerFilter(cust({ sponsor_employer_id: 'e1', referrer_id: 'r1' }), EMPTY_CUSTOMER_FILTER)).toBe(true)
   })
 
   it('跨维度为「且」', () => {
@@ -94,11 +98,11 @@ describe('matchesVisaFilter（按案件签证类别）', () => {
 })
 
 describe('customerFilterCount', () => {
-  it('累计各维度已选数 + 星标开关（含签证）', () => {
+  it('累计各维度已选数 + 星标开关（含签证 / 归属人）', () => {
     expect(customerFilterCount(EMPTY_CUSTOMER_FILTER)).toBe(0)
     expect(
       customerFilterCount(
-        filter({ sources: new Set(['green', 'red']), employerIds: new Set(['e1']), subclasses: new Set(['482']), starredOnly: true }),
+        filter({ sources: new Set(['green', 'red']), ownerIds: new Set(['o1']), subclasses: new Set(['482']), starredOnly: true }),
       ),
     ).toBe(5)
   })

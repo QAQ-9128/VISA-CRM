@@ -15,6 +15,7 @@ import {
 } from '../../api/cases'
 import type { CaseStageHistoryUpdate, UpdateCaseStageParams } from '../../api/cases'
 import { ensureLodgement } from '../../api/lodgements'
+import { todayYmd } from '../../lib/dateRules'
 import type { CaseInsert, CaseUpdate } from '../../types/models'
 import type { CaseStage, LodgementType } from '../../types/domain'
 import { useAuth } from '../useAuth'
@@ -81,6 +82,33 @@ export function useUpdateCase() {
     mutationFn: ({ id, patch }: { id: string; patch: CaseUpdate }) => updateCase(id, patch),
     onSuccess: () => invalidateCases(qc),
     meta: { success: '案件已保存', errorPrefix: '保存案件失败' },
+  })
+}
+
+/**
+ * 「不再提醒」：手动停止某案的 482→186 TRT 提醒（置 trt_reminder_dismissed=true）。
+ * 复用 updateCase + invalidateCases —— 失效案件键 + dashboard.activeCases，客户页绿卡与概览
+ * 临近到期条随之消失（提醒派生于这两处的案件数据）。
+ */
+export function useDismissTrtReminder() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (id: string) => updateCase(id, { trt_reminder_dismissed: true }),
+    onSuccess: () => invalidateCases(qc),
+    meta: { success: '已停止该案的 186 TRT 提醒', errorPrefix: '操作失败' },
+  })
+}
+
+/**
+ * 「本次已更新」：同居材料已收集，把周期锚点顺延到今天（cohab_reminder_last），
+ * 下一个 3 个月周期到点再次提醒（lib/cohab 派生）。失效口径同 TRT 提醒。
+ */
+export function useMarkCohabUpdated() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (id: string) => updateCase(id, { cohab_reminder_last: todayYmd() }),
+    onSuccess: () => invalidateCases(qc),
+    meta: { success: '已记录本次更新，3 个月后再次提醒', errorPrefix: '操作失败' },
   })
 }
 

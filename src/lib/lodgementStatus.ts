@@ -4,23 +4,14 @@ import type { CaseStageHistory } from '../types/models'
 /**
  * lodgement 状态从 case_stage 实时派生（不存独立字段）。纯函数。
  *  - 提名 lodgement：case_stage 在「提名获批」及之后（签证递交/要求补件/补件完毕/下签，含旧 additional_docs）→ 已批；
+ *    历史里明确出现过「提名获批」也 → 已批（如提名获批后签证被拒：与 flowProcessing 的冻结口径一致）；
  *  - 签证 lodgement：case_stage 为「下签」→ 已批；
  *  - case_stage 为「拒签」：看 case_stage_history 最近一次涉及的 lodgement 类型，该类型 → 已拒，另一个 → 待决；
  *  - 其余 → 待决。
  */
 export type LodgementDerivedStatus = 'approved' | 'refused' | 'pending'
-
-export const LODGEMENT_STATUS_LABELS: Record<LodgementDerivedStatus, string> = {
-  approved: '已批',
-  refused: '已拒',
-  pending: '待决',
-}
-
-export const LODGEMENT_STATUS_STYLES: Record<LodgementDerivedStatus, string> = {
-  approved: 'bg-emerald-100 text-emerald-800',
-  refused: 'bg-rose-100 text-rose-800',
-  pending: 'bg-slate-100 text-slate-600',
-}
+// 状态配色见 lib/statusColor.ts（FLOW_STATUS_CATEGORY，6 类全站统一）；
+// 旧的 LODGEMENT_STATUS_LABELS/STYLES（零散逐状态配色，已无使用方）已删。
 
 // 提名视为「已批」的阶段集合（提名获批及之后，不含拒签；含旧 additional_docs）
 const NOM_APPROVED_STAGES = new Set<CaseStage>([
@@ -68,16 +59,24 @@ export function getLodgementLodgedDate(
   return best ? best.slice(0, 10) : null
 }
 
+// 历史里明确记录过「提名获批」（仅认显式记录，不用 POST 阶段集推断：
+// 联合递交未记提名获批时不能凭签证递交断言提名已批——见测试「最近是签证递交」）
+function nomApprovedInHistory(history: CaseStageHistory[]): boolean {
+  return history.some((h) => h.to_stage === 'nomination_approved')
+}
+
 export function getLodgementStatus(
   caseStage: CaseStage,
   lodgementType: LodgementType,
   caseStageHistory: CaseStageHistory[] = [],
 ): LodgementDerivedStatus {
   if (caseStage === 'refused') {
-    return refusedLodgementType(caseStageHistory) === lodgementType ? 'refused' : 'pending'
+    if (refusedLodgementType(caseStageHistory) === lodgementType) return 'refused'
+    // 提名获批→签证被拒：提名不是被拒方且历史明确获批 → 仍显已批（否则待决）
+    return lodgementType === 'nomination' && nomApprovedInHistory(caseStageHistory) ? 'approved' : 'pending'
   }
   if (lodgementType === 'nomination') {
-    return NOM_APPROVED_STAGES.has(caseStage) ? 'approved' : 'pending'
+    return NOM_APPROVED_STAGES.has(caseStage) || nomApprovedInHistory(caseStageHistory) ? 'approved' : 'pending'
   }
   return caseStage === 'granted' ? 'approved' : 'pending'
 }

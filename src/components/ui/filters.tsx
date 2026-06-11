@@ -71,11 +71,11 @@ export function Chip({
   )
 }
 
-/** 一组筛选项：左侧固定宽标签 + 可换行的 chip 群。 */
+/** 一组筛选项：左侧标签（最小 64px 对齐，长标签如「客户归属人」不折行）+ 可换行的 chip 群。 */
 export function FilterGroup({ label, children }: { label: string; children: ReactNode }) {
   return (
     <div className="flex flex-wrap items-center gap-2">
-      <span className="w-16 shrink-0 text-[13.5px] font-bold text-muted">{label}</span>
+      <span className="min-w-16 shrink-0 text-[13.5px] font-bold whitespace-nowrap text-muted">{label}</span>
       {children}
     </div>
   )

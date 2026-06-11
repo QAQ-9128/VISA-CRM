@@ -6,7 +6,7 @@ import {
   selectOverdueInstallments,
   selectTodoCases,
   countActiveCases,
-  caseStageDistribution,
+  caseCategoryDistribution,
   sumClientReceiptsInMonth,
   selectExpiringDocs,
 } from './dashboard'
@@ -23,7 +23,7 @@ import type {
 const TODAY = new Date(2026, 0, 15)
 
 // 测试用的最小工厂
-const mkCase = (o: Partial<Case>): Case => ({ id: 'c1', case_number: '00000001', customer_id: 'cu1', visa_subclass: '482', visa_stream: null, case_category: null, current_stage: 'visa_lodged', currency: 'AUD', sync_tracking: true, trt_reminder_enabled: false, parent_case_id: null, parent_sync_progress: false, destination_country: 'Australia', sponsor_position: null, sponsor_employer_id: null, assigned_to: null, created_by: null, is_archived: false, created_at: '', updated_at: '', ...o })
+const mkCase = (o: Partial<Case>): Case => ({ id: 'c1', case_number: '00000001', customer_id: 'cu1', visa_subclass: '482', visa_stream: null, case_category: null, case_details: null, current_stage: 'visa_lodged', currency: 'AUD', sync_tracking: true, trt_reminder_enabled: false, trt_reminder_dismissed: false, cohab_reminder_enabled: false, cohab_reminder_last: null, parent_case_id: null, parent_sync_progress: false, destination_country: 'Australia', sponsor_position: null, sponsor_employer_id: null, assigned_to: null, created_by: null, is_archived: false, created_at: '', updated_at: '', ...o })
 const mkCustomer = (o: Partial<Customer>): Customer => ({ id: 'cu1', full_name: '张三', is_starred: false, client_source: null, primary_applicant_id: null, relationship_to_primary: null, birth_date: null, gender: null, passport_no: null, nationality: null, phone: null, email: null, wechat: null, address: null, sponsor_employer_id: null, sponsor_position: null, referrer_id: null, owner_referrer_id: null, notes: null, assigned_to: null, created_by: null, is_archived: false, created_at: '', updated_at: '', ...o })
 
 describe('selectTodoCases（待办案件：current_stage=todo、未归档，按 created_at 倒序；含在册参与人）', () => {
@@ -290,27 +290,37 @@ describe('countActiveCases（进行中案件：未归档且非终态 granted/ref
   })
 })
 
-describe('caseStageDistribution（按 current_stage 统计未归档案件，按流程顺序，仅 count>0）', () => {
-  it('计数并按 CASE_STAGES 顺序排列、含标签与配色、跳过归档与零项', () => {
+describe('caseCategoryDistribution（环图按状态 6 类聚合——同类阶段并段，环上不再同色相邻）', () => {
+  it('按类别聚合计数：提名递交+签证递交并入「进行中」一段；类别顺序固定；跳过归档与零项', () => {
     const cases = [
       mkCase({ id: '1', current_stage: 'todo' }),
       mkCase({ id: '2', current_stage: 'visa_lodged' }),
-      mkCase({ id: '3', current_stage: 'visa_lodged' }),
-      mkCase({ id: '4', current_stage: 'todo' }),
-      mkCase({ id: '5', current_stage: 'granted' }),
-      mkCase({ id: '6', current_stage: 'visa_lodged', is_archived: true }), // 归档不计
+      mkCase({ id: '3', current_stage: 'nomination_lodged' }), // 与签证递交同属进行中 → 并段
+      mkCase({ id: '4', current_stage: 'awaiting_payment' }),
+      mkCase({ id: '5', current_stage: 'docs_requested' }),
+      mkCase({ id: '6', current_stage: 'granted' }),
+      mkCase({ id: '7', current_stage: 'visa_lodged', is_archived: true }), // 归档不计
     ]
-    const r = caseStageDistribution(cases)
-    expect(r.map((x) => [x.stage, x.count])).toEqual([
-      ['todo', 2],
-      ['visa_lodged', 2],
-      ['granted', 1],
+    const r = caseCategoryDistribution(cases)
+    expect(r.map((x) => [x.category, x.count])).toEqual([
+      ['todo', 1],
+      ['waiting', 1],
+      ['inProgress', 2],
+      ['action', 1],
+      ['done', 1],
     ])
-    expect(r[0]).toMatchObject({ label: '待办' })
-    expect(r[0].color).toMatch(/^#/) // 有十六进制配色
+    expect(r.map((x) => x.label)).toEqual(['待办/未开始', '等待外部', '进行中/已递交', '需要行动', '完成/获批'])
+    // 各段颜色互不相同（修复 6 色统一后环图相邻同灰不可分的问题）
+    expect(new Set(r.map((x) => x.color)).size).toBe(r.length)
+    expect(r.every((x) => /^#/.test(x.color))).toBe(true)
   })
-  it('空 → 空数组', () => {
-    expect(caseStageDistribution([])).toEqual([])
+  it('终止类（拒签/撤签）不入环；空 → 空数组', () => {
+    const cases = [
+      mkCase({ id: '1', current_stage: 'refused' }),
+      mkCase({ id: '2', current_stage: 'withdrawn' }),
+    ]
+    expect(caseCategoryDistribution(cases)).toEqual([])
+    expect(caseCategoryDistribution([])).toEqual([])
   })
 })
 

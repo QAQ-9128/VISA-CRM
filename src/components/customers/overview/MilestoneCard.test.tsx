@@ -1,33 +1,83 @@
 import { describe, expect, it } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import { MilestoneCard } from './MilestoneCard'
+import type { FlowProcessing } from '../../../lib/casesTable'
 
-describe('MilestoneCard（提名/签证递交里程碑卡）', () => {
-  it('未获批：显示「已过 X」距今时间，绿色（#357a52 = emerald-700）', () => {
-    render(<MilestoneCard title="提名递交" date="2026-01-01" dhaDays={null} />)
-    const el = screen.getByText(/已过 /)
-    expect(el).toBeInTheDocument()
-    expect(el.className).toContain('text-emerald-700')
+const processing = (over: Partial<FlowProcessing> = {}): FlowProcessing => ({
+  lodged: '2026-01-01',
+  approved: false,
+  daysSince: 96,
+  elapsed: { months: 3, days: 6 },
+  ...over,
+})
+
+describe('MilestoneCard（提名/签证递交里程碑卡 · 审理时长+状态，与进度表同一来源口径）', () => {
+  it('审理中：显示「审理时长」绿色数值 + 灰色「审理中」徽章 + DHA 剩余/超期行', () => {
+    render(<MilestoneCard title="签证递交" dhaDays={120} processing={processing()} status="pending" />)
+    const dur = screen.getByText('3 个月 6 天')
+    expect(dur.className).toContain('text-emerald-700')
+    expect(screen.getByText(/审理时长/)).toBeInTheDocument()
+    const badge = screen.getByText('审理中')
+    expect(badge.className).toContain('mute') // 灰（statusColor 进行中类）
+    // DHA 对照行仍在（按真实今天算剩余/超期；2026-01-01 + 120 天已过 → 超期形态）
+    expect(screen.getByText(/剩 \d+ 天|已超期 \d+ 天/)).toBeInTheDocument()
   })
 
-  it('已获批：显示绿色「提名获批」，不再显示已过天数与剩余天数', () => {
-    render(<MilestoneCard title="提名递交" date="2026-01-01" dhaDays={120} approvedLabel="提名获批" />)
-    const el = screen.getByText('提名获批')
-    expect(el.className).toContain('text-emerald-700')
+  it('已获批：时长定格仍显示（绿）+ 绿色「获批」徽章；不再有「提名获批」字样与剩余天数', () => {
+    render(
+      <MilestoneCard
+        title="提名递交"
+        dhaDays={120}
+        processing={processing({ approved: true, daysSince: 45, elapsed: { months: 1, days: 15 } })}
+        status="approved"
+      />,
+    )
+    expect(screen.getByText('1 个月 15 天').className).toContain('text-emerald-700')
+    const badge = screen.getByText('获批')
+    expect(badge.className).toContain('text-emerald-700')
+    expect(screen.queryByText('提名获批')).toBeNull()
     expect(screen.queryByText(/已过 /)).toBeNull()
     expect(screen.queryByText(/剩 \d+ 天/)).toBeNull()
     expect(screen.queryByText(/已超期/)).toBeNull()
   })
 
-  it('签证卡同理：签证获批替代时长', () => {
-    render(<MilestoneCard title="签证递交" date="2026-02-01" dhaDays={null} approvedLabel="签证获批" />)
-    expect(screen.getByText('签证获批').className).toContain('text-emerald-700')
-    expect(screen.queryByText(/已过 /)).toBeNull()
+  it('已拒：玫红「已拒」徽章，时长（冻结值）仍显示', () => {
+    render(
+      <MilestoneCard
+        title="提名递交"
+        dhaDays={null}
+        processing={processing({ daysSince: 59, elapsed: { months: 1, days: 29 } })}
+        status="refused"
+      />,
+    )
+    expect(screen.getByText('已拒').className).toContain('text-rose-700')
+    expect(screen.getByText('1 个月 29 天')).toBeInTheDocument()
   })
 
-  it('无递交日期：显示「—」占位，即使传了获批标签也不显示（无递交无从获批展示）', () => {
-    render(<MilestoneCard title="提名递交" date={null} dhaDays={null} approvedLabel="提名获批" />)
+  it('已拒 + 有 DHA 天数：不再显示按今天实时累计的「剩/已超期」行（时长已冻结，超期天数不应继续上涨）', () => {
+    render(
+      <MilestoneCard
+        title="签证递交"
+        dhaDays={120}
+        processing={processing({ daysSince: 59, elapsed: { months: 1, days: 29 } })}
+        status="refused"
+      />,
+    )
+    expect(screen.queryByText(/剩 \d+ 天/)).toBeNull()
+    expect(screen.queryByText(/已超期/)).toBeNull()
+  })
+
+  it('无递交日期：日期与时长显示「—」，无状态徽章、无时长行', () => {
+    render(
+      <MilestoneCard
+        title="提名递交"
+        dhaDays={null}
+        processing={processing({ lodged: null, daysSince: null, elapsed: null })}
+        status={null}
+      />,
+    )
     expect(screen.getByText('—')).toBeInTheDocument()
-    expect(screen.queryByText('提名获批')).toBeNull()
+    expect(screen.queryByText('审理中')).toBeNull()
+    expect(screen.queryByText(/审理时长/)).toBeNull()
   })
 })

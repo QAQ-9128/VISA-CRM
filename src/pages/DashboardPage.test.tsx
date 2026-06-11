@@ -20,7 +20,6 @@ vi.mock('../hooks/useAuth', () => ({ useAuth: () => ({ user: null, profile: null
 
 import { DashboardPage } from './DashboardPage'
 
-const stage = (stage: string, label: string, count: number, color: string) => ({ stage, label, count, color })
 const looseItem = (id: string, content: string) => ({
   id, content, is_done: false, customer_id: null, case_id: null,
   created_by: null, created_at: '', updated_at: '',
@@ -30,14 +29,15 @@ function setDash(over: Record<string, unknown> = {}) {
   dash.data = {
     isPending: false, isError: false,
     activeCaseCount: 27,
-    stageDistribution: [
-      stage('todo', '待办', 5, '#9ba59b'),
-      stage('drafted', '已草拟', 4, '#e0a23c'),
-      stage('nomination_lodged', '提名递交', 5, '#3f7cb5'),
-      stage('nomination_approved', '提名获批', 2, '#36b3c2'),
-      stage('visa_lodged', '签证递交', 11, '#7c6fd6'),
-      stage('granted', '下签', 10, '#4e9a6b'),
+    // 环图按状态 6 类聚合（caseCategoryDistribution 的形状）
+    categoryDistribution: [
+      { category: 'todo', label: '待办/未开始', count: 5, color: '#7c6fd6' },
+      { category: 'waiting', label: '等待外部', count: 1, color: '#3f7cb5' },
+      { category: 'inProgress', label: '进行中/已递交', count: 20, color: '#7e887e' },
+      { category: 'action', label: '需要行动', count: 1, color: '#c08a2e' },
+      { category: 'done', label: '完成/获批', count: 12, color: '#357a52' },
     ],
+    grantedCount: 10,
     todoCases: [
       { caseId: 'k1', customerId: 'cu1', customerName: '测试2222222', participants: [{ id: 'cu1', name: '测试2222222' }], visaLabel: '494' },
       { caseId: 'k2', customerId: 'cu2', customerName: '测试1111111', participants: [{ id: 'cu2', name: '测试1111111' }], visaLabel: '186' },
@@ -54,6 +54,7 @@ function setDash(over: Record<string, unknown> = {}) {
     ],
     expiringDocItems: [],
     trtReminders: [],
+    cohabReminders: [],
     overdueInstallments: [],
     ...over,
   }
@@ -124,14 +125,16 @@ describe('DashboardPage · 概览精简 5 块（mockup 重做）', () => {
     expect(screen.getByRole('button', { name: /客户欠款总额/ })).toBeInTheDocument()
   })
 
-  it('③ 案件阶段分布：在办/已下签小字 + 六阶段图例计数逐一吻合', () => {
+  it('③ 案件分布环：在办/已下签小字 + 按状态类别聚合的图例（每类一段一色）', () => {
     renderPage()
     expect(screen.getByText('案件阶段分布')).toBeInTheDocument()
     expect(screen.getByText('在办 27 · 已下签 10')).toBeInTheDocument()
-    for (const [label, count] of [['已草拟', 4], ['提名递交', 5], ['提名获批', 2], ['签证递交', 11]] as const) {
+    for (const [label, count] of [['待办/未开始', 5], ['等待外部', 1], ['进行中/已递交', 20], ['需要行动', 1], ['完成/获批', 12]] as const) {
       const row = screen.getByText(label).closest('div')!
       expect(row.textContent).toContain(String(count))
     }
+    // 不再逐阶段出段（旧图例的具体阶段行已被类别行替代）
+    expect(screen.queryByText('提名获批')).toBeNull()
     expect(screen.getByRole('link', { name: /全部案件/ })).toHaveAttribute('href', '/cases')
   })
 
@@ -153,7 +156,7 @@ describe('DashboardPage · 概览精简 5 块（mockup 重做）', () => {
     expect(screen.getByText('待办清单')).toBeInTheDocument()
     expect(screen.getByPlaceholderText(/写一句待办/)).toBeInTheDocument()
     expect(screen.getByRole('button', { name: '添加' })).toBeInTheDocument()
-    expect(screen.getByText(/临近到期（签证 \/ 文件 \/ TRT）/)).toBeInTheDocument()
+    expect(screen.getByText(/临近到期（签证 \/ 文件 \/ TRT \/ 同居材料）/)).toBeInTheDocument()
     expect(screen.getByText(/近 30 天无临近到期/)).toBeInTheDocument()
     expect(screen.getByText('2026/6/1 Guoywfan 提名')).toBeInTheDocument()
     expect(screen.getAllByText('随手记')).toHaveLength(6)
@@ -189,7 +192,7 @@ describe('DashboardPage · 概览精简 5 块（mockup 重做）', () => {
     expect(a.getAttribute('href')).toContain('immi.homeaffairs.gov.au')
   })
 
-  it('临近到期有数据：摘要计数含 TRT，条内显示客户名', () => {
+  it('临近到期有数据：摘要计数含 TRT + 同居材料，条内显示客户名', () => {
     setDash({
       expiringDocItems: [
         { id: 'e1', customerId: 'cu1', customerName: '王璞', label: '护照 · 30 天', daysRemaining: 30, status: 'soon', tone: 'amber', ic: 'passport' },
@@ -197,12 +200,18 @@ describe('DashboardPage · 概览精简 5 块（mockup 重做）', () => {
       trtReminders: [
         { caseId: 'k3', customerId: 'cu3', customerName: '孙佳琪', monthsSinceGrant: 25 },
       ],
+      cohabReminders: [
+        { caseId: 'k9', customerId: 'cu9', customerName: '张献元', caseNumber: 'C9', monthsSince: 4 },
+      ],
     })
     const { container } = renderPage()
-    expect(container.querySelector('header p')?.textContent).toContain('临近到期 2 个')
+    expect(container.querySelector('header p')?.textContent).toContain('临近到期 3 个')
     expect(screen.queryByText(/近 30 天无临近到期/)).toBeNull()
     expect(screen.getByText(/护照 · 30 天/)).toBeInTheDocument()
     expect(screen.getByText(/186 TRT 可办/)).toBeInTheDocument()
+    // 186/配偶签 3 个月循环提醒：更新同居材料（链到该客户并选中该案）
+    const cohabLine = screen.getByText(/更新同居材料 · 距上次 4 个月/)
+    expect(cohabLine.closest('a')?.getAttribute('href')).toBe('/customers/cu9?case=k9')
   })
 
   it('旧块全部移除：月度趋势柱图 / 星标客户 / 逾期未付款大卡 / 递交进度表 / 独立到期卡', () => {
@@ -218,7 +227,8 @@ describe('DashboardPage · 概览精简 5 块（mockup 重做）', () => {
   it('空数据：各块空态、不报错、不出假数字', () => {
     setDash({
       activeCaseCount: 0,
-      stageDistribution: [],
+      categoryDistribution: [],
+      grantedCount: 0,
       todoCases: [],
       thisMonthReceipts: 0,
       debtTotals: { clientOwesTotal: 0, companyOwesTotal: 0 },

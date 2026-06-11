@@ -1,23 +1,23 @@
 import { CASE_STAGE_LABELS, LODGEMENT_OUTCOME_LABELS, LODGEMENT_TYPE_LABELS } from '../types/domain'
 import type { CaseStage } from '../types/domain'
 import type { LodgementDerivedStatus } from './lodgementStatus'
+import type { StatusCategory } from './statusColor'
 import type { CaseStageHistory, Lodgement } from '../types/models'
-
-/** 状态卡色调：橙=待递交 / 绿=已递交·已获批 / 红=已拒 / 灰=撤回·未知。 */
-export type LodgementCardTone = 'amber' | 'emerald' | 'rose' | 'slate'
 
 export interface LodgementCardStatus {
   /** 是否已递交（递交日期是否存在） */
   lodged: boolean
   label: string
-  tone: LodgementCardTone
+  /** 状态类别（颜色查 lib/statusColor 的 STATUS_CATEGORY_META，6 类全站统一） */
+  category: StatusCategory
   /** 最后更新日期（lodgement.updated_at）；无 lodgement 记录则 null */
   lastUpdated: string | null
 }
 
 /**
  * 提名/签证状态卡：先看是否已递交（lodged_date 派生），再叠加派生 outcome。
- * 全部基于真实数据：未递交→待递交(橙)；已递交且待决→已递交(绿)；已批→已获批(绿)；已拒→已拒签(红)。
+ * 全部基于真实数据：未递交→待递交(紫·未开始)；已递交且待决→已递交(灰·进行中)；
+ * 已批→已获批(绿)；已拒→已拒签(红)。
  */
 export function lodgementCardStatus(
   lodgedDate: string | null,
@@ -25,10 +25,10 @@ export function lodgementCardStatus(
   lodgement?: Pick<Lodgement, 'updated_at'>,
 ): LodgementCardStatus {
   const lastUpdated = lodgement?.updated_at ? lodgement.updated_at.slice(0, 10) : null
-  if (!lodgedDate) return { lodged: false, label: '待递交', tone: 'amber', lastUpdated }
-  if (derived === 'approved') return { lodged: true, label: '已获批', tone: 'emerald', lastUpdated }
-  if (derived === 'refused') return { lodged: true, label: '已拒签', tone: 'rose', lastUpdated }
-  return { lodged: true, label: '已递交', tone: 'emerald', lastUpdated }
+  if (!lodgedDate) return { lodged: false, label: '待递交', category: 'todo', lastUpdated }
+  if (derived === 'approved') return { lodged: true, label: '已获批', category: 'done', lastUpdated }
+  if (derived === 'refused') return { lodged: true, label: '已拒签', category: 'terminated', lastUpdated }
+  return { lodged: true, label: '已递交', category: 'inProgress', lastUpdated }
 }
 
 /** 递交时间线一条（由 case_stage_history + lodgement outcome 派生，全真实）。 */

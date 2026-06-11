@@ -183,7 +183,7 @@ export function FinancePage() {
     () =>
       selectMonthlyOverview(
         receipts ?? { items: [], total: 0 },
-        payouts ?? { items: [], toCompanyTotal: 0, toReferrerTotal: 0 },
+        payouts ?? { items: [], toCompanyTotal: 0, toReferrerTotal: 0, miscTotal: 0 },
         hasPrev ? prevReceipts : undefined,
         hasPrev ? prevPayouts : undefined,
       ),
@@ -200,7 +200,7 @@ export function FinancePage() {
     money: formatMoney(Math.abs(d.amount)),
     pct: d.pct === null ? '' : `（${d.pct >= 0 ? '+' : '−'}${Math.abs(d.pct)}%）`,
   }
-  const expenseCount = groups.toCompany.length + groups.toReferrer.length
+  const expenseCount = groups.toCompany.length + groups.toReferrer.length + groups.misc.length
 
   return (
     <section className="mx-auto max-w-[1180px]">
@@ -299,13 +299,13 @@ export function FinancePage() {
           <div className="text-[13px] text-muted">{period}收入 · 客户已收</div>
           <KpiValue amount={overview.income} className="text-emerald-700" ccyClassName="text-faint" />
         </div>
-        {/* 支出（珊瑚红）：小字 = 真实分组和 */}
+        {/* 支出（珊瑚红）：三流（付主代理/付介绍人/垫付杂项），小字 = 真实分组和 */}
         <div className={`rounded-[20px] bg-white p-[20px_22px] ${CARD_SHADOW}`}>
           <span className={`mb-[13px] grid size-10 place-items-center rounded-[12px] bg-rose-50 text-[19px] ${CORAL_D}`}>↗</span>
-          <div className="text-[13px] text-muted">{period}支出 · 付主代理 + 付介绍人</div>
+          <div className="text-[13px] text-muted">{period}支出 · 付主代理 + 介绍人 + 垫付</div>
           <KpiValue amount={overview.expense} className={CORAL_D} ccyClassName="text-faint" />
           <div className="mt-2 text-[12px] tabular-nums text-faint">
-            付主代理 {formatAmount(overview.toCompany)} · 付介绍人 {formatAmount(overview.toReferrer)}
+            付主代理 {formatAmount(overview.toCompany)} · 付介绍人 {formatAmount(overview.toReferrer)} · 垫付杂项 {formatAmount(overview.misc)}
           </div>
         </div>
         {/* 净额（深绿渐变实心）：小字 = 较上月（仅上月有流水时显示） */}
@@ -359,7 +359,7 @@ export function FinancePage() {
             icon="↗"
             iconClass={`bg-rose-50 ${CORAL_D}`}
             name="支出"
-            caption="付主代理 + 付介绍人（to_company / to_referrer）"
+            caption="付主代理 + 付介绍人 + 垫付杂项"
             subtotalLabel={`${period}小计`}
             subtotal={overview.expense}
             amountClass={CORAL_D}
@@ -382,6 +382,16 @@ export function FinancePage() {
                   付介绍人（to_referrer）
                 </div>
                 {groups.toReferrer.map((item) => (
+                  <PayoutRow key={item.paymentId} item={item} visa={visaByCaseId?.[item.caseId]} fyMode={isFy} />
+                ))}
+              </div>
+            )}
+            {groups.misc.length > 0 && (
+              <div>
+                <div className="px-[22px] pb-[5px] pt-[11px] text-[11.5px] font-semibold tracking-[.4px] text-faint">
+                  垫付杂项（misc_expense）
+                </div>
+                {groups.misc.map((item) => (
                   <PayoutRow key={item.paymentId} item={item} visa={visaByCaseId?.[item.caseId]} fyMode={isFy} />
                 ))}
               </div>

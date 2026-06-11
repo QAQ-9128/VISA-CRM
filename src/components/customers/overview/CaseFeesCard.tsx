@@ -16,9 +16,17 @@ import { queryKeys } from '../../../hooks/queries/keys'
 import { caseParticipantIds } from '../../../lib/caseGroups'
 import { selectCaseFeeGroups } from '../../../lib/caseFees'
 import type { CaseFeeGroup, CaseFeeLine, FeeLineStatus } from '../../../lib/caseFees'
-import { formatMoney } from '../../../lib/money'
-import { FEE_CATEGORIES, FEE_CATEGORY_OTHER, PAYMENT_METHOD_LABELS } from '../../../types/domain'
-import type { PaymentMethod } from '../../../types/domain'
+import { selectCaseExpenses } from '../../../lib/caseExpenses'
+import { formatAmount, formatMoney } from '../../../lib/money'
+import {
+  EXPENSE_DIRECTIONS,
+  FEE_CATEGORIES,
+  FEE_CATEGORY_OTHER,
+  PAYMENT_DIRECTION_LABELS,
+  PAYMENT_METHODS,
+  PAYMENT_METHOD_LABELS,
+} from '../../../types/domain'
+import type { ExpenseDirection, PaymentMethod } from '../../../types/domain'
 import type { Case, Customer, Payment } from '../../../types/models'
 
 // 状态 pill：派生自真实收款，不存字段。已收款=green-bg/green-d；待付款=中性灰。
@@ -31,7 +39,8 @@ const RECV_PILL: Record<FeeLineStatus, { cls: string; label: string }> = {
 
 /** 收款方式（与现有「记收款」一致）。 */
 const RECEIPT_METHODS: PaymentMethod[] = ['cash', 'transfer', 'advance']
-import { todayYmd } from '../../../lib/dateRules'
+import { todayYmd, isFutureYmd } from '../../../lib/dateRules'
+import { toastError } from '../../../store/ui'
 
 // 录款默认日期取本地日历日——toISOString 是 UTC 日，本地清晨会落到昨天甚至上个月，污染月度账目
 const todayStr = todayYmd
@@ -390,6 +399,157 @@ function FeeGroupBlock({
 }
 
 /**
+ * 记支出（💸 本案支出）：类型（付主代理/付介绍人/垫付杂项）/ 金额 / 实际日期 / 方式 / 备注。
+ * 只记实付流水（2026-06-07 拍板，无应付/欠款概念）；复用现有 useCreatePayment——
+ * 案件级支出不挂申请人/款项（applicant_id/plan_item_id = null），不进应收口径。
+ */
+function ExpenseForm({ caseId, currency, onDone }: { caseId: string; currency: string; onDone: () => void }) {
+  const create = useCreatePayment(caseId)
+  const [direction, setDirection] = useState<ExpenseDirection>('to_company')
+  const [amount, setAmount] = useState('')
+  const [paidAt, setPaidAt] = useState(todayStr())
+  const [method, setMethod] = useState<PaymentMethod>('transfer')
+  const [note, setNote] = useState('')
+  const canSave = amount.trim() !== '' && Number(amount) > 0
+
+  function save(e: FormEvent) {
+    e.preventDefault()
+    if (!canSave) return
+    // 支出记录的是已发生的事 → 禁未来日期（max 属性 + 此处兜底拦手输，与阶段日期同规则）
+    if (isFutureYmd(paidAt)) {
+      toastError('支出实际日期不能是未来——记的是已发生的支出')
+      return
+    }
+    create.mutate(
+      {
+        case_id: caseId,
+        applicant_id: null,
+        direction,
+        plan_item_id: null,
+        amount: Number(amount),
+        currency,
+        method,
+        paid_at: paidAt || null,
+        note: trimOrNull(note),
+      },
+      { onSuccess: onDone },
+    )
+  }
+
+  return (
+    <form onSubmit={save} className="mt-2 space-y-2.5 rounded-[14px] border border-rose-100 bg-rose-50/40 p-3">
+      <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-3">
+        <Select
+          label="支出类型"
+          options={EXPENSE_DIRECTIONS.map((d) => ({ value: d, label: PAYMENT_DIRECTION_LABELS[d] }))}
+          value={direction}
+          onChange={(e) => setDirection(e.target.value as ExpenseDirection)}
+        />
+        <TextField label={`金额（${currency}）`} required type="number" min={0} step="0.01" value={amount} onChange={(e) => setAmount(e.target.value)} />
+        <TextField label="实际日期" required type="date" max={todayStr()} value={paidAt} onChange={(e) => setPaidAt(e.target.value)} />
+      </div>
+      <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2">
+        <Select
+          label="方式" required
+          options={PAYMENT_METHODS.map((m) => ({ value: m, label: PAYMENT_METHOD_LABELS[m] }))}
+          value={method}
+          onChange={(e) => setMethod(e.target.value as PaymentMethod)}
+        />
+        <TextField label="备注（选填）" value={note} onChange={(e) => setNote(e.target.value)} placeholder="如：体检费垫付" />
+      </div>
+      {create.isError && <p className="text-sm text-[var(--color-coral)]">保存失败，请重试。</p>}
+      <div className="flex gap-2">
+        <Button type="submit" disabled={!canSave || create.isPending}>{create.isPending ? '保存中…' : '保存支出'}</Button>
+        <Button type="button" variant="ghost" onClick={onDone}>取消</Button>
+      </div>
+    </form>
+  )
+}
+
+/**
+ * 💸 本案支出：三类实付（付主代理 / 付介绍人 / 垫付杂项）流水 + 分类小计与合计。
+ * 与月度/财年账目同口径同源（lib/caseExpenses；写入走 useCreatePayment → dashboard.payments 失效联动）。
+ */
+function CaseExpensesBlock({
+  caseId,
+  currency,
+  casePayments,
+  onUndo,
+  undoPending,
+}: {
+  caseId: string
+  currency: string
+  casePayments: Payment[]
+  onUndo: (paymentId: string) => void
+  undoPending: boolean
+}) {
+  const [adding, setAdding] = useState(false)
+  const expenses = useMemo(() => selectCaseExpenses(casePayments), [casePayments])
+  const t = expenses.totals
+
+  return (
+    <div className="mt-4 border-t border-line pt-3">
+      <h3 className="font-serif text-[14px] font-bold text-ink">
+        <span aria-hidden className="mr-1">💸</span>本案支出
+      </h3>
+      <p className="mt-0.5 text-[11.5px] text-faint">付主代理 / 付介绍人 / 垫付杂项 · 与财务账目联动同源</p>
+
+      {expenses.items.length === 0 ? (
+        <p className="mt-2 text-center text-[12.5px] text-faint">本案暂无支出</p>
+      ) : (
+        <>
+          <ul className="mt-2 space-y-1.5">
+            {expenses.items.map((p) => (
+              <li key={p.id} className="flex items-center gap-2 border-b border-line pb-1.5 text-[12.5px] last:border-0">
+                <span className="shrink-0 rounded-full bg-rose-50 px-2 py-0.5 text-[11px] font-semibold text-[#c25a52]">
+                  {PAYMENT_DIRECTION_LABELS[p.direction]}
+                </span>
+                <span className="min-w-0 flex-1 truncate text-ink" title={p.note ?? undefined}>
+                  {p.note || PAYMENT_METHOD_LABELS[p.method as PaymentMethod] || '—'}
+                </span>
+                <span className="shrink-0 font-semibold tabular-nums text-[#c25a52]">{formatMoney(Number(p.amount), p.currency || currency)}</span>
+                <span className="shrink-0 text-[11.5px] tabular-nums text-faint">{p.paid_at ? p.paid_at.slice(0, 10) : '—'}</span>
+                <button
+                  type="button"
+                  aria-label="撤销支出"
+                  onClick={() => onUndo(p.id)}
+                  disabled={undoPending}
+                  className="shrink-0 text-[12px] font-semibold text-faint hover:text-[var(--color-coral)] disabled:opacity-50"
+                >
+                  撤销
+                </button>
+              </li>
+            ))}
+          </ul>
+          {/* 支出合计 + 三类小计（与账目支出栏同口径：负数冲红不抵减） */}
+          <div className="mt-2.5 flex flex-wrap items-end justify-between gap-2 rounded-[12px] bg-surface-2 px-3 py-2">
+            <div>
+              <div className="text-[11.5px] text-muted">支出合计</div>
+              <div className="font-serif text-[17px] font-bold tabular-nums text-[#c25a52]">{formatMoney(t.total, currency)}</div>
+            </div>
+            <div className="text-[11.5px] tabular-nums text-faint">
+              付主代理 {formatAmount(t.toCompany)} · 付介绍人 {formatAmount(t.toReferrer)} · 垫付杂项 {formatAmount(t.misc)}
+            </div>
+          </div>
+        </>
+      )}
+
+      {adding ? (
+        <ExpenseForm caseId={caseId} currency={currency} onDone={() => setAdding(false)} />
+      ) : (
+        <button
+          type="button"
+          onClick={() => setAdding(true)}
+          className="mt-2.5 flex min-h-10 w-full items-center justify-center gap-1.5 rounded-[12px] border border-dashed border-[#c25a52]/45 bg-rose-50/30 text-[13px] font-semibold text-[#c25a52] transition-colors hover:bg-rose-50"
+        >
+          + 记支出
+        </button>
+      )}
+    </div>
+  )
+}
+
+/**
  * 🧾 本案发票：列本案 doc_type='invoice' 的文件（文件名可点开签名 URL + 删除）+ 「+ 上传发票」。
  * 复用现有 documents flow（customer_id+case_id），随选中案件切换只显本案发票，不新建存储。
  */
@@ -515,6 +675,9 @@ export function CaseFeesCard({
   const handleUndo = (id: string) => {
     if (window.confirm('确定撤销这笔收款吗？将删除该收款记录（状态与合计随之回退），不可恢复。')) del.mutate(id)
   }
+  const handleUndoExpense = (id: string) => {
+    if (window.confirm('确定撤销这笔支出吗？将删除该支出记录（本案与财务账目合计随之回退），不可恢复。')) del.mutate(id)
+  }
 
   if (!caseRow) {
     return (
@@ -565,6 +728,15 @@ export function CaseFeesCard({
               />
             ))}
           </div>
+
+          {/* 💸 本案支出（三类实付：付主代理/付介绍人/垫付杂项；与财务账目联动同源） */}
+          <CaseExpensesBlock
+            caseId={caseRow.id}
+            currency={cur}
+            casePayments={casePayments}
+            onUndo={handleUndoExpense}
+            undoPending={del.isPending}
+          />
 
           {/* 🧾 本案发票 */}
           <CaseInvoices caseId={caseRow.id} customerId={caseRow.customer_id} />

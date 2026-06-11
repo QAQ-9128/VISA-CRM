@@ -1,6 +1,7 @@
-import { useEffect, useRef, useState } from 'react'
+import { useState } from 'react'
 import { ConfirmDialog } from '../ui/ConfirmDialog'
 import { useArchiveCustomer, useDeleteCustomer } from '../../hooks/queries/useCustomers'
+import { useDetailsAutoClose } from '../../hooks/useDetailsAutoClose'
 import type { Customer } from '../../types/models'
 
 /**
@@ -13,24 +14,8 @@ export function CustomerActionsMenu({ customer }: { customer: Customer }) {
   const del = useDeleteCustomer()
   // 0031 起彻底删除全员开放（两位用户均 staff，2026-06 拍板）；防误删靠红色确认弹窗
   const [confirming, setConfirming] = useState<'archive' | 'delete' | null>(null)
-  const detailsRef = useRef<HTMLDetailsElement | null>(null)
-
-  // 原生 <details> 不会因点外部/Esc 收起 → 自己补上（否则多行菜单同时挂开互相叠压）
-  useEffect(() => {
-    const close = () => detailsRef.current?.removeAttribute('open')
-    const onDown = (e: MouseEvent) => {
-      if (detailsRef.current?.open && !detailsRef.current.contains(e.target as Node)) close()
-    }
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape' && detailsRef.current?.open) close()
-    }
-    document.addEventListener('mousedown', onDown)
-    document.addEventListener('keydown', onKey)
-    return () => {
-      document.removeEventListener('mousedown', onDown)
-      document.removeEventListener('keydown', onKey)
-    }
-  }, [])
+  // 点外部空白/Esc 自动收起（useDetailsAutoClose 共用，与案件 ⋯ 菜单同一行为）
+  const detailsRef = useDetailsAutoClose()
 
   return (
     <>

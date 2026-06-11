@@ -26,7 +26,7 @@ vi.mock('../../api/cases', async (orig) => {
   return {
     ...actual,
     listCases: vi.fn().mockResolvedValue([]),
-    getCaseStageHistory: vi.fn().mockResolvedValue([]), // 概要带「审理时间」格读真实递交日；测试给空 → 该格不显示
+    getCaseStageHistory: vi.fn().mockResolvedValue([]), // 概要带「审理时长」格读真实递交日；测试给空 → 该格不显示
   }
 })
 vi.mock('../../api/caseApplicants', async (orig) => {
@@ -55,10 +55,10 @@ import { listAllCaseApplicants, listCaseApplicants } from '../../api/caseApplica
 import { queryKeys } from '../../hooks/queries/keys'
 
 const mkCase = (o: Partial<Case>): Case => ({
-  id: 'ca1', case_number: '12345678', customer_id: 'cu1', visa_subclass: '482', visa_stream: 'Core Skill', case_category: null,
+  id: 'ca1', case_number: '12345678', customer_id: 'cu1', visa_subclass: '482', visa_stream: 'Core Skill', case_category: null, case_details: null,
   destination_country: null, sponsor_position: null, sponsor_employer_id: null,
   current_stage: 'nomination_lodged', currency: 'AUD', sync_tracking: true,
-  trt_reminder_enabled: false, parent_case_id: null, parent_sync_progress: false, assigned_to: null,
+  trt_reminder_enabled: false, trt_reminder_dismissed: false, cohab_reminder_enabled: false, cohab_reminder_last: null, parent_case_id: null, parent_sync_progress: false, assigned_to: null,
   created_by: null, is_archived: false, created_at: '', updated_at: '', ...o,
 })
 
@@ -145,7 +145,7 @@ describe('CustomerDetailPage（案件中心单页 · 无 tab）', () => {
     }
   })
 
-  it('概要带「审理时间」：阶段=提名递交且有真实递交历史 → 提名审理时间 · 已 N 天', async () => {
+  it('概要带「审理时长」：阶段=提名递交且有真实递交历史 → 提名审理时长 · 已 N 天', async () => {
     vi.mocked(listCases).mockResolvedValue([mkCase({ id: 'ca1', current_stage: 'nomination_lodged' })])
     vi.mocked(getCaseStageHistory).mockResolvedValue([
       {
@@ -154,16 +154,16 @@ describe('CustomerDetailPage（案件中心单页 · 无 tab）', () => {
       } as CaseStageHistory,
     ])
     renderPage()
-    expect(await screen.findByText('审理时间')).toBeInTheDocument()
-    expect(screen.getByText('提名审理时间')).toBeInTheDocument()
+    expect(await screen.findByText('审理时长')).toBeInTheDocument()
+    expect(screen.getByText('提名审理时长')).toBeInTheDocument()
     expect(screen.getByText(/^已 \d+ 天$/)).toBeInTheDocument()
   })
 
-  it('概要带「审理时间」：其它阶段（如下签）→ 此格不显示；无递交历史也不显示', async () => {
+  it('概要带「审理时长」：其它阶段（如下签）→ 此格不显示；无递交历史也不显示', async () => {
     vi.mocked(listCases).mockResolvedValue([mkCase({ id: 'ca1', current_stage: 'granted' })])
     renderPage()
     expect((await screen.findAllByText('测试客户')).length).toBeGreaterThan(0)
-    expect(screen.queryByText('审理时间')).not.toBeInTheDocument()
+    expect(screen.queryByText('审理时长')).not.toBeInTheDocument()
     expect(screen.queryByText(/^已 \d+ 天$/)).not.toBeInTheDocument()
   })
 
@@ -200,7 +200,7 @@ describe('CustomerDetailPage（案件中心单页 · 无 tab）', () => {
     expect(within(bandCell).getByText('下签')).toBeInTheDocument()
     expect(within(bandCell).getByText('点击切换当前案件')).toBeInTheDocument()
     // 案件卡不再有「主申请人 / 副申请人」行
-    expect(screen.getByText('签证子类别')).toBeInTheDocument()
+    expect(screen.getByText('案件类型')).toBeInTheDocument()
     expect(screen.queryByText('副申请人')).not.toBeInTheDocument()
     // 编辑案件直达表单；「打开案件页」已随案件详情页删除
     expect(screen.getByRole('link', { name: '编辑案件 ›' })).toHaveAttribute('href', '/cases/ca1/edit')
@@ -211,6 +211,26 @@ describe('CustomerDetailPage（案件中心单页 · 无 tab）', () => {
     expect(screen.getByLabelText('本案更多操作')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /归档本案/ })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /彻底删除本案/ })).toBeInTheDocument()
+  })
+
+  it('本案「⋯」菜单：打开后点页面空白即关闭（不必再点三个点）；Esc 也关；点菜单内不误关', async () => {
+    vi.mocked(listCases).mockResolvedValue([mkCase({})])
+    renderPage()
+    const summary = await screen.findByLabelText('本案更多操作')
+    const details = summary.closest('details') as HTMLDetailsElement
+    // 打开 → 点菜单外空白（本案信息区文字）→ 自动收起
+    details.setAttribute('open', '')
+    expect(details.open).toBe(true)
+    fireEvent.mouseDown(screen.getByText('Group 组码'))
+    expect(details.open).toBe(false)
+    // 再开 → Esc 收起
+    details.setAttribute('open', '')
+    fireEvent.keyDown(document, { key: 'Escape' })
+    expect(details.open).toBe(false)
+    // 点菜单内部不误关
+    details.setAttribute('open', '')
+    fireEvent.mouseDown(screen.getByRole('button', { name: /归档本案/ }))
+    expect(details.open).toBe(true)
   })
 
   // 案件详情显示「案件大类」：cases.case_category（四值枚举，可空）
@@ -234,26 +254,33 @@ describe('CustomerDetailPage（案件中心单页 · 无 tab）', () => {
     expect(screen.queryByText('签证申请')).toBeNull()
   })
 
-  // 案件详情显示「签证大类」：取值 = 该案签证所属目录大类（VISA_CATALOG 枚举，零新逻辑）
-  // 命名：案件大类(case_category·手选) / 签证大类(目录派生) / 签证子类别——三行各司其职
-  it('本案信息显示「签证大类」= 签证所属目录大类（如 482 → 工作 / 雇主担保）', async () => {
+  // 级联子字段（case_details JSON）逐键显示在本案信息里
+  it('本案信息显示 case_details 子字段（如 评估机构/评估职位）；无 details 不出多余行', async () => {
+    vi.mocked(listCases).mockResolvedValue([
+      mkCase({
+        id: 'ca1', visa_subclass: 'Skill Assessment', visa_stream: null, case_category: '职业评估',
+        case_details: { 评估机构: 'VETASSESS', 评估职位: 'Cook' },
+      } as Partial<Case>),
+    ])
+    renderPage()
+    await screen.findAllByText('测试客户')
+    expect(await screen.findByText('评估机构')).toBeInTheDocument()
+    expect(screen.getByText('VETASSESS')).toBeInTheDocument()
+    expect(screen.getByText('评估职位')).toBeInTheDocument()
+    expect(screen.getByText('Cook')).toBeInTheDocument()
+  })
+
+  // 案件详情显示「案件类型」= cases.visa_subclass + 子类别(visa_stream)，合并展示（formatVisaType）。
+  // 旧的「签证大类」目录派生标签已随大签证目录一并删除，不再出现。
+  it('本案信息显示「案件类型」= visa_subclass/stream（如 482/Core Skill）；无「签证大类」派生标签', async () => {
     vi.mocked(listCases).mockResolvedValue([
       mkCase({ id: 'ca1', visa_subclass: '482', visa_stream: 'Core Skill', current_stage: 'nomination_lodged' }),
     ])
     renderPage()
     await screen.findAllByText('测试客户')
-    expect(await screen.findByText('签证大类')).toBeInTheDocument()
-    expect(screen.getByText('工作 / 雇主担保')).toBeInTheDocument()
-    expect(screen.queryByText('签证类别')).toBeNull() // 旧称谓不再出现
-  })
-
-  it('目录外手填签证（如 887）：「签证大类」行退「—」，不报错', async () => {
-    vi.mocked(listCases).mockResolvedValue([
-      mkCase({ id: 'ca1', visa_subclass: '887', visa_stream: null, current_stage: 'todo' }),
-    ])
-    renderPage()
-    await screen.findAllByText('测试客户')
-    expect(await screen.findByText('签证大类')).toBeInTheDocument()
+    expect(await screen.findByText('案件类型')).toBeInTheDocument()
+    expect(screen.getAllByText('482/Core Skill').length).toBeGreaterThan(0) // 卡头 + 案件类型行都用 formatVisaType
+    expect(screen.queryByText('签证大类')).toBeNull() // 目录派生标签已删
     expect(screen.queryByText('工作 / 雇主担保')).toBeNull()
   })
 
@@ -302,6 +329,66 @@ describe('CustomerDetailPage（案件中心单页 · 无 tab）', () => {
     await screen.findAllByText('测试客户')
     // 选中的是 ca2（500）：编辑案件链接指向 ca2
     expect(await screen.findByRole('link', { name: '编辑案件 ›' })).toHaveAttribute('href', '/cases/ca2/edit')
+  })
+
+  // ── 482→186 TRT 永居提醒绿卡（案件/客户页） ─────────────────────────
+  // 全条件满足才显示：482 TSS + 已勾选 + 下签满 22 个月(660 天) + 客户名下无 186 TRT 案 + 未手动停止。
+  const grantedLongAgo = [
+    {
+      id: 'h1', case_id: 'ca1', from_stage: 'visa_lodged', to_stage: 'granted', note: null,
+      changed_by: null, changed_at: '2024-01-01T00:00:00Z', effective_at: '2024-01-01T00:00:00Z',
+    } as CaseStageHistory,
+  ]
+  const trt482 = (o: Partial<Case> = {}) =>
+    mkCase({ id: 'ca1', visa_subclass: '482', visa_stream: 'Core Skills', current_stage: 'granted', trt_reminder_enabled: true, ...o })
+
+  it('全条件满足 → 绿卡出现：文案 + 「新建 186 TRT 案件」预填链接', async () => {
+    vi.mocked(listCases).mockResolvedValue([trt482()])
+    vi.mocked(getCaseStageHistory).mockResolvedValue(grantedLongAgo)
+    renderPage('/customers/cu1?case=ca1')
+    expect(await screen.findByText('下签满 22 个月，及时启动 186 TRT 永居')).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: '新建 186 TRT 案件' })).toHaveAttribute(
+      'href',
+      '/cases/new?customer=cu1&prefill=186trt',
+    )
+    expect(screen.getByRole('button', { name: /不再提醒/ })).toBeInTheDocument()
+  })
+
+  it('未勾选 / 已手动停止 / 下签未满 22 个月 → 绿卡不出现', async () => {
+    // 未勾选
+    vi.mocked(listCases).mockResolvedValue([trt482({ trt_reminder_enabled: false })])
+    vi.mocked(getCaseStageHistory).mockResolvedValue(grantedLongAgo)
+    const { unmount } = renderPage('/customers/cu1?case=ca1')
+    await screen.findAllByText('测试客户')
+    expect(screen.queryByText('下签满 22 个月，及时启动 186 TRT 永居')).toBeNull()
+    unmount()
+
+    // 已手动停止（dismissed）
+    vi.mocked(listCases).mockResolvedValue([trt482({ trt_reminder_dismissed: true })])
+    const { unmount: u2 } = renderPage('/customers/cu1?case=ca1')
+    await screen.findAllByText('测试客户')
+    expect(screen.queryByText('下签满 22 个月，及时启动 186 TRT 永居')).toBeNull()
+    u2()
+
+    // 下签未满 22 个月（最近下签）
+    vi.mocked(listCases).mockResolvedValue([trt482()])
+    vi.mocked(getCaseStageHistory).mockResolvedValue([
+      { ...grantedLongAgo[0], changed_at: '2026-05-01T00:00:00Z', effective_at: '2026-05-01T00:00:00Z' },
+    ])
+    renderPage('/customers/cu1?case=ca1')
+    await screen.findAllByText('测试客户')
+    expect(screen.queryByText('下签满 22 个月，及时启动 186 TRT 永居')).toBeNull()
+  })
+
+  it('客户名下已有 186 TRT 案 → 绿卡自动消失（lib/trt 命中）', async () => {
+    vi.mocked(listCases).mockResolvedValue([
+      trt482(),
+      mkCase({ id: 'ca2', visa_subclass: '186', visa_stream: 'Temporary Residence Transition', created_at: '2026-02-01' }),
+    ])
+    vi.mocked(getCaseStageHistory).mockResolvedValue(grantedLongAgo)
+    renderPage('/customers/cu1?case=ca1')
+    await screen.findAllByText('测试客户')
+    expect(screen.queryByText('下签满 22 个月，及时启动 186 TRT 永居')).toBeNull()
   })
 
   it('客户页无「同步主案件」锁定：即使案件设了 parent_sync_progress，进度照样可编辑', async () => {

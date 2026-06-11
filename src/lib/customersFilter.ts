@@ -1,3 +1,4 @@
+import { matchesOwnerFilter } from './ownerFilter'
 import { CLIENT_SOURCES } from '../types/domain'
 import type { ClientSource } from '../types/domain'
 import type { Case, CaseApplicant, Customer } from '../types/models'
@@ -8,10 +9,8 @@ export type SourceFilterValue = ClientSource | 'unclassified'
 export interface CustomerFilter {
   /** 选中的来源（空 = 不限） */
   sources: ReadonlySet<SourceFilterValue>
-  /** 选中的担保雇主 id（空 = 不限） */
-  employerIds: ReadonlySet<string>
-  /** 选中的介绍人 id（空 = 不限） */
-  referrerIds: ReadonlySet<string>
+  /** 选中的客户归属人 id（空 = 不限）；担保雇主/介绍人已不再作为筛选维度（字段数据不动） */
+  ownerIds: ReadonlySet<string>
   /** 选中的签证类别（空 = 不限）；按客户名下案件的 visa_subclass 匹配 */
   subclasses: ReadonlySet<string>
   /** 只看星标（优先）客户 */
@@ -20,15 +19,14 @@ export interface CustomerFilter {
 
 export const EMPTY_CUSTOMER_FILTER: CustomerFilter = {
   sources: new Set(),
-  employerIds: new Set(),
-  referrerIds: new Set(),
+  ownerIds: new Set(),
   subclasses: new Set(),
   starredOnly: false,
 }
 
 /** 已选条件数（用于筛选按钮角标）。 */
 export function customerFilterCount(f: CustomerFilter): number {
-  return f.sources.size + f.employerIds.size + f.referrerIds.size + f.subclasses.size + (f.starredOnly ? 1 : 0)
+  return f.sources.size + f.ownerIds.size + f.subclasses.size + (f.starredOnly ? 1 : 0)
 }
 
 /**
@@ -65,15 +63,13 @@ export function customerSource(c: Customer): SourceFilterValue {
 }
 
 /**
- * 客户属性是否命中（来源 / 雇主 / 介绍人 / 星标）；签证类别另由 matchesVisaFilter 判。
- * 同维度「或」、跨维度「且」；空维度不限。
+ * 客户属性是否命中（来源 / 客户归属人 / 星标）；签证类别另由 matchesVisaFilter 判。
+ * 同维度「或」、跨维度「且」；空维度不限。归属人规则与案件筛选栏共用 lib/ownerFilter。
  */
 export function matchesCustomerFilter(c: Customer, f: CustomerFilter): boolean {
   if (f.starredOnly && !c.is_starred) return false
   if (f.sources.size && !f.sources.has(customerSource(c))) return false
-  if (f.employerIds.size && (!c.sponsor_employer_id || !f.employerIds.has(c.sponsor_employer_id)))
-    return false
-  if (f.referrerIds.size && (!c.referrer_id || !f.referrerIds.has(c.referrer_id))) return false
+  if (!matchesOwnerFilter(f.ownerIds, c.owner_referrer_id)) return false
   return true
 }
 
