@@ -57,11 +57,13 @@ describe('listCustomers', () => {
     expect(b.eq).not.toHaveBeenCalledWith('is_archived', false)
   })
 
-  it('带 search 时做 full_name/phone/email 的 ilike or 查询', async () => {
+  it('带 search 时做 full_name/中文名/英文名/phone/email 的 ilike or 查询', async () => {
     const b = mockReturn({ data: [], error: null })
     await customersApi.listCustomers({ search: '张三' })
     const orArg = b.or.mock.calls[0]?.[0] as string
     expect(orArg).toContain('full_name.ilike')
+    expect(orArg).toContain('chinese_name.ilike')
+    expect(orArg).toContain('english_name.ilike')
     expect(orArg).toContain('张三')
   })
 
@@ -79,7 +81,9 @@ describe('listCustomers', () => {
       const b = mockReturn({ data: [], error: null })
       await customersApi.listCustomers({ search: input })
       const orArg = b.or.mock.calls[0]?.[0] as string
-      expect(orArg).toBe(`full_name.ilike.${quoted},phone.ilike.${quoted},email.ilike.${quoted}`)
+      expect(orArg).toBe(
+        `full_name.ilike.${quoted},chinese_name.ilike.${quoted},english_name.ilike.${quoted},phone.ilike.${quoted},email.ilike.${quoted}`,
+      )
     }
   })
 

@@ -1,3 +1,5 @@
+import { customerDisplayName } from './customerName'
+import type { CustomerNameParts } from './customerName'
 import { utcDayDiff } from './dateDiff'
 import type { Case, CaseStageHistory } from '../types/models'
 
@@ -72,7 +74,7 @@ export interface TrtReminderItem {
 export function selectTrtReminders(
   cases: Case[],
   stageHistory: CaseStageHistory[],
-  customerById: Record<string, { full_name: string }>,
+  customerById: Record<string, CustomerNameParts>,
   today: Date = new Date(),
 ): TrtReminderItem[] {
   const histByCase = new Map<string, CaseStageHistory[]>()
@@ -95,7 +97,7 @@ export function selectTrtReminders(
     if (!shouldShowTrtReminder(c, custCases, caseHist, today)) continue
     items.push({
       customerId: c.customer_id,
-      customerName: customerById[c.customer_id]?.full_name ?? '',
+      customerName: customerDisplayName(customerById[c.customer_id]),
       caseId: c.id,
       caseNumber: c.case_number,
       monthsSinceGrant: monthsSinceGrant(caseHist, today) ?? 0,

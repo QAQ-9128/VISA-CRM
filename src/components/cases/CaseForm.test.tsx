@@ -29,6 +29,21 @@ vi.mock('../../api/referrers', async (orig) => {
   const actual = await orig<typeof import('../../api/referrers')>()
   return { ...actual, listReferrers: vi.fn().mockResolvedValue([]) }
 })
+// 所属账号（移民局系统账号 lookup）：下拉选已有 + 就地新增；mock 掉避免真连库
+const { createImmiAccountMock } = vi.hoisted(() => ({
+  createImmiAccountMock: vi.fn(async (input: { name: string }) => ({ id: 'acc-new', ...input })),
+}))
+vi.mock('../../api/immiAccounts', async (orig) => {
+  const actual = await orig<typeof import('../../api/immiAccounts')>()
+  return {
+    ...actual,
+    listImmiAccounts: vi.fn().mockResolvedValue([
+      { id: 'acc1', name: 'IMMI 账号 A' },
+      { id: 'acc2', name: 'IMMI 账号 B' },
+    ]),
+    createImmiAccount: createImmiAccountMock,
+  }
+})
 
 const P = { id: 'P', full_name: '甲', primary_applicant_id: null, created_at: '2024-01-01', is_archived: false } as unknown as Customer
 const S = { id: 'S', full_name: '乙', primary_applicant_id: null, relationship_to_primary: '配偶', created_at: '2024-02-01', is_archived: false } as unknown as Customer
@@ -611,13 +626,15 @@ describe('CaseForm（新增案件 · 一案一组）', () => {
   })
 
   // ── 参与人区就地新建客户：复用客户表单的「快速建档」卡（QuickPersonCreate），案件上下文按钮=创建并加入本案 ──
-  it('「+ 新建客户」入口与快速建档卡：五字段与新建客户流程一致（姓名/性别/生日/归属人/介绍人含+新建）；无「加入已有案件」勾选框', async () => {
+  it('「+ 新建客户」入口与快速建档卡：字段与新建客户流程一致（中文名/英文名/性别/生日/归属人/介绍人含+新建）；无「加入已有案件」勾选框', async () => {
     renderForm()
     await screen.findByLabelText('案件大类')
     pickVisa('482')
     fireEvent.click(screen.getByRole('button', { name: /新建客户/ }))
-    // 五字段与新建客户流程一致（同一组件）
-    expect(screen.getByLabelText(/姓名/)).toBeInTheDocument()
+    // 字段与新建客户流程一致（同一组件）：姓名拆中文名/英文名两栏，英文名带格式占位
+    expect(screen.getByLabelText('中文名')).toBeInTheDocument()
+    expect(screen.getByLabelText('英文名')).toBeInTheDocument()
+    expect(screen.getByPlaceholderText('如 DENG Tao（姓全大写 + 名首字母大写）')).toBeInTheDocument()
     expect(screen.getByLabelText('性别')).toBeInTheDocument()
     expect(screen.getByLabelText('生日')).toBeInTheDocument()
     expect(screen.getByLabelText('归属人')).toBeInTheDocument()
@@ -636,10 +653,10 @@ describe('CaseForm（新增案件 · 一案一组）', () => {
     await screen.findByLabelText('案件大类')
     pickVisa('482')
     fireEvent.click(screen.getByRole('button', { name: /新建客户/ }))
-    fireEvent.change(screen.getByLabelText(/姓名/), { target: { value: '丁新' } })
+    fireEvent.change(screen.getByLabelText('中文名'), { target: { value: '丁新' } })
     fireEvent.click(screen.getByRole('button', { name: '创建并加入本案' }))
     await waitFor(() => expect(createCustomerMock).toHaveBeenCalled())
-    expect(createCustomerMock.mock.calls[0][0]).toMatchObject({ full_name: '丁新' })
+    expect(createCustomerMock.mock.calls[0][0]).toMatchObject({ full_name: '丁新', chinese_name: '丁新' })
     // 即时出现在参与人列表（姓名就地可见，不等列表刷新）；组码/人数同步
     expect(await screen.findByText('丁新')).toBeInTheDocument()
     expect(screen.getByText(/共 2 人/)).toBeInTheDocument()
@@ -664,7 +681,7 @@ describe('CaseForm（新增案件 · 一案一组）', () => {
     )
     await screen.findByLabelText('案件大类')
     fireEvent.click(screen.getByRole('button', { name: /新建客户/ }))
-    fireEvent.change(screen.getByLabelText(/姓名/), { target: { value: '丁新' } })
+    fireEvent.change(screen.getByLabelText('中文名'), { target: { value: '丁新' } })
     fireEvent.click(screen.getByRole('button', { name: '创建并加入本案' }))
     await waitFor(() => expect(addCaseApplicant).toHaveBeenCalledWith('caOld', 'cu-new'))
   })
@@ -739,6 +756,64 @@ describe('CaseForm（新增案件 · 一案一组）', () => {
     fireEvent.click(screen.getByRole('button', { name: /新建客户/ }))
     expect(screen.getByText('⚡ 快速建档新客户')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: '创建并加入本案' })).toBeInTheDocument()
+  })
+
+  // ── 所属账号（移民局系统账号）：下拉选已有 + 就地新增，保存随案件写入 cases.immi_account_id ──
+  it('所属账号：选完类型出现下拉（独立一行，位于组区之前）+「+ 新增」；候选=已有账号 lookup', async () => {
+    renderForm()
+    await screen.findByLabelText('案件大类')
+    expect(screen.queryByLabelText('所属账号')).toBeNull() // 渐进披露：选完类型才出现
+    pickVisa('482')
+    const select = await screen.findByLabelText('所属账号')
+    // 可复用 lookup：3 个账号建一次即全案件共用，这里候选直接来自列表（异步到达 → find*）
+    expect(await within(select).findByRole('option', { name: 'IMMI 账号 A' })).toBeInTheDocument()
+    expect(within(select).getByRole('option', { name: 'IMMI 账号 B' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: '+ 新增' })).toBeInTheDocument()
+    // 独立一行放表单上部：紧跟案件类型区、在组（Group）之前
+    const group = screen.getByText('组（Group）')
+    expect(select.compareDocumentPosition(group) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+  })
+
+  it('选已有账号保存 → payload immi_account_id 写入；不选 → null（可空，不强制）', async () => {
+    const { onSubmit } = renderForm()
+    await screen.findByLabelText('案件大类')
+    pickVisa('482')
+    const select = await screen.findByLabelText('所属账号')
+    await within(select).findByRole('option', { name: 'IMMI 账号 B' }) // 等候选到达再选
+    fireEvent.change(select, { target: { value: 'acc2' } })
+    fireEvent.click(screen.getByRole('button', { name: '保存' }))
+    expect(onSubmit.mock.calls[0][0].immi_account_id).toBe('acc2')
+  })
+
+  it('不选所属账号 → 保存 immi_account_id=null', async () => {
+    const { onSubmit } = renderForm()
+    await screen.findByLabelText('案件大类')
+    pickVisa('482')
+    fireEvent.click(screen.getByRole('button', { name: '保存' }))
+    expect(onSubmit.mock.calls[0][0].immi_account_id).toBeNull()
+  })
+
+  it('「+ 新增」就地建账号：输名称 → 创建并选用 → createImmiAccount 调用且保存写新 id', async () => {
+    const { onSubmit } = renderForm()
+    await screen.findByLabelText('案件大类')
+    pickVisa('482')
+    fireEvent.click(screen.getByRole('button', { name: '+ 新增' }))
+    fireEvent.change(screen.getByLabelText('新账号名称'), { target: { value: 'IMMI 账号 C' } })
+    fireEvent.click(screen.getByRole('button', { name: '创建并选用' }))
+    await waitFor(() => expect(createImmiAccountMock).toHaveBeenCalled())
+    expect(createImmiAccountMock.mock.calls[0][0]).toMatchObject({ name: 'IMMI 账号 C' })
+    // 创建后下拉自动选中新账号，保存随案件写入
+    fireEvent.click(screen.getByRole('button', { name: '保存' }))
+    expect(onSubmit.mock.calls[0][0].immi_account_id).toBe('acc-new')
+  })
+
+  it('编辑模式：所属账号回填现有值；保存原样保留', async () => {
+    const withAccount = { ...oldLinkedCase, immi_account_id: 'acc1' } as unknown as Case
+    const { onSubmit } = renderForm(withAccount)
+    await screen.findByLabelText('案件大类')
+    expect(((await screen.findByLabelText('所属账号')) as HTMLSelectElement).value).toBe('acc1')
+    fireEvent.click(screen.getByRole('button', { name: '保存' }))
+    expect(onSubmit.mock.calls[0][0].immi_account_id).toBe('acc1')
   })
 
   it('「与其他案件的关系」整块已删：无任何相关文案（案件自包含，案与案无关系）', async () => {

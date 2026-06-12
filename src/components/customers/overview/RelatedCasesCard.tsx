@@ -13,9 +13,11 @@ import {
 } from '../../../hooks/queries/useCaseApplicants'
 import { useCustomers } from '../../../hooks/queries/useCustomers'
 import { useEmployer } from '../../../hooks/queries/useEmployers'
+import { useImmiAccount } from '../../../hooks/queries/useImmiAccounts'
 import { useReferrer } from '../../../hooks/queries/useReferrers'
 import { useArchiveCase, useCaseStageHistory, useDeleteCase } from '../../../hooks/queries/useCases'
 import { caseGroupCode, caseParticipantIds } from '../../../lib/caseGroups'
+import { customerDisplayName } from '../../../lib/customerName'
 import { useLodgements } from '../../../hooks/queries/useLodgements'
 import { getLodgementStatus } from '../../../lib/lodgementStatus'
 import { flowProcessing } from '../../../lib/casesTable'
@@ -68,7 +70,7 @@ function ParticipantManager({
   const [confirmingLeave, setConfirmingLeave] = useState(false)
 
   const q = query.trim().toLowerCase()
-  const list = candidates.filter((c) => !q || c.full_name.toLowerCase().includes(q)).slice(0, 8)
+  const list = candidates.filter((c) => !q || customerDisplayName(c).toLowerCase().includes(q)).slice(0, 8)
   // 唯一参与人不能移出（案件不能没有人）→ 不显示 ✕
   const canLeave = participants.length > 1
 
@@ -134,7 +136,7 @@ function ParticipantManager({
                     onClick={() => add.mutate({ caseId, customerId: c.id })}
                     className="flex min-h-10 w-full items-center px-3 py-1.5 text-left text-sm text-ink hover:bg-brand-50 disabled:opacity-50"
                   >
-                    {c.full_name}
+                    {customerDisplayName(c)}
                   </button>
                 </li>
               ))
@@ -191,11 +193,15 @@ export function RelatedCasesCard({
   const sponsorEmployerId = selectedCase?.sponsor_employer_id ?? customer.sponsor_employer_id
   const employer = useEmployer(sponsorEmployerId)
   const referrer = useReferrer(customer.referrer_id)
+  // 所属账号（本案用哪个移民局系统账号递交）：案件级可空 lookup，按 id 解析名字
+  const immiAccount = useImmiAccount(selectedCase?.immi_account_id)
   // 参与客户（owner + case_applicants，平铺无角色/无归属标注）
   const allCustomers = useCustomers({})
   const applicants = useCaseApplicants(caseId)
+  // 显示名=中文优先（lib/customerName 单一解析）；本页客户名计算一次到处用
+  const customerName = customerDisplayName(customer)
   const customerNameById = useMemo(
-    () => Object.fromEntries((allCustomers.data ?? []).map((cu) => [cu.id, cu.full_name])) as Record<string, string>,
+    () => Object.fromEntries((allCustomers.data ?? []).map((cu) => [cu.id, customerDisplayName(cu)])) as Record<string, string>,
     [allCustomers.data],
   )
   const participantNames = useMemo(() => {
@@ -206,11 +212,11 @@ export function RelatedCasesCard({
     for (const cid of ids) {
       if (seen.has(cid)) continue
       seen.add(cid)
-      const n = cid === customer.id ? customer.full_name : customerNameById[cid]
+      const n = cid === customer.id ? customerName : customerNameById[cid]
       if (n) names.push(n)
     }
     return names
-  }, [selectedCase, applicants.data, customerNameById, customer.id, customer.full_name])
+  }, [selectedCase, applicants.data, customerNameById, customer.id, customerName])
   const history = useCaseStageHistory(caseId)
   const lodgements = useLodgements(caseId)
   // 案件级危险操作（与案件页同款确认文案）；归档/删除后列表自动刷新、选中回落到首个案件
@@ -225,8 +231,8 @@ export function RelatedCasesCard({
 
   // 参与人管理数据：名字映射补上本页客户自己（allCustomers 查询与本页客户详情可能有时差）
   const participantNameById = useMemo(
-    () => ({ ...customerNameById, [customer.id]: customer.full_name }),
-    [customerNameById, customer.id, customer.full_name],
+    () => ({ ...customerNameById, [customer.id]: customerName }),
+    [customerNameById, customer.id, customerName],
   )
   const memberIds = useMemo(() => {
     if (!selectedCase) return []
@@ -246,7 +252,7 @@ export function RelatedCasesCard({
     const taken = new Set([selectedCase.customer_id, ...memberIds])
     return (allCustomers.data ?? [])
       .filter((cu) => !cu.is_archived && !taken.has(cu.id))
-      .sort((a, b) => a.full_name.localeCompare(b.full_name))
+      .sort((a, b) => customerDisplayName(a).localeCompare(customerDisplayName(b)))
   }, [selectedCase, memberIds, allCustomers.data])
 
   const hist = useMemo(() => history.data ?? [], [history.data])
@@ -403,6 +409,10 @@ export function RelatedCasesCard({
                 <InfoRow label="担保雇主">
                   {sponsorEmployerId ? employer.data?.name ?? '…' : null}
                 </InfoRow>
+                {/* 所属账号 = cases.immi_account_id → immi_accounts.name；未指定退 — */}
+                <InfoRow label="所属账号">
+                  {selectedCase.immi_account_id ? immiAccount.data?.name ?? '…' : null}
+                </InfoRow>
                 <InfoRow label="介绍人" valueClass="text-rose-600">
                   {customer.referrer_id ? referrer.data?.name ?? '…' : null}
                 </InfoRow>
@@ -411,7 +421,7 @@ export function RelatedCasesCard({
                   caseId={selectedCase.id}
                   participants={managerParticipants}
                   pageCustomerId={customer.id}
-                  pageCustomerName={customer.full_name}
+                  pageCustomerName={customerName}
                   candidates={addCandidates}
                 />
                 <InfoRow label="Group 组码">

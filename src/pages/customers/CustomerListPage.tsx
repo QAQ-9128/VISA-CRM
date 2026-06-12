@@ -18,6 +18,7 @@ import { CustomerActionsMenu } from '../../components/customers/CustomerActionsM
 import { LoadingBlock, ErrorBlock, EmptyState } from '../../components/ui/states'
 import { useCustomerDebts } from '../../hooks/queries/useCustomerDebts'
 import { selectCustomerCases } from '../../lib/family'
+import { customerDisplayName } from '../../lib/customerName'
 import { selectCustomerCaseLines } from '../../lib/customerList'
 import { selectSourceBoardColumns } from '../../lib/customerSourceBoard'
 import type { SourceColumn } from '../../lib/customerSourceBoard'
@@ -121,11 +122,11 @@ function CustomerRow({
         }}
       />
       <Link to={`/customers/${c.id}`} state={source} className="flex min-h-12 min-w-0 flex-1 items-center gap-3 py-3 pr-2">
-        <Avatar name={c.full_name} seed={c.id} size={40} />
+        <Avatar name={customerDisplayName(c)} seed={c.id} size={40} />
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2">
             <span className={`truncate text-[15px] font-semibold ${nameColor || 'text-ink'}`}>
-              {c.full_name}
+              {customerDisplayName(c)}
             </span>
             <ClientSourceDot source={c.client_source} />
             {relationship && <span className="text-xs text-faint">{relationship}</span>}
@@ -455,7 +456,7 @@ function SourceBoard({
                       >
                         <div className="flex items-center gap-1.5">
                           {m.is_starred && <span aria-hidden className="text-[13px] text-amber-500">★</span>}
-                          <span className="truncate text-sm font-semibold text-ink">{m.full_name}</span>
+                          <span className="truncate text-sm font-semibold text-ink">{customerDisplayName(m)}</span>
                         </div>
                         {lines.length === 0 ? (
                           <p className="mt-0.5 text-xs text-faint">暂无案件</p>

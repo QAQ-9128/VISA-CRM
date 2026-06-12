@@ -1,3 +1,5 @@
+import { customerDisplayName } from './customerName'
+import type { CustomerNameParts } from './customerName'
 import { utcDayDiff } from './dateDiff'
 import { getLodgementLodgedDate } from './lodgementStatus'
 import type { CaseStage } from '../types/domain'
@@ -73,7 +75,7 @@ export interface CohabReminderItem {
 export function selectCohabReminders(
   cases: Case[],
   stageHistory: CaseStageHistory[],
-  customerById: Record<string, { full_name: string }>,
+  customerById: Record<string, CustomerNameParts>,
   today: Date = new Date(),
 ): CohabReminderItem[] {
   const histByCase = new Map<string, CaseStageHistory[]>()
@@ -89,7 +91,7 @@ export function selectCohabReminders(
     if (!shouldShowCohabReminder(c, caseHist, today)) continue
     items.push({
       customerId: c.customer_id,
-      customerName: customerById[c.customer_id]?.full_name ?? '',
+      customerName: customerDisplayName(customerById[c.customer_id]),
       caseId: c.id,
       caseNumber: c.case_number,
       monthsSince: monthsSinceCohabAnchor(c, caseHist, today),

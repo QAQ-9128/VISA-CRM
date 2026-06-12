@@ -9,6 +9,7 @@ import {
   type SortDir,
 } from '../../lib/archive'
 import { getDocumentSignedUrl } from '../../api/documents'
+import { customerDisplayName } from '../../lib/customerName'
 import { Button } from '../../components/ui/Button'
 import { Badge } from '../../components/ui/Badge'
 import { Select } from '../../components/ui/Select'
@@ -89,8 +90,8 @@ export function ArchivePage() {
     () => [
       { value: 'all', label: '全部客户' },
       ...[...customers]
-        .sort((a, b) => a.full_name.localeCompare(b.full_name))
-        .map((c) => ({ value: c.id, label: c.full_name })),
+        .sort((a, b) => customerDisplayName(a).localeCompare(customerDisplayName(b)))
+        .map((c) => ({ value: c.id, label: customerDisplayName(c) })),
     ],
     [customers],
   )

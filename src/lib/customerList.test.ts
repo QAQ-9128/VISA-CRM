@@ -5,7 +5,7 @@ import type { Case, CaseApplicant } from '../types/models'
 const mkCase = (o: Partial<Case>): Case => ({
   id: 'c1', case_number: '1', customer_id: 'cu1', visa_subclass: '186', visa_stream: 'Direct Entry', case_category: null, case_details: null,
   current_stage: 'visa_lodged', currency: 'AUD', sync_tracking: true, trt_reminder_enabled: false, trt_reminder_dismissed: false, cohab_reminder_enabled: false, cohab_reminder_last: null,
-  parent_case_id: null, parent_sync_progress: false, destination_country: null, sponsor_position: null, sponsor_employer_id: null, assigned_to: null, created_by: null, is_archived: false, created_at: '', updated_at: '', ...o,
+  parent_case_id: null, parent_sync_progress: false, destination_country: null, sponsor_position: null, sponsor_employer_id: null, immi_account_id: null, assigned_to: null, created_by: null, is_archived: false, created_at: '', updated_at: '', ...o,
 })
 const ca = (case_id: string, customer_id: string): CaseApplicant => ({
   id: `${case_id}-${customer_id}`, case_id, customer_id, created_at: '',

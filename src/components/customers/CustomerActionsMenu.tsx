@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { ConfirmDialog } from '../ui/ConfirmDialog'
 import { useArchiveCustomer, useDeleteCustomer } from '../../hooks/queries/useCustomers'
 import { useDetailsAutoClose } from '../../hooks/useDetailsAutoClose'
+import { customerDisplayName } from '../../lib/customerName'
 import type { Customer } from '../../types/models'
 
 /**
@@ -79,7 +80,7 @@ export function CustomerActionsMenu({ customer }: { customer: Customer }) {
       {/* 归档（可逆）：与客户详情页同款文案 */}
       <ConfirmDialog
         open={confirming === 'archive'}
-        title={`确定归档「${customer.full_name}」吗？`}
+        title={`确定归档「${customerDisplayName(customer)}」吗？`}
         description={
           <>
             归档后 TA 从客户列表隐藏，<b>TA 参与的所有案件也一并归档</b>；
@@ -100,7 +101,7 @@ export function CustomerActionsMenu({ customer }: { customer: Customer }) {
       {/* 彻底删除（不可恢复）：与客户详情页同款文案 */}
       <ConfirmDialog
         open={confirming === 'delete'}
-        title={`彻底删除「${customer.full_name}」？`}
+        title={`彻底删除「${customerDisplayName(customer)}」？`}
         tone="danger"
         description={
           <>

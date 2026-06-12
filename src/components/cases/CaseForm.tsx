@@ -5,6 +5,7 @@ import { Card } from '../ui/Card'
 import { TextField } from '../ui/TextField'
 import { Select } from '../ui/Select'
 import { CaseTypeCascade } from './CaseTypeCascade'
+import { ImmiAccountSelect } from './ImmiAccountSelect'
 import { QuickPersonCreate } from '../customers/QuickPersonCreate'
 import { useCustomers } from '../../hooks/queries/useCustomers'
 import {
@@ -13,6 +14,7 @@ import {
   useRemoveSelfFromCase,
 } from '../../hooks/queries/useCaseApplicants'
 import { caseGroupCode } from '../../lib/caseGroups'
+import { customerDisplayName } from '../../lib/customerName'
 import {
   cascadeFromCase,
   cascadeStream,
@@ -74,6 +76,8 @@ export function CaseForm({
   const [cascade, setCascade] = useState<CascadeValue>(initial ? cascadeFromCase(initial) : prefill ?? EMPTY_CASCADE)
   const [destination, setDestination] = useState(initial?.destination_country ?? 'Australia')
   const [currency, setCurrency] = useState(initial?.currency ?? 'AUD')
+  // 所属账号：本案用哪个移民局系统账号递交（可空 lookup；编辑回填，'' = 未指定）
+  const [immiAccountId, setImmiAccountId] = useState(initial?.immi_account_id ?? '')
   // 财务口径已统一按人(applicant_id)归属：新案固定 sync_tracking=false；编辑保留原值（旧合并案件兼容，不动数据）
   const financeCombined = initial?.sync_tracking ?? false
   // 勾选框显示「实际生效状态」（enabled 且未被「不再提醒」停掉）：dismissed 案件不显示假勾选
@@ -147,6 +151,7 @@ export function CaseForm({
         sponsor_employer_id:
           cascade.visaType && EMPLOYER_TYPES.has(cascade.visaType) ? cascade.sponsorEmployerId || null : null,
         case_details: pruneDetails(cascade.details),
+        immi_account_id: immiAccountId || null,
       },
       isCustomDoc ? [] : applicantIds,
       next,
@@ -173,7 +178,7 @@ export function CaseForm({
     { id: customerId, name: customerLabel, isOwner: true },
     ...displayApplicantIds.map((id) => ({
       id,
-      name: customerById[id]?.full_name ?? createdNames[id] ?? '（未知客户）',
+      name: customerDisplayName(customerById[id]) || createdNames[id] || '（未知客户）',
       isOwner: false,
     })),
   ]
@@ -186,6 +191,10 @@ export function CaseForm({
   // 「2 年转 186 TRT 提醒」勾选框已并入上方 CaseTypeCascade 的 482 TSS 签证详情卡（与签证子类别/担保配套）。
   const restBlocks = (
     <>
+      {/* 所属账号（移民局系统账号）：独立一行放表单上部、紧跟案件类型区。
+          下拉选已有 + 就地新增；可空，账号建一次即被多案件复用 */}
+      <ImmiAccountSelect value={immiAccountId} onChange={setImmiAccountId} />
+
       {/* 组（Group）+ 本案参与人：大类=定制文件时整块隐藏（文档服务单客户，案件客户即唯一参与人）。
           收拢干净版（参与人区-收拢干净版.png）：单卡扁平无嵌套——组码挪到标题行右侧、
           「即时生效」提示只留参与人标题右侧一处、添加下拉与「+ 新建客户」并排一行。 */}
@@ -256,7 +265,9 @@ export function CaseForm({
               disabled={pickerCandidates.length === 0 || addMemberM.isPending}
               options={pickerCandidates.map((c) => ({
                 value: c.id,
-                label: c.relationship_to_primary ? `${c.full_name}（${c.relationship_to_primary}）` : c.full_name,
+                label: c.relationship_to_primary
+                  ? `${customerDisplayName(c)}（${c.relationship_to_primary}）`
+                  : customerDisplayName(c),
               }))}
               onChange={(e) => {
                 if (e.target.value) onAddMember(e.target.value)

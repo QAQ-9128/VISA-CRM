@@ -22,12 +22,13 @@ import type { Case, Customer, Payment, PaymentPlan, PaymentPlanItem, Referrer } 
 // 最小工厂
 const mkCase = (o: Partial<Case>): Case => ({
   id: 'c1', case_number: '00000001', customer_id: 'cu1', visa_subclass: '482', visa_stream: null, case_category: null, case_details: null, current_stage: 'visa_lodged',
-  currency: 'AUD', sync_tracking: true, trt_reminder_enabled: false, trt_reminder_dismissed: false, cohab_reminder_enabled: false, cohab_reminder_last: null, parent_case_id: null, parent_sync_progress: false, destination_country: 'Australia', sponsor_position: null, sponsor_employer_id: null, assigned_to: null, created_by: null,
+  currency: 'AUD', sync_tracking: true, trt_reminder_enabled: false, trt_reminder_dismissed: false, cohab_reminder_enabled: false, cohab_reminder_last: null, parent_case_id: null, parent_sync_progress: false, destination_country: 'Australia', sponsor_position: null, sponsor_employer_id: null, immi_account_id: null, assigned_to: null, created_by: null,
   is_archived: false, created_at: '', updated_at: '', ...o,
 })
 const mkCustomer = (o: Partial<Customer>): Customer => ({
   id: 'cu1', full_name: '张三', is_starred: false, client_source: null, primary_applicant_id: null,
   relationship_to_primary: null, birth_date: null, gender: null, passport_no: null, nationality: null, phone: null,
+  chinese_name: null, english_name: null,
   email: null, wechat: null, address: null, sponsor_employer_id: null, sponsor_position: null, referrer_id: null, owner_referrer_id: null, notes: null,
   assigned_to: null, created_by: null, is_archived: false, created_at: '', updated_at: '', ...o,
 })
@@ -153,6 +154,21 @@ describe('selectRecentCases', () => {
   })
   it('空 → 空', () => {
     expect(selectRecentCases([], 5)).toEqual([])
+  })
+})
+
+describe('显示名统一解析（账目页行 customerName 走 lib/customerName：中文优先）', () => {
+  it('中文优先；只有英文显英文（按录入原样）；两者皆无兜底旧 full_name', () => {
+    const cases = [mkCase({ id: 'c1', customer_id: 'cu1' })]
+    const plans = [mkPlan({ id: 'p1', case_id: 'c1' })]
+    const zh = {
+      cu1: mkCustomer({ id: 'cu1', full_name: 'DENG Tao', chinese_name: '邓韬', english_name: 'DENG Tao' }),
+    }
+    expect(selectFinanceReceivables(cases, [], plans, [], zh, [])[0].customerName).toBe('邓韬')
+    const en = { cu1: mkCustomer({ id: 'cu1', full_name: '旧名', english_name: 'LI Minshu' }) }
+    expect(selectFinanceReceivables(cases, [], plans, [], en, [])[0].customerName).toBe('LI Minshu')
+    const legacy = { cu1: mkCustomer({ id: 'cu1', full_name: '张三' }) } // 老数据：两栏 null
+    expect(selectFinanceReceivables(cases, [], plans, [], legacy, [])[0].customerName).toBe('张三')
   })
 })
 

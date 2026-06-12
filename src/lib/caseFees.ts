@@ -5,6 +5,7 @@ import type {
   PaymentPlan,
   PaymentPlanItem,
 } from '../types/models'
+import { customerDisplayName } from './customerName'
 import { receivableStatus } from './finance'
 import { getItemPaid, getCaseTotals } from './planItems'
 import type { ReceivableRole } from './finance'
@@ -125,7 +126,7 @@ export function selectCaseFeeGroups(
       role: participantId === owner ? 'primary' : 'secondary',
       planId: ownPlanId,
       participantId,
-      participantName: customerById[participantId]?.full_name ?? '',
+      participantName: customerDisplayName(customerById[participantId]),
       lines,
       receivable: t.totalDue,
       paid: t.totalPaid,
@@ -145,9 +146,9 @@ export function selectCaseFeeGroups(
   addP(owner)
   groupMemberIds
     .filter((id) => id !== owner)
-    .sort((a, b) => (customerById[a]?.full_name ?? '').localeCompare(customerById[b]?.full_name ?? ''))
+    .sort((a, b) => customerDisplayName(customerById[a]).localeCompare(customerDisplayName(customerById[b])))
     .forEach(addP)
-  const participants = personIds.map((id) => ({ id, name: customerById[id]?.full_name ?? '' }))
+  const participants = personIds.map((id) => ({ id, name: customerDisplayName(customerById[id]) }))
   for (const p of casePlans) addP(p.applicant_id)
   for (const p of casePayments) addP(p.applicant_id)
   const groups = personIds.map((id) =>

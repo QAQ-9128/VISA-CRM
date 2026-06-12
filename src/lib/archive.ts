@@ -1,3 +1,4 @@
+import { customerDisplayName } from './customerName'
 import { DOC_TYPE_LABELS } from '../types/domain'
 import type { Case, CaseDocument, Customer, Payment, Profile } from '../types/models'
 
@@ -69,7 +70,7 @@ export function selectArchiveFiles(
       typeKey: d.doc_type,
       typeLabel: DOC_TYPE_LABELS[d.doc_type] ?? d.doc_type,
       customerId: d.customer_id,
-      customerName: customerById[d.customer_id]?.full_name ?? '',
+      customerName: customerDisplayName(customerById[d.customer_id]),
       caseId: d.case_id,
       visaSubclass: cs?.visa_subclass ?? null,
       uploadedAt: d.created_at,
@@ -93,7 +94,7 @@ export function selectArchiveFiles(
       typeKey: INVOICE_TYPE_KEY,
       typeLabel: INVOICE_TYPE_LABEL,
       customerId,
-      customerName: customerId ? customerById[customerId]?.full_name ?? '' : '',
+      customerName: customerId ? customerDisplayName(customerById[customerId]) : '',
       caseId: p.case_id,
       visaSubclass: cs?.visa_subclass ?? null,
       uploadedAt: p.created_at,

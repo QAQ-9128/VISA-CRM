@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { Button } from '../ui/Button'
 import { Select } from '../ui/Select'
 import { TextField } from '../ui/TextField'
+import { NameFields } from './NameFields'
 import { OwnerSelect } from './OwnerSelect'
 import { ReferrerSelect } from '../referrers/ReferrerSelect'
 import { useCreateCustomer } from '../../hooks/queries/useCustomers'
@@ -11,9 +12,9 @@ import { GENDERS, GENDER_LABELS } from '../../types/domain'
 
 /**
  * 组区内联建人块（完整建档 · 组（Group）里「快速建档同组的人」）：
- * 五字段同快速建档（姓名/性别/生日/归属人/介绍人），建完即回调、自重置可连建。
+ * 字段同快速建档（中文名/英文名/性别/生日/归属人/介绍人），建完即回调、自重置可连建。
  * ⚠ 嵌在 CustomerForm 的 <form> 里 → 本组件必须是 div（嵌套 form 非法），
- *   创建按钮 type=button，姓名框 Enter 拦截后触发创建（不冒泡提交外层表单）。
+ *   创建按钮 type=button，名字框 Enter 拦截后触发创建（不冒泡提交外层表单）。
  */
 export function QuickPersonCreate({
   onCreated,
@@ -22,7 +23,7 @@ export function QuickPersonCreate({
   description = '给还没有档案的 TA 建档并进同组名单（可连建多个）；真正成组发生在保存并新建案件 / 加入案件时',
   submitLabel = '创建并加入名单',
 }: {
-  /** 建档成功（调用方把 TA 收进「同组的人」名单 / 加为本案参与人） */
+  /** 建档成功（调用方把 TA 收进「同组的人」名单 / 加为本案参与人）；full_name=派生显示名（中文优先） */
   onCreated: (person: { id: string; full_name: string }) => void
   onCancel: () => void
   /** 案件参与人区复用时可覆写文案（标题/说明/提交按钮）；五字段与建档行为不变 */
@@ -35,7 +36,8 @@ export function QuickPersonCreate({
   const set = <K extends keyof typeof state>(key: K) => (value: (typeof state)[K]) =>
     setState((s) => ({ ...s, [key]: value }))
   const errMsg = errorMessage(createM.error)
-  const canCreate = state.full_name.trim() !== '' && !createM.isPending
+  // 至少填一个名（中文或英文）才可创建
+  const canCreate = (state.chinese_name.trim() !== '' || state.english_name.trim() !== '') && !createM.isPending
 
   function requestCancel() {
     // 填了内容才二次确认，空表直接关（防误触丢掉已填的四五个字段）
@@ -71,19 +73,18 @@ export function QuickPersonCreate({
         <h4 className="text-[13px] font-bold text-ink">{title}</h4>
         <p className="mt-0.5 text-xs text-faint">{description}</p>
       </div>
-      <TextField
-        label="姓名"
-        required
-        value={state.full_name}
-        onChange={(e) => set('full_name')(e.target.value)}
-        onKeyDown={(e) => {
-          // 拦下 Enter：在这里回车=创建这个人，绝不提交外层客户表单
+      {/* 中文名/英文名两栏（与主客户表单同一组件/占位/口径）；Enter=创建这个人，绝不提交外层客户表单 */}
+      <NameFields
+        chineseName={state.chinese_name}
+        englishName={state.english_name}
+        onChineseChange={set('chinese_name')}
+        onEnglishChange={set('english_name')}
+        onNameKeyDown={(e) => {
           if (e.key === 'Enter') {
             e.preventDefault()
             create()
           }
         }}
-        placeholder="TA 的姓名"
       />
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
         <Select

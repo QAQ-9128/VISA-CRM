@@ -5,6 +5,7 @@ import type { Customer } from '../types/models'
 const mkCustomer = (o: Partial<Customer>): Customer => ({
   id: 'cu1', full_name: '某人', is_starred: false, client_source: null, primary_applicant_id: null,
   relationship_to_primary: null, birth_date: null, gender: null, passport_no: null, nationality: null, phone: null,
+  chinese_name: null, english_name: null,
   email: null, wechat: null, address: null, sponsor_employer_id: null, sponsor_position: null, referrer_id: null, owner_referrer_id: null, notes: null,
   assigned_to: null, created_by: null, is_archived: false, created_at: '', updated_at: '', ...o,
 })
@@ -40,6 +41,42 @@ describe('归属人（owner_referrer_id：referrers.kind=owner 实体）', () =>
     const s = initialFormState(undefined)
     expect(s.owner_referrer_id).toBe('')
     expect(toPayload(s).owner_referrer_id).toBeNull()
+  })
+})
+
+describe('中文名/英文名（2026-06 姓名拆两栏；full_name=派生显示名）', () => {
+  it('编辑回填两栏；toPayload 透传 + full_name 派生中文优先', () => {
+    const s = initialFormState(mkCustomer({ chinese_name: '邓韬', english_name: 'DENG Tao', full_name: '邓韬' }))
+    expect(s.chinese_name).toBe('邓韬')
+    expect(s.english_name).toBe('DENG Tao')
+    const p = toPayload(s)
+    expect(p.chinese_name).toBe('邓韬')
+    expect(p.english_name).toBe('DENG Tao')
+    expect(p.full_name).toBe('邓韬') // 中文优先
+  })
+
+  it('只填英文名 → full_name=英文（按录入原样，不改大小写）', () => {
+    const s = { ...initialFormState(undefined), english_name: 'LI Minshu' }
+    const p = toPayload(s)
+    expect(p.chinese_name).toBeNull()
+    expect(p.english_name).toBe('LI Minshu')
+    expect(p.full_name).toBe('LI Minshu')
+  })
+
+  it('编辑老数据（只有旧 full_name、两栏全空）→ full_name 保留旧值不被清空', () => {
+    const s = initialFormState(mkCustomer({ full_name: '张三', chinese_name: null, english_name: null }))
+    expect(s.chinese_name).toBe('')
+    expect(s.english_name).toBe('')
+    const p = toPayload(s)
+    expect(p.full_name).toBe('张三') // 兜底旧值，老数据兼容
+    expect(p.chinese_name).toBeNull()
+    expect(p.english_name).toBeNull()
+  })
+
+  it('老数据补录中文名 → full_name 随之更新为中文', () => {
+    const s = { ...initialFormState(mkCustomer({ full_name: 'Old Name' })), chinese_name: ' 王五 ' }
+    expect(toPayload(s).full_name).toBe('王五')
+    expect(toPayload(s).chinese_name).toBe('王五')
   })
 })
 

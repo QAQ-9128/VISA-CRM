@@ -15,12 +15,13 @@ const TODAY = new Date(2026, 4, 29) // 2026-05-29
 
 const mkCase = (o: Partial<Case>): Case => ({
   id: 'c1', case_number: '00000001', customer_id: 'cu1', visa_subclass: '482', visa_stream: null, case_category: null, case_details: null, current_stage: 'visa_lodged',
-  currency: 'AUD', sync_tracking: true, trt_reminder_enabled: false, trt_reminder_dismissed: false, cohab_reminder_enabled: false, cohab_reminder_last: null, parent_case_id: null, parent_sync_progress: false, destination_country: 'Australia', sponsor_position: null, sponsor_employer_id: null, assigned_to: null, created_by: null,
+  currency: 'AUD', sync_tracking: true, trt_reminder_enabled: false, trt_reminder_dismissed: false, cohab_reminder_enabled: false, cohab_reminder_last: null, parent_case_id: null, parent_sync_progress: false, destination_country: 'Australia', sponsor_position: null, sponsor_employer_id: null, immi_account_id: null, assigned_to: null, created_by: null,
   is_archived: false, created_at: '', updated_at: '2026-05-20T00:00:00Z', ...o,
 })
 const mkCustomer = (o: Partial<Customer>): Customer => ({
   id: 'cu1', full_name: '李旻书', is_starred: false, client_source: null, primary_applicant_id: null,
   relationship_to_primary: null, birth_date: null, gender: null, passport_no: null, nationality: null, phone: null,
+  chinese_name: null, english_name: null,
   email: null, wechat: null, address: null, sponsor_employer_id: null, sponsor_position: null, referrer_id: null, owner_referrer_id: null, notes: null,
   assigned_to: null, created_by: null, is_archived: false, created_at: '', updated_at: '', ...o,
 })
@@ -145,6 +146,22 @@ describe('selectCaseRows', () => {
     const rows = selectCaseRows(cases, [], [], [mkCustomer({ id: 'cu1', full_name: '李' })], TODAY, history)
     expect(rows[0].visaDaysSince).toBe(9) // 1.1 → 1.10 冻结
     expect(rows[0].nomDaysSince).toBe(9)
+  })
+
+  it('显示名统一解析（进度表参与人名）：中文优先；只有英文显英文（原样）', () => {
+    const cases = [mkCase({ id: 'c1', customer_id: 'cu1', current_stage: 'todo' })]
+    const zh = selectCaseRows(
+      cases, [], [],
+      [mkCustomer({ id: 'cu1', full_name: 'DENG Tao', chinese_name: '邓韬', english_name: 'DENG Tao' })],
+      TODAY, [],
+    )
+    expect(zh[0].primaryName).toBe('邓韬')
+    const en = selectCaseRows(
+      cases, [], [],
+      [mkCustomer({ id: 'cu1', full_name: '旧名', english_name: 'LI Minshu' })],
+      TODAY, [],
+    )
+    expect(en[0].primaryName).toBe('LI Minshu')
   })
 
   it('获批标记：下签案件 nomApproved+visaGranted 全真；距今数值与改前一致（计算不动）', () => {

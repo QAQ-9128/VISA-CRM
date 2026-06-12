@@ -9,6 +9,7 @@ import { useCaseStageHistory } from '../../../hooks/queries/useCases'
 import { useCustomerFinance } from '../../../hooks/queries/useCustomerFinance'
 import { selectProcessingRows } from '../../../lib/processingTime'
 import { flowStatusBadgeClass } from '../../../lib/statusColor'
+import { customerDisplayName } from '../../../lib/customerName'
 import { formatMoney } from '../../../lib/money'
 import { GENDER_LABELS } from '../../../types/domain'
 import type { Case, Customer } from '../../../types/models'
@@ -61,11 +62,11 @@ export function SummaryBand({
 
   return (
     <div className="flex flex-col gap-4 rounded-card bg-white p-[18px] shadow-soft xl:flex-row xl:items-center">
-      {/* 左：头像 + 姓名（不再标主/副申角色） */}
+      {/* 左：头像 + 姓名（不再标主/副申角色）；显示名=中文优先（lib/customerName 单一解析） */}
       <div className="flex shrink-0 items-center gap-3 xl:w-56">
-        <Avatar name={customer.full_name} seed={customer.id} size={48} />
+        <Avatar name={customerDisplayName(customer)} seed={customer.id} size={48} />
         <div className="min-w-0">
-          <div className="truncate font-serif text-[22px] font-bold tracking-[-0.01em] text-ink">{customer.full_name}</div>
+          <div className="truncate font-serif text-[22px] font-bold tracking-[-0.01em] text-ink">{customerDisplayName(customer)}</div>
           <div className="text-[12px] text-faint">客户</div>
         </div>
       </div>

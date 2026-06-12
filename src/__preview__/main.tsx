@@ -46,6 +46,7 @@ window.fetch = () => new Promise<Response>(() => {})
 
 const cust = (o: Partial<Customer>): Customer => ({
   id: 'P', full_name: 'Alice', birth_date: null, gender: null, passport_no: null, nationality: null,
+  chinese_name: null, english_name: null,
   phone: null, email: null, wechat: null, address: null, sponsor_employer_id: null, sponsor_position: null,
   referrer_id: null, owner_referrer_id: null, primary_applicant_id: null, relationship_to_primary: null, client_source: null,
   is_starred: false, notes: null, assigned_to: null, created_by: null, is_archived: false,
@@ -53,7 +54,7 @@ const cust = (o: Partial<Customer>): Customer => ({
 })
 const kase = (o: Partial<Case>): Case => ({
   id: 'C', case_number: '10042X', customer_id: 'P', visa_subclass: '482', visa_stream: 'Core Skill', case_category: null, case_details: null,
-  destination_country: null, sponsor_position: null, sponsor_employer_id: null,
+  destination_country: null, sponsor_position: null, sponsor_employer_id: null, immi_account_id: null,
   current_stage: 'nomination_lodged', currency: 'AUD', sync_tracking: true,
   trt_reminder_enabled: false, trt_reminder_dismissed: false, cohab_reminder_enabled: false, cohab_reminder_last: null, parent_case_id: null, parent_sync_progress: false, assigned_to: null,
   created_by: null, is_archived: false, created_at: '2026-01-01T00:00:00Z', updated_at: '2026-06-01T00:00:00Z', ...o,

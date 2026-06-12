@@ -6,6 +6,7 @@ import { listReferrers } from '../../api/referrers'
 import { listAllCaseApplicants } from '../../api/caseApplicants'
 import { listCasesByCustomer } from '../../api/cases'
 import { getCustomer } from '../../api/customers'
+import { customerDisplayName } from '../../lib/customerName'
 import { selectCustomerFinance } from '../../lib/finance'
 import { installmentSummaryByPlan } from '../../lib/financeRows'
 import { formatVisaType } from '../../lib/visa'
@@ -88,7 +89,7 @@ export function useCustomerFinance(customerId: string | undefined) {
       (cases.data ?? []).map((c) => ({
         caseId: c.id,
         customerId: c.customer_id,
-        label: `${customer.data?.full_name ?? '客户'} · ${formatVisaType(c.visa_subclass, c.visa_stream)}`,
+        label: `${customerDisplayName(customer.data) || '客户'} · ${formatVisaType(c.visa_subclass, c.visa_stream)}`,
         referrerId: customer.data?.referrer_id ?? null,
       })),
     [cases.data, customer.data],

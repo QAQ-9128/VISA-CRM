@@ -80,6 +80,11 @@ export const queryKeys = {
     list: ['referrers', 'list'] as const,
     detail: (id: string) => ['referrers', 'detail', id] as const,
   },
+  immiAccounts: {
+    all: ['immi_accounts'] as const,
+    list: ['immi_accounts', 'list'] as const,
+    detail: (id: string) => ['immi_accounts', 'detail', id] as const,
+  },
   finance: {
     referrers: ['finance', 'referrers'] as const,
     installments: ['finance', 'installments'] as const,

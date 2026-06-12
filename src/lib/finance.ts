@@ -1,3 +1,4 @@
+import { customerDisplayName } from './customerName'
 import { getCaseTotals, getItemPaid } from './planItems'
 import { stageUnitAmount } from './staged'
 import { formatMoney } from './money'
@@ -167,7 +168,7 @@ export function selectFinanceReceivables(
       coApplicantNames,
       planId: plan?.id ?? null,
       customerId: linkId,
-      customerName: customerById[linkId]?.full_name ?? '',
+      customerName: customerDisplayName(customerById[linkId]),
       visaSubclass: c.visa_subclass,
       receivable: totals.totalDue,
       paid: totals.totalPaid,
@@ -182,7 +183,7 @@ export function selectFinanceReceivables(
     const casePayments = payments.filter((p) => p.case_id === c.id)
     const subIds = subsByCase.get(c.id) ?? []
     if (c.sync_tracking) {
-      const subNames = subIds.map((id) => customerById[id]?.full_name ?? '').filter(Boolean)
+      const subNames = subIds.map((id) => customerDisplayName(customerById[id])).filter(Boolean)
       rows.push(unitRow(c, null, 'merged', subNames, casePayments)) // 合并：全案付款 + 列出主/副
     } else {
       // 主申 + 各副申各一份；主申在前
@@ -318,7 +319,7 @@ export function selectFinanceReceipts(
     // 显示归属：实际付款方(from_client) > 账单归属申请人(applicant_id) > 案件主申。
     // 副申自己的账（applicant_id=副申）即使没单独填付款方，也显示副申，不再误挂主申。
     const payerId = p.from_client_customer_id ?? p.applicant_id ?? caseCustomerId
-    const payerName = customerById[payerId]?.full_name ?? customerById[caseCustomerId]?.full_name ?? ''
+    const payerName = customerDisplayName(customerById[payerId]) || customerDisplayName(customerById[caseCustomerId])
     total += Math.max(0, num(p.amount))
     items.push({
       paymentId: p.id,
@@ -397,7 +398,7 @@ export function selectFinancePayouts(
       direction: p.direction,
       amount: num(p.amount),
       method: p.method,
-      customerName: customer?.full_name ?? '',
+      customerName: customerDisplayName(customer),
       customerId: ownerId ?? '',
       referrerName: referrer?.name ?? null,
       paidAt: p.paid_at,

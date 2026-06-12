@@ -4,6 +4,7 @@ import { useCases } from '../../hooks/queries/useCases'
 import { useAllCaseApplicants } from '../../hooks/queries/useCaseApplicants'
 import { caseGroupCode, caseParticipantIds } from '../../lib/caseGroups'
 import { selectCustomerCases } from '../../lib/family'
+import { customerDisplayName } from '../../lib/customerName'
 import { resolveBackLink } from '../../lib/backLink'
 import { formatVisaType } from '../../lib/visa'
 import { useBackSource } from '../../hooks/useBackSource'
@@ -61,7 +62,7 @@ export function GroupManagementPage() {
         <div className="flex flex-wrap items-center gap-2.5 border-b border-line pb-4">
           <h1 className="font-serif text-[20px] font-bold text-ink">案件参与管理</h1>
           <span className="text-[13px] text-muted">
-            {c.full_name} · 参与 {caseList.length} 件案件 · 一案一组
+            {customerDisplayName(c)} · 参与 {caseList.length} 件案件 · 一案一组
           </span>
         </div>
 
@@ -128,8 +129,8 @@ function CaseGroupBlock({
           if (!m) return null
           return (
             <Link key={mid} to={`/customers/${mid}`} state={source} className="flex items-center gap-1.5 text-sm text-ink hover:text-brand">
-              <Avatar name={m.full_name} seed={mid} size={24} />
-              {m.full_name}
+              <Avatar name={customerDisplayName(m)} seed={mid} size={24} />
+              {customerDisplayName(m)}
             </Link>
           )
         })}

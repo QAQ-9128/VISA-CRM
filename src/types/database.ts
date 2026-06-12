@@ -115,10 +115,36 @@ export interface Database {
         Update: Partial<Database['public']['Tables']['referrers']['Insert']>
         Relationships: []
       }
+      /** 移民局系统账号（ImmiAccount）lookup：代理有多个递交账号，案件记录用哪个账号递交（0038） */
+      immi_accounts: {
+        Row: {
+          id: string
+          name: string
+          is_archived: boolean
+          created_by: string | null
+          created_at: Timestamp
+          updated_at: Timestamp
+        }
+        Insert: {
+          id?: string
+          name: string
+          is_archived?: boolean
+          created_by?: string | null
+          created_at?: Timestamp
+          updated_at?: Timestamp
+        }
+        Update: Partial<Database['public']['Tables']['immi_accounts']['Insert']>
+        Relationships: []
+      }
       customers: {
         Row: {
           id: string
+          /** 旧姓名字段（not null，保存时同步为「中文 ?? 英文」；展示一律走 lib/customerName 解析） */
           full_name: string
+          /** 中文名（0039，可空） */
+          chinese_name: string | null
+          /** 英文名（0039，可空；录入约定「姓全大写 + 名首字母大写」如 DENG Tao，系统不改大小写） */
+          english_name: string | null
           birth_date: DateStr | null
           gender: string | null
           passport_no: string | null
@@ -146,6 +172,8 @@ export interface Database {
         Insert: {
           id?: string
           full_name: string
+          chinese_name?: string | null
+          english_name?: string | null
           birth_date?: DateStr | null
           gender?: string | null
           passport_no?: string | null
@@ -184,6 +212,8 @@ export interface Database {
           destination_country: string | null
           sponsor_position: string | null
           sponsor_employer_id: string | null
+          /** 所属账号：本案用哪个移民局系统账号递交（immi_accounts，可空；0038） */
+          immi_account_id: string | null
           current_stage: CaseStage
           currency: string
           sync_tracking: boolean
@@ -210,6 +240,7 @@ export interface Database {
           destination_country?: string | null
           sponsor_position?: string | null
           sponsor_employer_id?: string | null
+          immi_account_id?: string | null
           current_stage?: CaseStage
           currency?: string
           sync_tracking?: boolean

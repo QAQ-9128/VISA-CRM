@@ -4,6 +4,7 @@ import { Button } from '../ui/Button'
 import { TextField } from '../ui/TextField'
 import { Select } from '../ui/Select'
 import { useCustomers } from '../../hooks/queries/useCustomers'
+import { customerDisplayName } from '../../lib/customerName'
 import { FEE_CATEGORIES, FEE_CATEGORY_OTHER, PAYMENT_METHOD_LABELS } from '../../types/domain'
 import type { PaymentMethod } from '../../types/domain'
 
@@ -73,7 +74,7 @@ export function PaymentEntryForm({
   const allCustomers = useCustomers({})
   const customerList = allCustomers.data ?? []
   const defaultPayerName =
-    customerList.find((c) => c.id === defaultPayerCustomerId)?.full_name ?? '案件客户'
+    customerDisplayName(customerList.find((c) => c.id === defaultPayerCustomerId)) || '案件客户'
   const itemMode = !!items && items.length > 0
   const [itemId, setItemId] = useState(initialItemId ?? (items?.[0]?.id ?? ''))
   // 已有类别：命中预设 → 选中预设；非空但非预设 → 选「其他」并把原值放进手填框；空 → 未分类。
@@ -127,7 +128,7 @@ export function PaymentEntryForm({
         <Select
           label="付款方"
           placeholder={`（默认：${defaultPayerName}）`}
-          options={customerList.map((c) => ({ value: c.id, label: c.full_name }))}
+          options={customerList.map((c) => ({ value: c.id, label: customerDisplayName(c) }))}
           value={payerId}
           onChange={(e) => setPayerId(e.target.value)}
           className="md:col-span-2"

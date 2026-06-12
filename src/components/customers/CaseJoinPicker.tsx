@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { caseGroupCode, caseParticipantIds } from '../../lib/caseGroups'
+import { customerDisplayName } from '../../lib/customerName'
 import { formatVisaType } from '../../lib/visa'
 import type { Case, CaseApplicant, Customer } from '../../types/models'
 
@@ -24,7 +25,7 @@ export function CaseJoinPicker({
   const q = query.trim().toLowerCase()
   const options = cases.map((c) => {
     const ids = caseParticipantIds(c, applicants)
-    const names = ids.map((id) => customerById[id]?.full_name ?? '').filter(Boolean)
+    const names = ids.map((id) => customerDisplayName(customerById[id])).filter(Boolean)
     return { caseRow: c, ids, names, code: caseGroupCode(ids, c.id) }
   })
   const list = q

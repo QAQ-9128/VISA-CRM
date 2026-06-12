@@ -6,6 +6,7 @@ import { Textarea } from '../ui/Textarea'
 import { Select } from '../ui/Select'
 import { Checkbox } from '../ui/Checkbox'
 import { ReferrerSelect } from '../referrers/ReferrerSelect'
+import { NameFields } from './NameFields'
 import { OwnerSelect } from './OwnerSelect'
 import { CaseJoinPicker } from './CaseJoinPicker'
 import { QuickPersonCreate } from './QuickPersonCreate'
@@ -66,7 +67,9 @@ export function CustomerForm({ initial, submitting, error, onSubmit, onCancel }:
   const selectedCase = joinCaseId ? joinableCases.find((c) => c.id === joinCaseId) ?? null : null
 
   const sourceOptions = CLIENT_SOURCES.map((s) => ({ value: s, label: CLIENT_SOURCE_OPTION_LABELS[s] }))
-  const nameFilled = state.full_name.trim() !== ''
+  // 至少填一个名；编辑老数据（只有旧 full_name）不强迫补录两栏
+  const nameFilled =
+    state.chinese_name.trim() !== '' || state.english_name.trim() !== '' || state.full_name.trim() !== ''
   // 选了「加入已有案件」却没选案件 → 禁存（之前会默默存成独立客户，用户以为加入失败）
   const joinIncomplete = joinMode && !joinCaseId
 
@@ -96,12 +99,12 @@ export function CustomerForm({ initial, submitting, error, onSubmit, onCancel }:
       {/* 基本信息 */}
       <Section title="基本信息" first>
         <div>
-          <TextField
-            label="姓名"
-            required
-            value={state.full_name}
-            onChange={(e) => set('full_name')(e.target.value)}
-            placeholder="客户姓名"
+          {/* 姓名拆两栏（中文优先显示，英文按录入原样）；至少填一个名（编辑老数据可两空靠旧 full_name 兜底） */}
+          <NameFields
+            chineseName={state.chinese_name}
+            englishName={state.english_name}
+            onChineseChange={set('chinese_name')}
+            onEnglishChange={set('english_name')}
           />
           {nameFilled && <p className="mt-1.5 text-xs font-medium text-emerald-600">✓ 必填项已填写</p>}
         </div>
@@ -258,7 +261,7 @@ export function CustomerForm({ initial, submitting, error, onSubmit, onCancel }:
       {/* 底部：提示 + 操作 */}
       <div className="flex flex-col gap-3 border-t border-line pt-[22px] sm:flex-row sm:items-center sm:justify-between">
         <p className="text-xs text-faint">
-          填写「姓名」后即可保存 · Enter 保存 / Esc 取消
+          填写「中文名或英文名」后即可保存 · Enter 保存 / Esc 取消
         </p>
         <div className="flex flex-wrap justify-end gap-3">
           {joinIncomplete && <span className="self-center text-xs text-amber-700">先在上方选择要加入的案件</span>}

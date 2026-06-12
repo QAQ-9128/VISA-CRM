@@ -6,6 +6,7 @@ import { Select } from '../ui/Select'
 import { Card, CardHead } from '../ui/Card'
 import { useCreatePayment } from '../../hooks/queries/usePayments'
 import { useCustomers } from '../../hooks/queries/useCustomers'
+import { customerDisplayName } from '../../lib/customerName'
 import { PAYMENT_METHOD_LABELS } from '../../types/domain'
 import type { PaymentMethod } from '../../types/domain'
 import type { Installment, PaymentPlanItem } from '../../types/models'
@@ -43,7 +44,7 @@ export function RecordPaymentForm({
   const allCustomers = useCustomers({})
   const customerList = allCustomers.data ?? []
   const defaultPayerName =
-    customerList.find((c) => c.id === defaultPayerCustomerId)?.full_name ?? '主申请'
+    customerDisplayName(customerList.find((c) => c.id === defaultPayerCustomerId)) || '主申请'
 
   const [itemId, setItemId] = useState('')
   const [installmentId, setInstallmentId] = useState('')
@@ -131,7 +132,7 @@ export function RecordPaymentForm({
           <Select
             label="付款方（可选）"
             placeholder={`默认：${defaultPayerName}`}
-            options={customerList.map((c) => ({ value: c.id, label: c.full_name }))}
+            options={customerList.map((c) => ({ value: c.id, label: customerDisplayName(c) }))}
             value={payerId}
             onChange={(e) => setPayerId(e.target.value)}
           />

@@ -5,6 +5,7 @@ import type { Case, Customer, Payment, PaymentPlan, PaymentPlanItem } from '../t
 
 const mkCust = (o: Partial<Customer>): Customer => ({
   id: 'c1', full_name: '甲', birth_date: null, gender: null, passport_no: null, nationality: null,
+  chinese_name: null, english_name: null,
   phone: null, email: null, wechat: null, address: null, sponsor_employer_id: null, sponsor_position: null,
   referrer_id: null, owner_referrer_id: null, primary_applicant_id: null, relationship_to_primary: null, client_source: null,
   is_starred: false, notes: null, assigned_to: null, created_by: null, is_archived: false,
@@ -12,7 +13,7 @@ const mkCust = (o: Partial<Customer>): Customer => ({
 })
 const mkCase = (o: Partial<Case>): Case => ({
   id: 'ca1', case_number: '12345678', customer_id: 'P', visa_subclass: '482', visa_stream: 'Core Skill', case_category: null, case_details: null,
-  destination_country: null, sponsor_position: null, sponsor_employer_id: null, current_stage: 'nomination_lodged', currency: 'AUD', sync_tracking: true,
+  destination_country: null, sponsor_position: null, sponsor_employer_id: null, immi_account_id: null, current_stage: 'nomination_lodged', currency: 'AUD', sync_tracking: true,
   trt_reminder_enabled: false, trt_reminder_dismissed: false, cohab_reminder_enabled: false, cohab_reminder_last: null, parent_case_id: null, parent_sync_progress: false, assigned_to: null,
   created_by: null, is_archived: false, created_at: '', updated_at: '', ...o,
 })

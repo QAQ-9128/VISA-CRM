@@ -1,3 +1,4 @@
+import { customerDisplayName } from './customerName'
 import { utcDayDiff } from './dateDiff'
 import { formatVisaType } from './visa'
 import { getLodgementLodgedDate, getLodgementStatus } from './lodgementStatus'
@@ -287,10 +288,10 @@ export function selectCaseRows(
     // 案件客户归档 → 首位在册参与人顶上（显示与链接都切到没被归档的人），归档者不再显示
     const activeParticipants = [
       ...(customerById[c.customer_id]
-        ? [{ id: c.customer_id, name: customerById[c.customer_id]?.full_name ?? '' }]
+        ? [{ id: c.customer_id, name: customerDisplayName(customerById[c.customer_id]) }]
         : []),
       ...subIds
-        .map((id) => ({ id, name: customerById[id]?.full_name ?? '' }))
+        .map((id) => ({ id, name: customerDisplayName(customerById[id]) }))
         .filter((s) => s.name !== ''),
     ]
     const primary = activeParticipants[0] ?? null

@@ -18,6 +18,7 @@ import {
   selectRecentCases,
   sumFinanceReceivables,
 } from '../../lib/finance'
+import { customerDisplayName } from '../../lib/customerName'
 import { fyOfEndYear } from '../../lib/dateRules'
 import { installmentSummaryByPlan } from '../../lib/financeRows'
 import { visibleCaseIds } from '../../lib/visibility'
@@ -143,7 +144,7 @@ export function useFinance(period: FinancePeriod) {
         .map((c) => ({
           caseId: c.id,
           customerId: c.customer_id,
-          label: `${customerById[c.customer_id]?.full_name ?? '未知客户'} · ${formatVisaType(c.visa_subclass, c.visa_stream)}`,
+          label: `${customerDisplayName(customerById[c.customer_id]) || '未知客户'} · ${formatVisaType(c.visa_subclass, c.visa_stream)}`,
           referrerId: customerById[c.customer_id]?.referrer_id ?? null,
         }))
         .sort((a, b) => a.label.localeCompare(b.label)),

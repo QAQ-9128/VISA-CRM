@@ -5,6 +5,7 @@ import { EMPTY_CASCADE } from '../../lib/caseTypeCascade'
 import type { CascadeValue } from '../../lib/caseTypeCascade'
 import { useCase, useCreateCase, useUpdateCase } from '../../hooks/queries/useCases'
 import { useCustomer } from '../../hooks/queries/useCustomers'
+import { customerDisplayName } from '../../lib/customerName'
 import { useCaseApplicants, useSetCaseApplicants } from '../../hooks/queries/useCaseApplicants'
 import type { Case } from '../../types/models'
 import { BackLink } from '../../components/ui/BackLink'
@@ -86,7 +87,7 @@ export function CaseFormPage() {
   const form = (
     <CaseForm
       customerId={customerId as string}
-      customerLabel={customer.data?.full_name ?? '…'}
+      customerLabel={customerDisplayName(customer.data) || '…'}
       initial={editing ? existing.data ?? undefined : undefined}
       prefill={prefill}
       initialApplicantIds={editing ? (existingApplicants.data ?? []).map((a) => a.customer_id) : withIds}
@@ -112,7 +113,7 @@ export function CaseFormPage() {
             <circle cx="12" cy="8" r="4" />
             <path d="M4 20c0-4 3.6-7 8-7s8 3 8 7" />
           </svg>
-          {customer.data?.full_name ?? '…'}
+          {customerDisplayName(customer.data) || '…'}
         </div>
       )}
       {/* 新建/编辑均用级联自带分卡（案件类型 → 详情 → Group/操作），不再套外卡（避免卡中卡） */}

@@ -18,6 +18,7 @@ import { Button } from '../../components/ui/Button'
 import { ConfirmDialog } from '../../components/ui/ConfirmDialog'
 import { LoadingBlock, ErrorBlock } from '../../components/ui/states'
 import { formatVisaType } from '../../lib/visa'
+import { customerDisplayName } from '../../lib/customerName'
 import { displayCustomerName } from '../../lib/dashboardView'
 
 /** 待删目标：kind 决定确认文案与调用的 mutation。 */
@@ -173,7 +174,7 @@ export function RecycleBin() {
     <div className="space-y-4">
       <Group title="已归档客户" count={bin.archivedCustomers.length}>
         {bin.archivedCustomers.map((c) => {
-          const name = displayCustomerName(c.full_name)
+          const name = displayCustomerName(customerDisplayName(c))
           return (
             <Row
               key={c.id}
@@ -195,7 +196,7 @@ export function RecycleBin() {
             <Row
               key={k.id}
               name={name}
-              meta={`客户：${displayCustomerName(bin.customerById[k.customer_id]?.full_name)}`}
+              meta={`客户：${displayCustomerName(customerDisplayName(bin.customerById[k.customer_id]))}`}
               pending={restoreCase.isPending && restoreCase.variables === k.id}
               onRestore={() => restoreCase.mutate(k.id)}
               onDelete={() => setTarget({ kind: 'case', id: k.id, name })}
@@ -212,7 +213,7 @@ export function RecycleBin() {
             <Row
               key={d.id}
               name={name}
-              meta={`客户：${displayCustomerName(bin.customerById[d.customer_id]?.full_name)}`}
+              meta={`客户：${displayCustomerName(customerDisplayName(bin.customerById[d.customer_id]))}`}
               pending={restoreDocument.isPending && restoreDocument.variables === d.id}
               onRestore={() => restoreDocument.mutate(d.id)}
               onDelete={() => setTarget({ kind: 'document', id: d.id, name, storagePath: d.storage_path })}

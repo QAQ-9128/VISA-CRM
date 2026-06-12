@@ -1,3 +1,4 @@
+import { customerDisplayName } from './customerName'
 import type { Case, CaseApplicant, Customer, FamilyMemberLink } from '../types/models'
 
 /**
@@ -48,7 +49,7 @@ export function selectFamilyGroupMembers(
     .sort(
       (a, b) =>
         (a.primary_applicant_id ? 1 : 0) - (b.primary_applicant_id ? 1 : 0) ||
-        a.full_name.localeCompare(b.full_name),
+        customerDisplayName(a).localeCompare(customerDisplayName(b)),
     )
 }
 

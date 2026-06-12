@@ -10,7 +10,7 @@ import type { Case, CaseStageHistory } from '../types/models'
 
 const mkCase = (o: Partial<Case>): Case => ({
   id: 'c1', case_number: '82000001', customer_id: 'cu1', visa_subclass: '820/801', visa_stream: null, case_category: null, case_details: null,
-  current_stage: 'visa_lodged', currency: 'AUD', sync_tracking: true, destination_country: null, sponsor_position: null, sponsor_employer_id: null,
+  current_stage: 'visa_lodged', currency: 'AUD', sync_tracking: true, destination_country: null, sponsor_position: null, sponsor_employer_id: null, immi_account_id: null,
   assigned_to: null, created_by: null, is_archived: false, trt_reminder_enabled: false, trt_reminder_dismissed: false,
   cohab_reminder_enabled: true, cohab_reminder_last: null, parent_case_id: null, parent_sync_progress: false,
   created_at: '2026-01-01T00:00:00Z', updated_at: '', ...o,

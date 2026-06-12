@@ -7,6 +7,8 @@ import type { Tables, TablesInsert, TablesUpdate } from './database'
 export type Profile = Tables<'profiles'>
 export type Employer = Tables<'employers'>
 export type Referrer = Tables<'referrers'>
+/** 移民局系统账号（ImmiAccount）lookup：案件「所属账号」指向它。 */
+export type ImmiAccount = Tables<'immi_accounts'>
 export type Customer = Tables<'customers'>
 export type Case = Tables<'cases'>
 export type CaseApplicant = Tables<'case_applicants'>
@@ -37,6 +39,7 @@ export type CaseApplicantInsert = TablesInsert<'case_applicants'>
 export type EmployerInsert = TablesInsert<'employers'>
 export type ReferrerInsert = TablesInsert<'referrers'>
 export type ReferrerUpdate = TablesUpdate<'referrers'>
+export type ImmiAccountInsert = TablesInsert<'immi_accounts'>
 export type LodgementInsert = TablesInsert<'lodgements'>
 export type PaymentInsert = TablesInsert<'payments'>
 export type FollowUpInsert = TablesInsert<'follow_ups'>

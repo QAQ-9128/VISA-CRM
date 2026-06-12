@@ -14,12 +14,13 @@ const mkPayment = (o: Partial<Payment>): Payment => ({
 })
 const mkCase = (o: Partial<Case>): Case => ({
   id: 'c1', case_number: '00000001', customer_id: 'cu1', visa_subclass: '482', visa_stream: null, case_category: null, case_details: null, current_stage: 'visa_lodged',
-  currency: 'AUD', sync_tracking: true, trt_reminder_enabled: false, trt_reminder_dismissed: false, cohab_reminder_enabled: false, cohab_reminder_last: null, parent_case_id: null, parent_sync_progress: false, destination_country: 'Australia', sponsor_position: null, sponsor_employer_id: null, assigned_to: null, created_by: null,
+  currency: 'AUD', sync_tracking: true, trt_reminder_enabled: false, trt_reminder_dismissed: false, cohab_reminder_enabled: false, cohab_reminder_last: null, parent_case_id: null, parent_sync_progress: false, destination_country: 'Australia', sponsor_position: null, sponsor_employer_id: null, immi_account_id: null, assigned_to: null, created_by: null,
   is_archived: false, created_at: '', updated_at: '', ...o,
 })
 const mkCustomer = (o: Partial<Customer>): Customer => ({
   id: 'cu1', full_name: '张三', is_starred: false, client_source: null, primary_applicant_id: null,
   relationship_to_primary: null, birth_date: null, gender: null, passport_no: null, nationality: null, phone: null,
+  chinese_name: null, english_name: null,
   email: null, wechat: null, address: null, sponsor_employer_id: null, sponsor_position: null, referrer_id: null, owner_referrer_id: null, notes: null,
   assigned_to: null, created_by: null, is_archived: false, created_at: '', updated_at: '', ...o,
 })

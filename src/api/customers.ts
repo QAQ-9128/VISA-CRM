@@ -2,7 +2,7 @@ import { supabase } from '../lib/supabase'
 import type { Customer, CustomerInsert, CustomerUpdate } from '../types/models'
 
 export interface ListCustomersOptions {
-  /** 模糊搜索 full_name / phone / email */
+  /** 模糊搜索 full_name / 中文名 / 英文名 / phone / email */
   search?: string
   /** 是否包含已归档（默认不含） */
   includeArchived?: boolean
@@ -22,7 +22,9 @@ export async function listCustomers(opts: ListCustomersOptions = {}): Promise<Cu
     // 内部的 \ 与 " 转义，否则搜「Smith, John」「a(b」会破坏过滤语法（结果错误或 400）。
     const escaped = term.replace(/\\/g, '\\\\').replace(/"/g, '\\"')
     const like = `"%${escaped}%"`
-    query = query.or(`full_name.ilike.${like},phone.ilike.${like},email.ilike.${like}`)
+    query = query.or(
+      `full_name.ilike.${like},chinese_name.ilike.${like},english_name.ilike.${like},phone.ilike.${like},email.ilike.${like}`,
+    )
   }
 
   query = query

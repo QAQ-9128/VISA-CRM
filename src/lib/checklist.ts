@@ -1,3 +1,4 @@
+import { customerDisplayName } from './customerName'
 import { displayCustomerName } from './dashboardView'
 import { formatVisaType } from './visa'
 
@@ -13,7 +14,12 @@ export interface ChecklistLink {
 
 // ── 来源标签：每条待办来自哪个客户 / 案件，或「随手记」（不关联）──────────
 type SrcCase = { id: string; customer_id: string; visa_subclass: string; visa_stream: string | null }
-type SrcCustomer = { id: string; full_name: string | null }
+type SrcCustomer = {
+  id: string
+  full_name: string | null
+  chinese_name?: string | null
+  english_name?: string | null
+}
 
 export type ChecklistSource =
   | { kind: 'case'; to: string; label: string } // 客户名 · 签证（→案件）
@@ -35,13 +41,13 @@ export function checklistSource(
       kind: 'case',
       // 案件详情路由已删（案件并入客户详情页）：链到客户页并带 case 参数定位该案件
       to: `/customers/${c.customer_id}?case=${c.id}`,
-      label: `${displayCustomerName(cust?.full_name, '客户')} · ${formatVisaType(c.visa_subclass, c.visa_stream)}`,
+      label: `${displayCustomerName(customerDisplayName(cust), '客户')} · ${formatVisaType(c.visa_subclass, c.visa_stream)}`,
     }
   }
   if (item.customer_id) {
     const cust = customerById[item.customer_id]
     if (!cust) return { kind: 'unresolved' }
-    return { kind: 'customer', to: `/customers/${cust.id}`, label: displayCustomerName(cust.full_name) }
+    return { kind: 'customer', to: `/customers/${cust.id}`, label: displayCustomerName(customerDisplayName(cust)) }
   }
   return { kind: 'loose' }
 }

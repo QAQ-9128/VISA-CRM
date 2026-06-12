@@ -46,17 +46,27 @@ vi.mock('../../api/referrers', async (orig) => {
     listReferrers: vi.fn().mockResolvedValue([]),
   }
 })
+// 所属账号名字解析（本案信息「所属账号」行经 useImmiAccount → getImmiAccount）
+vi.mock('../../api/immiAccounts', async (orig) => {
+  const actual = await orig<typeof import('../../api/immiAccounts')>()
+  return {
+    ...actual,
+    getImmiAccount: vi.fn().mockResolvedValue(null),
+    listImmiAccounts: vi.fn().mockResolvedValue([]),
+  }
+})
 
 import { CustomerDetailPage } from './CustomerDetailPage'
 import { getCaseStageHistory, listCases } from '../../api/cases'
 import { getCustomer, listCustomers } from '../../api/customers'
 import { getReferrer } from '../../api/referrers'
+import { getImmiAccount } from '../../api/immiAccounts'
 import { listAllCaseApplicants, listCaseApplicants } from '../../api/caseApplicants'
 import { queryKeys } from '../../hooks/queries/keys'
 
 const mkCase = (o: Partial<Case>): Case => ({
   id: 'ca1', case_number: '12345678', customer_id: 'cu1', visa_subclass: '482', visa_stream: 'Core Skill', case_category: null, case_details: null,
-  destination_country: null, sponsor_position: null, sponsor_employer_id: null,
+  destination_country: null, sponsor_position: null, sponsor_employer_id: null, immi_account_id: null,
   current_stage: 'nomination_lodged', currency: 'AUD', sync_tracking: true,
   trt_reminder_enabled: false, trt_reminder_dismissed: false, cohab_reminder_enabled: false, cohab_reminder_last: null, parent_case_id: null, parent_sync_progress: false, assigned_to: null,
   created_by: null, is_archived: false, created_at: '', updated_at: '', ...o,
@@ -114,6 +124,32 @@ describe('CustomerDetailPage（案件中心单页 · 无 tab）', () => {
     renderPage()
     expect(await screen.findByText('归属人')).toBeInTheDocument()
     expect(await screen.findByText('刘祎')).toBeInTheDocument()
+  })
+
+  // 显示名统一解析（lib/customerName）：中英都有 → 详情头与参与客户 chip 都显中文
+  it('中文名+英文名都有 → 详情头/参与客户 chip 显中文（full_name=英文也不串显）', async () => {
+    vi.mocked(getCustomer).mockResolvedValueOnce({
+      id: 'cu1', full_name: 'DENG Tao', chinese_name: '邓韬', english_name: 'DENG Tao',
+      primary_applicant_id: null, client_source: null, is_starred: false, is_archived: false,
+      gender: null, sponsor_employer_id: null, sponsor_position: null, referrer_id: null,
+      birth_date: null, notes: null, phone: null, email: null,
+    } as unknown as Customer)
+    vi.mocked(listCases).mockResolvedValue([mkCase({})])
+    renderPage()
+    expect((await screen.findAllByText('邓韬')).length).toBeGreaterThan(0) // 详情头（概要带）
+    // 参与客户 chip（RelatedCasesCard ParticipantManager）也按中文显示
+    expect(await screen.findByRole('link', { name: '邓韬' })).toBeInTheDocument()
+  })
+
+  it('只有英文名 → 显英文（按录入原样，不改大小写）', async () => {
+    vi.mocked(getCustomer).mockResolvedValueOnce({
+      id: 'cu1', full_name: '旧姓名', chinese_name: null, english_name: 'LI Minshu',
+      primary_applicant_id: null, client_source: null, is_starred: false, is_archived: false,
+      gender: null, sponsor_employer_id: null, sponsor_position: null, referrer_id: null,
+      birth_date: null, notes: null, phone: null, email: null,
+    } as unknown as Customer)
+    renderPage()
+    expect((await screen.findAllByText('LI Minshu')).length).toBeGreaterThan(0)
   })
 
   // 0031 起彻底删除全员开放（两位用户均 staff，2026-06 拍板）；防误删靠红色确认弹窗
@@ -323,6 +359,28 @@ describe('CustomerDetailPage（案件中心单页 · 无 tab）', () => {
     expect(screen.getByText('VETASSESS')).toBeInTheDocument()
     expect(screen.getByText('评估职位')).toBeInTheDocument()
     expect(screen.getByText('Cook')).toBeInTheDocument()
+  })
+
+  // 案件详情显示「所属账号」：cases.immi_account_id → immi_accounts.name（可空 lookup）
+  it('本案信息显示「所属账号」（解析账号名）；未指定（null）退「—」不报错', async () => {
+    vi.mocked(listCases).mockResolvedValue([
+      mkCase({ id: 'ca1', immi_account_id: 'acc1' } as Partial<Case>),
+    ])
+    vi.mocked(getImmiAccount).mockResolvedValue({
+      id: 'acc1', name: 'IMMI 账号 A', is_archived: false, created_by: null, created_at: '', updated_at: '',
+    })
+    const { unmount } = renderPage()
+    await screen.findAllByText('测试客户')
+    expect(await screen.findByText('所属账号')).toBeInTheDocument()
+    expect(await screen.findByText('IMMI 账号 A')).toBeInTheDocument()
+    unmount()
+
+    // 旧案件未指定账号：行仍在、值退 —
+    vi.mocked(listCases).mockResolvedValue([mkCase({ id: 'ca1' })])
+    renderPage()
+    await screen.findAllByText('测试客户')
+    expect(await screen.findByText('所属账号')).toBeInTheDocument()
+    expect(screen.queryByText('IMMI 账号 A')).toBeNull()
   })
 
   // 案件详情显示「案件类型」= cases.visa_subclass + 子类别(visa_stream)，合并展示（formatVisaType）。

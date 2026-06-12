@@ -7,6 +7,7 @@ import { useCreatePaymentPlan, useUpdatePaymentPlan } from '../../hooks/queries/
 import type { PaymentPlanUpdate } from '../../api/payments'
 import { useCustomers } from '../../hooks/queries/useCustomers'
 import { useCase } from '../../hooks/queries/useCases'
+import { customerDisplayName } from '../../lib/customerName'
 import { errorMessage } from '../../lib/errorMessage'
 import type { PaymentPlan } from '../../types/models'
 
@@ -50,10 +51,10 @@ export function PaymentPlanForm({
   const customersQ = useCustomers({})
   const allCustomers = useMemo(() => customersQ.data ?? [], [customersQ.data])
   const primaryName =
-    allCustomers.find((c) => c.id === caseQ.data?.customer_id)?.full_name ?? '主申请'
+    customerDisplayName(allCustomers.find((c) => c.id === caseQ.data?.customer_id)) || '主申请'
   const billedOptions = useMemo(() => {
     const q = billedQuery.trim().toLowerCase()
-    const base = q === '' ? allCustomers : allCustomers.filter((c) => c.full_name.toLowerCase().includes(q))
+    const base = q === '' ? allCustomers : allCustomers.filter((c) => customerDisplayName(c).toLowerCase().includes(q))
     // 当前已选项始终保留，避免下拉值落空
     if (billedTo && !base.some((c) => c.id === billedTo)) {
       const sel = allCustomers.find((c) => c.id === billedTo)
@@ -131,7 +132,7 @@ export function PaymentPlanForm({
           <option value="">（默认：{primaryName}）</option>
           {billedOptions.map((c) => (
             <option key={c.id} value={c.id}>
-              {c.full_name}
+              {customerDisplayName(c)}
             </option>
           ))}
         </select>

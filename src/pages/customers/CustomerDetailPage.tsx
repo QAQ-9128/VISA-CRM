@@ -4,6 +4,7 @@ import { useArchiveCustomer, useCustomer, useDeleteCustomer } from '../../hooks/
 import { useCases } from '../../hooks/queries/useCases'
 import { useAllCaseApplicants } from '../../hooks/queries/useCaseApplicants'
 import { selectCustomerCases } from '../../lib/family'
+import { customerDisplayName } from '../../lib/customerName'
 import { resolveBackLink } from '../../lib/backLink'
 import { BackLink } from '../../components/ui/BackLink'
 import { Button } from '../../components/ui/Button'
@@ -131,7 +132,7 @@ export function CustomerDetailPage() {
       {/* 归档（可逆）：统一风格弹窗确认。客户归档不影响案件——案件对其余参与人照常显示 */}
       <ConfirmDialog
         open={confirmingArchive}
-        title={`确定归档「${c.full_name}」吗？`}
+        title={`确定归档「${customerDisplayName(c)}」吗？`}
         description={
           <>
             归档后 TA 从客户列表隐藏，<b>TA 参与的所有案件也一并归档</b>；
@@ -152,7 +153,7 @@ export function CustomerDetailPage() {
       {/* 彻底删除客户（不可恢复）：删人不删多人案件（过户给其余参与人） */}
       <ConfirmDialog
         open={confirmingDelete}
-        title={`彻底删除「${c.full_name}」？`}
+        title={`彻底删除「${customerDisplayName(c)}」？`}
         tone="danger"
         description={
           <>

@@ -1,4 +1,5 @@
 import { computeAccounting } from './accounting'
+import { customerDisplayName } from './customerName'
 import { formatVisaType } from './visa'
 import { getCaseTotals } from './planItems'
 import { getCustomerPaymentColor } from './finance'
@@ -116,7 +117,7 @@ export function selectExpiringDocs(
     items.push({
       id: d.id,
       customerId: d.customer_id,
-      customerName: customer.full_name,
+      customerName: customerDisplayName(customer),
       label: DOC_TYPE_LABELS[d.doc_type],
       daysRemaining: info.daysRemaining,
       status: info.status,
@@ -163,7 +164,7 @@ export function selectTodoCases(
       // 在册参与人（customerById 来自未归档客户列表 → 归档/被删的人自然滤掉）
       const participants = ids
         .filter((id) => customerById[id])
-        .map((id) => ({ id, name: customerById[id]?.full_name ?? '' }))
+        .map((id) => ({ id, name: customerDisplayName(customerById[id]) }))
       const first = participants[0]
       return {
         caseId: c.id,
@@ -205,7 +206,7 @@ export function selectOverdueInstallments(
       installmentId: i.id,
       caseId: plan?.case_id ?? '',
       customerId: c?.customer_id ?? '',
-      customerName: c ? customerById[c.customer_id]?.full_name ?? '' : '',
+      customerName: c ? customerDisplayName(customerById[c.customer_id]) : '',
       amount: i.amount,
       dueDate: i.due_date,
       daysOverdue: -diff,
@@ -292,7 +293,7 @@ export function selectCustomerDebts(
     const companyOwes = computeAccounting(plan, casePayments).companyOwes
     const entry = byCustomer.get(customerId) ?? {
       customerId,
-      customerName: customerById[customerId]?.full_name ?? '',
+      customerName: customerDisplayName(customerById[customerId]),
       clientOwes: 0,
       companyOwes: 0,
       clientReceivable: 0,
