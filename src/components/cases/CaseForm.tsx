@@ -5,6 +5,7 @@ import { Card } from '../ui/Card'
 import { TextField } from '../ui/TextField'
 import { Select } from '../ui/Select'
 import { CaseTypeCascade } from './CaseTypeCascade'
+import { QuickPersonCreate } from '../customers/QuickPersonCreate'
 import { useCustomers } from '../../hooks/queries/useCustomers'
 import {
   useAddCaseApplicant,
@@ -83,11 +84,19 @@ export function CaseForm({
   // 参与人：新建模式存本地状态、保存时一次写入；编辑模式直接对已有案件增量增删、即时写库
   const editing = !!initial
   const [applicantIds, setApplicantIds] = useState<string[]>(initialApplicantIds ?? [])
+  // 就地新建参与人（复用客户表单 QuickPersonCreate）：展开态 + 刚建好的人的姓名兜底
+  // （customers 列表缓存刷新前列表行也能立刻显示真名，不闪「未知客户」）
+  const [creatingPerson, setCreatingPerson] = useState(false)
+  const [createdNames, setCreatedNames] = useState<Record<string, string>>({})
 
   // 入库 visa_subclass = 级联派生（''=选择不完整 → 保存禁用）。新建/编辑同一口径。
   const derivedSubclass = cascadeSubclass(cascade.category, cascade.visaType, cascade.stream)
   // 「2 年转 186 TRT 提醒」勾选框仅在 签证类型 = 482 TSS 时渲染并写入（482 SBS / 186 / 600… 一律不出现、不写标记）。
   const is482tss = cascade.visaType === '482'
+  // 定制文件 = 文档服务、只对一个客户：组(Group)/本案参与人区整块隐藏（新建/编辑同一口径）。
+  // 参与人 = cases.customer_id + case_applicants 行 —— 提交恒传 []（不写关联行）即「案件客户为唯一参与人」，
+  // 是本就合法的单人态（账目按人归属照常归到案件客户），不是「无参与人」。
+  const isCustomDoc = cascade.category === '定制文件'
   // 「3 个月提醒 · 更新同居材料」仅 186 ENS + 配偶签（820/309）渲染并写入。
   const isCohabType = cascade.visaType === '186' || cascade.visaType === '820' || cascade.visaType === '309'
   const canSave = derivedSubclass !== ''
@@ -139,7 +148,7 @@ export function CaseForm({
           cascade.visaType && EMPLOYER_TYPES.has(cascade.visaType) ? cascade.sponsorEmployerId || null : null,
         case_details: pruneDetails(cascade.details),
       },
-      applicantIds,
+      isCustomDoc ? [] : applicantIds,
       next,
     )
   }
@@ -164,7 +173,7 @@ export function CaseForm({
     { id: customerId, name: customerLabel, isOwner: true },
     ...displayApplicantIds.map((id) => ({
       id,
-      name: customerById[id]?.full_name ?? '（未知客户）',
+      name: customerById[id]?.full_name ?? createdNames[id] ?? '（未知客户）',
       isOwner: false,
     })),
   ]
@@ -177,6 +186,9 @@ export function CaseForm({
   // 「2 年转 186 TRT 提醒」勾选框已并入上方 CaseTypeCascade 的 482 TSS 签证详情卡（与签证子类别/担保配套）。
   const restBlocks = (
     <>
+      {/* 组（Group）+ 本案参与人：大类=定制文件时整块隐藏（文档服务单客户，案件客户即唯一参与人） */}
+      {!isCustomDoc && (
+        <>
       {/* 组（Group）：一案一组 —— 组 = 本案参与人集合（与客户表单组区同一用语，中文为主） */}
       <fieldset className="rounded-[14px] border border-line-2 p-4">
         <legend className="px-1 text-sm font-semibold text-body">组（Group）</legend>
@@ -243,7 +255,7 @@ export function CaseForm({
         <div className="mt-2.5">
           <Select
             label="添加参与人"
-            placeholder={pickerCandidates.length === 0 ? '没有可添加的客户了（可先在客户列表新建）' : '选择客户加入本案…'}
+            placeholder={pickerCandidates.length === 0 ? '没有可添加的客户了（点下方「+ 新建客户」就地建档）' : '选择客户加入本案…'}
             value=""
             disabled={pickerCandidates.length === 0 || addMemberM.isPending}
             options={pickerCandidates.map((c) => ({
@@ -256,12 +268,44 @@ export function CaseForm({
           />
         </div>
 
+        {/* 就地新建参与人：复用客户表单同款快速建档卡（五字段一致、同一组件）。
+            案件上下文无「加入已有案件」勾选——已在本案里，建好直接加入：
+            新建模式收进本地名单（保存案件时一并写入），编辑模式即时写库（同 onAddMember 口径）。 */}
+        <div className="mt-2.5">
+          {creatingPerson ? (
+            <QuickPersonCreate
+              title="⚡ 快速建档新客户"
+              description={
+                editing
+                  ? '给还没有档案的 TA 建档并直接加入本案（即时生效，可连建多个）'
+                  : '给还没有档案的 TA 建档并加入本案参与人（保存案件时一并写入，可连建多个）'
+              }
+              submitLabel="创建并加入本案"
+              onCreated={(p) => {
+                setCreatedNames((m) => ({ ...m, [p.id]: p.full_name }))
+                onAddMember(p.id)
+              }}
+              onCancel={() => setCreatingPerson(false)}
+            />
+          ) : (
+            <button
+              type="button"
+              onClick={() => setCreatingPerson(true)}
+              className="text-[12.5px] font-semibold text-brand hover:text-brand-600"
+            >
+              + 新建客户（TA 还没有档案）
+            </button>
+          )}
+        </div>
+
         {/* 底部细分隔线 + 小灰字：账目说明 */}
         <p className="mt-3 flex items-center gap-1.5 border-t border-line pt-2.5 text-xs text-faint">
           <span aria-hidden className="size-1.5 rounded-full bg-faint/60" />
           账目自动按参与人分开计算并汇总
         </p>
       </div>
+        </>
+      )}
 
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
         <TextField label="目的国" value={destination} onChange={(e) => setDestination(e.target.value)} />
@@ -291,7 +335,9 @@ export function CaseForm({
   )
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-5">
+    // noValidate：本表单自身无原生必填（保存门禁走 canSave 禁用态）；嵌入的快速建档卡有 required 姓名框，
+    // 不加会让空卡拦住整个案件的保存（卡的必填由「创建并加入本案」按钮禁用态自管）
+    <form onSubmit={handleSubmit} noValidate className="space-y-5">
       {/* 案件客户（编辑模式；新建模式由页头客户 pill 展示） */}
       {editing && (
         <div className="space-y-1.5">

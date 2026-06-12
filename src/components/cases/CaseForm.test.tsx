@@ -17,6 +17,19 @@ vi.mock('../../api/caseApplicants', () => ({
   removeSelfFromCase: vi.fn().mockResolvedValue(undefined),
 }))
 
+// 参与人区就地新建客户（复用 QuickPersonCreate）：mock 建客户 api + 归属人/介绍人查询，避免真连库
+const { createCustomerMock } = vi.hoisted(() => ({
+  createCustomerMock: vi.fn(async (input: { full_name: string }) => ({ id: 'cu-new', ...input })),
+}))
+vi.mock('../../api/customers', async (orig) => {
+  const actual = await orig<typeof import('../../api/customers')>()
+  return { ...actual, listCustomers: vi.fn().mockResolvedValue([]), createCustomer: createCustomerMock }
+})
+vi.mock('../../api/referrers', async (orig) => {
+  const actual = await orig<typeof import('../../api/referrers')>()
+  return { ...actual, listReferrers: vi.fn().mockResolvedValue([]) }
+})
+
 const P = { id: 'P', full_name: '甲', primary_applicant_id: null, created_at: '2024-01-01', is_archived: false } as unknown as Customer
 const S = { id: 'S', full_name: '乙', primary_applicant_id: null, relationship_to_primary: '配偶', created_at: '2024-02-01', is_archived: false } as unknown as Customer
 
@@ -354,6 +367,66 @@ describe('CaseForm（新增案件 · 一案一组）', () => {
     expect(v.sponsor_position).toBeNull() // 担保不相干 → null
   })
 
+  // ── 大类=定制文件（文档服务、只对一个客户）：组(Group)/本案参与人 整块隐藏，案件客户为唯一参与人 ──
+  it('大类=定制文件 → 组（Group）/本案参与人区整块隐藏（组码/添加下拉/账目提示全不出现）；其余操作区照常', async () => {
+    renderForm()
+    await screen.findByLabelText('案件大类')
+    fireEvent.change(screen.getByLabelText('案件大类'), { target: { value: '定制文件' } })
+    expect(screen.queryByText('组（Group）')).toBeNull()
+    expect(screen.queryByText('本案参与人')).toBeNull()
+    expect(screen.queryByLabelText('添加参与人')).toBeNull()
+    expect(screen.queryByText(/账目自动按参与人分开/)).toBeNull()
+    // 目的国/货币/保存等操作区不受影响（只隐组/参与人这块）
+    expect(screen.getByLabelText('目的国')).toBeInTheDocument()
+    expect(screen.getByLabelText('货币')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: '保存' })).not.toBeDisabled()
+    expect(screen.getByRole('button', { name: '保存并记账' })).toBeInTheDocument()
+  })
+
+  it('大类=定制文件保存：即便带 initialApplicantIds 预选，applicantIds 恒为 []（案件客户为唯一参与人，账目归其名下）', async () => {
+    const { onSubmit } = renderForm(undefined, ['S'])
+    await screen.findByLabelText('案件大类')
+    fireEvent.change(screen.getByLabelText('案件大类'), { target: { value: '定制文件' } })
+    fireEvent.click(screen.getByRole('button', { name: '保存' }))
+    const call = onSubmit.mock.calls[0]
+    expect(call[1]).toEqual([]) // 不写任何 case_applicants 行 = 案件客户即唯一参与人（合法态，非「无参与人」）
+    expect(call[0].customer_id).toBe('P')
+    expect(call[0].visa_subclass).toBe('定制文件')
+    expect(call[0].case_category).toBe('定制文件')
+  })
+
+  it('切换大类显隐即时：定制文件(隐) → 签证申请 482(显，预选参与人不丢) → 定制文件(隐)', async () => {
+    renderForm(undefined, ['S'])
+    await screen.findByLabelText('案件大类')
+    fireEvent.change(screen.getByLabelText('案件大类'), { target: { value: '定制文件' } })
+    expect(screen.queryByText('组（Group）')).toBeNull()
+    expect(screen.queryByText('本案参与人')).toBeNull()
+    // 切回签证申请 → 区块即时恢复，预选参与人乙仍在（本地状态不因隐藏丢失）
+    pickVisa('482')
+    expect(screen.getByText('组（Group）')).toBeInTheDocument()
+    expect(screen.getByText('本案参与人')).toBeInTheDocument()
+    expect(screen.getByText('乙')).toBeInTheDocument()
+    expect(screen.getByText(/共 2 人/)).toBeInTheDocument()
+    // 再切回定制文件 → 即时隐藏
+    fireEvent.change(screen.getByLabelText('案件大类'), { target: { value: '定制文件' } })
+    expect(screen.queryByText('组（Group）')).toBeNull()
+    expect(screen.queryByText('本案参与人')).toBeNull()
+    expect(screen.queryByLabelText('添加参与人')).toBeNull()
+  })
+
+  it('编辑定制文件案件：组/参与人区同样隐藏（按大类显隐，新建/编辑同一口径）；保存照常', async () => {
+    const customDocCase = {
+      ...oldLinkedCase, visa_subclass: '定制文件', visa_stream: null, case_category: '定制文件',
+      parent_case_id: null, parent_sync_progress: false,
+    } as unknown as Case
+    renderForm(customDocCase, [])
+    await screen.findByLabelText('案件大类')
+    expect((screen.getByLabelText('案件大类') as HTMLSelectElement).value).toBe('定制文件')
+    expect(screen.queryByText('组（Group）')).toBeNull()
+    expect(screen.queryByText('本案参与人')).toBeNull()
+    expect(screen.getByRole('button', { name: '保存' })).not.toBeDisabled()
+  })
+
   it('切换大类清理旧子字段：职业评估填了值 → 切定制文件 → 评估字段消失、payload 无残留', async () => {
     const { onSubmit } = renderForm()
     await screen.findByLabelText('案件大类')
@@ -535,6 +608,91 @@ describe('CaseForm（新增案件 · 一案一组）', () => {
     fireEvent.change(addSelect, { target: { value: 'T' } })
     await waitFor(() => expect(addCaseApplicant).toHaveBeenCalledWith('caOld', 'T')) // 增量写库（非表单 onSubmit）
     expect(onSubmit).not.toHaveBeenCalled()
+  })
+
+  // ── 参与人区就地新建客户：复用客户表单的「快速建档」卡（QuickPersonCreate），案件上下文按钮=创建并加入本案 ──
+  it('「+ 新建客户」入口与快速建档卡：五字段与新建客户流程一致（姓名/性别/生日/归属人/介绍人含+新建）；无「加入已有案件」勾选框', async () => {
+    renderForm()
+    await screen.findByLabelText('案件大类')
+    pickVisa('482')
+    // 入口在「本案参与人」区内
+    const section = screen.getByText('本案参与人').closest('div') as HTMLElement
+    const entry = within(section).getByRole('button', { name: /新建客户/ })
+    fireEvent.click(entry)
+    // 五字段与新建客户流程一致（同一组件）
+    expect(screen.getByLabelText(/姓名/)).toBeInTheDocument()
+    expect(screen.getByLabelText('性别')).toBeInTheDocument()
+    expect(screen.getByLabelText('生日')).toBeInTheDocument()
+    expect(screen.getByLabelText('归属人')).toBeInTheDocument()
+    expect(screen.getByLabelText('介绍人')).toBeInTheDocument()
+    // 介绍人的内联新建（限定在卡内查：482 详情卡的担保雇主选择器也有「+ 新建」）
+    const card = screen.getByText('⚡ 快速建档新客户').closest('.space-y-3') as HTMLElement
+    expect(within(card).getByRole('button', { name: '+ 新建' })).toBeInTheDocument()
+    // 案件上下文：已在本案，无「加入已有案件」勾选框；按钮为「创建并加入本案」
+    expect(screen.queryByText(/加入已有案件/)).toBeNull()
+    expect(screen.getByRole('button', { name: '创建并加入本案' })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /创建并加入名单/ })).toBeNull()
+  })
+
+  it('新建模式「创建并加入本案」：建档后即成为本案参与人（共 2 人、组码更新），保存 applicantIds 含新客户 id（(case_id, applicant_id) 归账由此保证）', async () => {
+    const { onSubmit } = renderForm()
+    await screen.findByLabelText('案件大类')
+    pickVisa('482')
+    fireEvent.click(screen.getByRole('button', { name: /新建客户/ }))
+    fireEvent.change(screen.getByLabelText(/姓名/), { target: { value: '丁新' } })
+    fireEvent.click(screen.getByRole('button', { name: '创建并加入本案' }))
+    await waitFor(() => expect(createCustomerMock).toHaveBeenCalled())
+    expect(createCustomerMock.mock.calls[0][0]).toMatchObject({ full_name: '丁新' })
+    // 即时出现在参与人列表（姓名就地可见，不等列表刷新）；组码/人数同步
+    expect(await screen.findByText('丁新')).toBeInTheDocument()
+    expect(screen.getByText(/共 2 人/)).toBeInTheDocument()
+    expect(screen.getByText(caseGroupCode(['P', 'cu-new'], ''))).toBeInTheDocument()
+    // 保存：applicantIds 带新客户 → 页面层照常写 case_applicants（账目按 (case_id, applicant_id) 归账，算法不动）
+    fireEvent.click(screen.getByRole('button', { name: '保存' }))
+    expect(onSubmit.mock.calls[0][1]).toEqual(['cu-new'])
+  })
+
+  it('编辑模式「创建并加入本案」：建档 + addCaseApplicant 即时写库（沿用现有就地加入逻辑）', async () => {
+    const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+    qc.setQueryData(queryKeys.customers.list({}), [P, S])
+    qc.setQueryData(queryKeys.employers.list, [])
+    render(
+      <QueryClientProvider client={qc}>
+        <AuthContext.Provider value={authValue}>
+          <MemoryRouter>
+            <CaseForm customerId="P" customerLabel="甲" initial={oldLinkedCase} initialApplicantIds={[]} onSubmit={vi.fn()} onCancel={() => {}} />
+          </MemoryRouter>
+        </AuthContext.Provider>
+      </QueryClientProvider>,
+    )
+    await screen.findByLabelText('案件大类')
+    fireEvent.click(screen.getByRole('button', { name: /新建客户/ }))
+    fireEvent.change(screen.getByLabelText(/姓名/), { target: { value: '丁新' } })
+    fireEvent.click(screen.getByRole('button', { name: '创建并加入本案' }))
+    await waitFor(() => expect(addCaseApplicant).toHaveBeenCalledWith('caOld', 'cu-new'))
+  })
+
+  it('没有可添加的客户时：占位文案引导用「+ 新建客户」就地建档（不再只指去客户列表）', async () => {
+    const onSubmit = vi.fn()
+    const qc = new QueryClient({ defaultOptions: { queries: { retry: false, staleTime: Infinity, gcTime: Infinity, refetchOnMount: false } } })
+    qc.setQueryData(queryKeys.customers.list({}), [P]) // 只有案件客户自己 → 无候选
+    qc.setQueryData(queryKeys.cases.list, [])
+    qc.setQueryData(queryKeys.caseApplicants.all, [])
+    qc.setQueryData(queryKeys.employers.list, [])
+    render(
+      <QueryClientProvider client={qc}>
+        <AuthContext.Provider value={authValue}>
+          <MemoryRouter>
+            <CaseForm customerId="P" customerLabel="甲" onSubmit={onSubmit} onCancel={() => {}} />
+          </MemoryRouter>
+        </AuthContext.Provider>
+      </QueryClientProvider>,
+    )
+    await screen.findByLabelText('案件大类')
+    pickVisa('482')
+    expect(screen.getByText(/没有可添加的客户了.*新建客户/)).toBeInTheDocument()
+    expect(screen.queryByText(/可先在客户列表新建/)).toBeNull()
+    expect(screen.getByRole('button', { name: /新建客户/ })).toBeInTheDocument()
   })
 
   it('「与其他案件的关系」整块已删：无任何相关文案（案件自包含，案与案无关系）', async () => {

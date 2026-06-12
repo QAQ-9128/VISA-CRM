@@ -18,10 +18,17 @@ import { GENDERS, GENDER_LABELS } from '../../types/domain'
 export function QuickPersonCreate({
   onCreated,
   onCancel,
+  title = '⚡ 快速建档同组的人',
+  description = '给还没有档案的 TA 建档并进同组名单（可连建多个）；真正成组发生在保存并新建案件 / 加入案件时',
+  submitLabel = '创建并加入名单',
 }: {
-  /** 建档成功（调用方把 TA 收进「同组的人」名单） */
+  /** 建档成功（调用方把 TA 收进「同组的人」名单 / 加为本案参与人） */
   onCreated: (person: { id: string; full_name: string }) => void
   onCancel: () => void
+  /** 案件参与人区复用时可覆写文案（标题/说明/提交按钮）；五字段与建档行为不变 */
+  title?: string
+  description?: string
+  submitLabel?: string
 }) {
   const createM = useCreateCustomer()
   const [state, setState] = useState(initialQuickState())
@@ -61,10 +68,8 @@ export function QuickPersonCreate({
       {/* 块标题：和外层客户表单的「姓名」区分开，明确这块是在建另一个人。
           文案不许诺「已成组」——一案一组：真正成组发生在「保存并新建案件/加入案件」那一步 */}
       <div>
-        <h4 className="text-[13px] font-bold text-ink">⚡ 快速建档同组的人</h4>
-        <p className="mt-0.5 text-xs text-faint">
-          给还没有档案的 TA 建档并进同组名单（可连建多个）；真正成组发生在保存并新建案件 / 加入案件时
-        </p>
+        <h4 className="text-[13px] font-bold text-ink">{title}</h4>
+        <p className="mt-0.5 text-xs text-faint">{description}</p>
       </div>
       <TextField
         label="姓名"
@@ -110,7 +115,7 @@ export function QuickPersonCreate({
           取消
         </Button>
         <Button type="button" disabled={!canCreate} onClick={create}>
-          {createM.isPending ? '创建中…' : '创建并加入名单'}
+          {createM.isPending ? '创建中…' : submitLabel}
         </Button>
       </div>
     </div>
