@@ -186,32 +186,27 @@ export function CaseForm({
   // 「2 年转 186 TRT 提醒」勾选框已并入上方 CaseTypeCascade 的 482 TSS 签证详情卡（与签证子类别/担保配套）。
   const restBlocks = (
     <>
-      {/* 组（Group）+ 本案参与人：大类=定制文件时整块隐藏（文档服务单客户，案件客户即唯一参与人） */}
+      {/* 组（Group）+ 本案参与人：大类=定制文件时整块隐藏（文档服务单客户，案件客户即唯一参与人）。
+          收拢干净版（参与人区-收拢干净版.png）：单卡扁平无嵌套——组码挪到标题行右侧、
+          「即时生效」提示只留参与人标题右侧一处、添加下拉与「+ 新建客户」并排一行。 */}
       {!isCustomDoc && (
-        <>
-      {/* 组（Group）：一案一组 —— 组 = 本案参与人集合（与客户表单组区同一用语，中文为主） */}
-      <fieldset className="rounded-[14px] border border-line-2 p-4">
-        <legend className="px-1 text-sm font-semibold text-body">组（Group）</legend>
-        <div className="flex flex-wrap items-center gap-2 text-sm">
-          <span className="text-muted">组码</span>
-          <span className="rounded-full bg-[var(--color-lime-soft)] px-2.5 py-0.5 text-[12px] font-semibold text-[var(--color-lime-ink)]">
-            {groupCodeStr}
-          </span>
-          <span className="text-xs text-faint">
-            共 {displayApplicantIds.length + 1} 人 ·{' '}
-            {editing ? '组 = 本案参与人（在下方增删，即时保存）' : '组 = 本案参与人（在下方选择），同参与人的案件同组'}
+      <div className="rounded-[14px] border border-line-2 p-4">
+        {/* 标题行：组（Group）｜组码 pill + 共 N 人 */}
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <h3 className="font-serif text-[17px] font-bold tracking-[-0.01em] text-ink">组（Group）</h3>
+          <span className="flex items-center gap-2">
+            <span className="rounded-full bg-[var(--color-lime-soft)] px-2.5 py-0.5 text-[12px] font-semibold text-[var(--color-lime-ink)]">
+              {groupCodeStr}
+            </span>
+            <span className="text-[12.5px] text-faint">共 {displayApplicantIds.length + 1} 人</span>
           </span>
         </div>
-      </fieldset>
 
-      {/* 本案参与人（参与人完全平级，无主/副之分）：紧凑单行列表 + 行尾 × 移出 + ＋ 添加面板。
-          新建=建案一次选好（本地）；编辑=即时增删/过户（增量写库，不必去客户页）。 */}
-      <div className="rounded-[14px] border border-line-2 p-4">
-        {/* 标题（Noto Serif）+ 标题下小灰字：增减立即生效说明 */}
-        <h3 className="font-serif text-[17px] font-bold tracking-[-0.01em] text-ink">本案参与人</h3>
-        <p className="mt-1 text-[12.5px] text-faint">
-          {editing ? '增减成员立即生效，无需保存' : '选择本案参与人，保存案件时一并写入'}
-        </p>
+        {/* 小标题行：本案参与人｜唯一一处生效提示（编辑=即时写库；新建=随保存写入） */}
+        <div className="mt-3.5 flex items-center justify-between gap-2">
+          <h4 className="text-sm font-semibold text-body">本案参与人</h4>
+          <span className="text-xs text-faint">{editing ? '增减即时生效' : '保存案件时一并写入'}</span>
+        </div>
         {/* ?with= 一条龙带过来的预选人：说明来源，免得用户以为系统乱填（仅新建） */}
         {!editing && (initialApplicantIds?.length ?? 0) > 0 && (
           <p className="mt-1 text-xs text-faint">已自动带入上一步「快速建档同组的人」，不需要的可移出</p>
@@ -250,34 +245,39 @@ export function CaseForm({
           })}
         </ul>
 
-        {/* 添加参与人：下拉框选择即加入（与「移出」对称的下拉交互；选中即增量加入，value 复位回占位）。
-            无可加客户 → 占位为空态文案。 */}
-        <div className="mt-2.5">
-          <Select
-            label="添加参与人"
-            placeholder={pickerCandidates.length === 0 ? '没有可添加的客户了（点下方「+ 新建客户」就地建档）' : '选择客户加入本案…'}
-            value=""
-            disabled={pickerCandidates.length === 0 || addMemberM.isPending}
-            options={pickerCandidates.map((c) => ({
-              value: c.id,
-              label: c.relationship_to_primary ? `${c.full_name}（${c.relationship_to_primary}）` : c.full_name,
-            }))}
-            onChange={(e) => {
-              if (e.target.value) onAddMember(e.target.value)
-            }}
-          />
+        {/* 添加收成一行：搜索下拉（选中即加入）+「+ 新建客户」按钮并排（同 ReferrerSelect 的行内布局）。
+            占位收简——建档按钮就在旁边，无候选也不再长篇引导。 */}
+        <div className="mt-2.5 flex items-end gap-2">
+          <div className="min-w-0 flex-1">
+            <Select
+              label="添加参与人"
+              placeholder={pickerCandidates.length === 0 ? '没有可添加的客户了' : '搜索客户加入…'}
+              value=""
+              disabled={pickerCandidates.length === 0 || addMemberM.isPending}
+              options={pickerCandidates.map((c) => ({
+                value: c.id,
+                label: c.relationship_to_primary ? `${c.full_name}（${c.relationship_to_primary}）` : c.full_name,
+              }))}
+              onChange={(e) => {
+                if (e.target.value) onAddMember(e.target.value)
+              }}
+            />
+          </div>
+          <Button type="button" variant="secondary" onClick={() => setCreatingPerson(true)}>
+            + 新建客户
+          </Button>
         </div>
 
-        {/* 就地新建参与人：复用客户表单同款快速建档卡（五字段一致、同一组件）。
+        {/* 就地新建参与人：原地展开客户表单同款快速建档卡（五字段一致、同一组件）。
             案件上下文无「加入已有案件」勾选——已在本案里，建好直接加入：
             新建模式收进本地名单（保存案件时一并写入），编辑模式即时写库（同 onAddMember 口径）。 */}
-        <div className="mt-2.5">
-          {creatingPerson ? (
+        {creatingPerson && (
+          <div className="mt-2.5">
             <QuickPersonCreate
               title="⚡ 快速建档新客户"
               description={
                 editing
-                  ? '给还没有档案的 TA 建档并直接加入本案（即时生效，可连建多个）'
+                  ? '给还没有档案的 TA 建档并直接加入本案（可连建多个）'
                   : '给还没有档案的 TA 建档并加入本案参与人（保存案件时一并写入，可连建多个）'
               }
               submitLabel="创建并加入本案"
@@ -287,24 +287,15 @@ export function CaseForm({
               }}
               onCancel={() => setCreatingPerson(false)}
             />
-          ) : (
-            <button
-              type="button"
-              onClick={() => setCreatingPerson(true)}
-              className="text-[12.5px] font-semibold text-brand hover:text-brand-600"
-            >
-              + 新建客户（TA 还没有档案）
-            </button>
-          )}
-        </div>
+          </div>
+        )}
 
         {/* 底部细分隔线 + 小灰字：账目说明 */}
         <p className="mt-3 flex items-center gap-1.5 border-t border-line pt-2.5 text-xs text-faint">
           <span aria-hidden className="size-1.5 rounded-full bg-faint/60" />
-          账目自动按参与人分开计算并汇总
+          账目按参与人自动分开计算并汇总
         </p>
       </div>
-        </>
       )}
 
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2">

@@ -375,7 +375,7 @@ describe('CaseForm（新增案件 · 一案一组）', () => {
     expect(screen.queryByText('组（Group）')).toBeNull()
     expect(screen.queryByText('本案参与人')).toBeNull()
     expect(screen.queryByLabelText('添加参与人')).toBeNull()
-    expect(screen.queryByText(/账目自动按参与人分开/)).toBeNull()
+    expect(screen.queryByText(/账目按参与人自动分开/)).toBeNull()
     // 目的国/货币/保存等操作区不受影响（只隐组/参与人这块）
     expect(screen.getByLabelText('目的国')).toBeInTheDocument()
     expect(screen.getByLabelText('货币')).toBeInTheDocument()
@@ -543,7 +543,7 @@ describe('CaseForm（新增案件 · 一案一组）', () => {
     expect(screen.getByLabelText('移出 甲')).toBeInTheDocument() // 案件客户平级首行（顶部另有「案件客户」栏，故用 ×label 定位行）
     expect(screen.getByText('乙')).toBeInTheDocument()
     expect(screen.getByLabelText('添加参与人')).toBeInTheDocument()
-    expect(screen.getByText(/增减成员立即生效/)).toBeInTheDocument()
+    expect(screen.getByText('增减即时生效')).toBeInTheDocument()
     // 组码随现有参与人集合（P+S）展示
     expect(screen.getByText(caseGroupCode(['P', 'S'], 'caOld'))).toBeInTheDocument()
     expect(screen.getByText(/共 2 人/)).toBeInTheDocument()
@@ -615,10 +615,7 @@ describe('CaseForm（新增案件 · 一案一组）', () => {
     renderForm()
     await screen.findByLabelText('案件大类')
     pickVisa('482')
-    // 入口在「本案参与人」区内
-    const section = screen.getByText('本案参与人').closest('div') as HTMLElement
-    const entry = within(section).getByRole('button', { name: /新建客户/ })
-    fireEvent.click(entry)
+    fireEvent.click(screen.getByRole('button', { name: /新建客户/ }))
     // 五字段与新建客户流程一致（同一组件）
     expect(screen.getByLabelText(/姓名/)).toBeInTheDocument()
     expect(screen.getByLabelText('性别')).toBeInTheDocument()
@@ -690,9 +687,58 @@ describe('CaseForm（新增案件 · 一案一组）', () => {
     )
     await screen.findByLabelText('案件大类')
     pickVisa('482')
-    expect(screen.getByText(/没有可添加的客户了.*新建客户/)).toBeInTheDocument()
+    // 收拢版：占位收简（建档按钮就在旁边，不再写"点下方+新建客户"）
+    expect(screen.getByText('没有可添加的客户了')).toBeInTheDocument()
+    expect(screen.queryByText(/就地建档/)).toBeNull()
     expect(screen.queryByText(/可先在客户列表新建/)).toBeNull()
     expect(screen.getByRole('button', { name: /新建客户/ })).toBeInTheDocument()
+  })
+
+  // ── 收拢干净版（参与人区-收拢干净版.png）：单卡扁平、组码上移标题行、提示去重、下拉+按钮并排 ──
+  it('收拢版布局：单张卡无 fieldset 嵌套；组码+共N人在「组（Group）」标题行；本案参与人与组同卡', async () => {
+    renderForm(undefined, ['S'])
+    await screen.findByLabelText('案件大类')
+    pickVisa('482')
+    // 旧版组区是 <fieldset> 嵌套小卡 → 收拢后不再有 fieldset
+    expect(document.querySelector('fieldset')).toBeNull()
+    // 组码 pill + 共 N 人与「组（Group）」同一标题行容器
+    const header = screen.getByText('组（Group）').parentElement as HTMLElement
+    expect(within(header).getByText(caseGroupCode(['P', 'S'], ''))).toBeInTheDocument()
+    expect(within(header).getByText(/共 2 人/)).toBeInTheDocument()
+    // 「本案参与人」与组在同一张卡里（共享最近的描边卡容器）
+    const card = screen.getByText('组（Group）').closest('div[class*="border"]') as HTMLElement
+    expect(within(card).getByText('本案参与人')).toBeInTheDocument()
+    expect(within(card).getByLabelText('添加参与人')).toBeInTheDocument()
+    expect(within(card).getByRole('button', { name: /新建客户/ })).toBeInTheDocument()
+    expect(within(card).getByText('账目按参与人自动分开计算并汇总')).toBeInTheDocument()
+  })
+
+  it('提示去重：编辑模式「即时生效」只出现一次（参与人标题右侧）；旧的两句重复说明都不在', async () => {
+    renderForm(oldLinkedCase, ['S'])
+    await screen.findByLabelText('案件大类')
+    expect(screen.getAllByText(/即时生效/)).toHaveLength(1)
+    expect(screen.getByText('增减即时生效')).toBeInTheDocument()
+    // 旧重复说明删干净：组行的「在下方增删，即时保存」与参与人区的「增减成员立即生效，无需保存」
+    expect(screen.queryByText(/在下方增删，即时保存/)).toBeNull()
+    expect(screen.queryByText(/增减成员立即生效/)).toBeNull()
+    expect(screen.queryByText(/同参与人的案件同组/)).toBeNull()
+  })
+
+  it('添加收成一行：下拉占位「搜索客户加入…」+ 旁边「+ 新建客户」按钮；选已有客户照常加入；按钮展开快速建档卡', async () => {
+    renderForm()
+    await screen.findByLabelText('案件大类')
+    pickVisa('482')
+    // 占位收简为「搜索客户加入…」（有候选时）
+    expect(screen.getByText('搜索客户加入…')).toBeInTheDocument()
+    expect(screen.queryByText(/选择客户加入本案/)).toBeNull()
+    // 选已有客户照常加入（功能不变）
+    fireEvent.change(screen.getByLabelText('添加参与人'), { target: { value: 'S' } })
+    expect(screen.getByText('乙')).toBeInTheDocument()
+    expect(screen.getByText(/共 2 人/)).toBeInTheDocument()
+    // 「+ 新建客户」原地展开快速建档卡（功能/字段不变）
+    fireEvent.click(screen.getByRole('button', { name: /新建客户/ }))
+    expect(screen.getByText('⚡ 快速建档新客户')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: '创建并加入本案' })).toBeInTheDocument()
   })
 
   it('「与其他案件的关系」整块已删：无任何相关文案（案件自包含，案与案无关系）', async () => {
