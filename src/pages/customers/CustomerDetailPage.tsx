@@ -15,7 +15,7 @@ import { CaseFeesCard } from '../../components/customers/overview/CaseFeesCard'
 
 /**
  * 客户详情页（案件中心单页）：① 概要带 + ② 相关案件卡(含本案待办) + ③ 费用记录卡(本案)。
- * 选中案件由本页持有，驱动相关案件卡 + 费用卡 + 概要带「当前案件·阶段」三处同步；
+ * 选中案件由本页持有，驱动相关案件卡 + 费用卡 + 概要带「案件·审理时长」三处同步；
  * 概要带「已收/未收」为客户级跨全部案件合计，不随案件切换。
  */
 export function CustomerDetailPage() {
@@ -104,13 +104,7 @@ export function CustomerDetailPage() {
 
       {/* ① 概要带 */}
       <div id="summary" className="scroll-mt-16">
-        <SummaryBand
-          customer={c}
-          selectedCase={selectedCase}
-          caseCount={caseList.length}
-          cases={caseList}
-          onSelectCase={setPicked}
-        />
+        <SummaryBand customer={c} selectedCase={selectedCase} caseCount={caseList.length} />
       </div>
 
       {/* ② 相关案件卡（左，主） + ③ 费用记录卡（右，本案）。

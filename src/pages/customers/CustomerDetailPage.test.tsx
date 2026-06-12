@@ -145,7 +145,7 @@ describe('CustomerDetailPage（案件中心单页 · 无 tab）', () => {
     }
   })
 
-  it('概要带「审理时长」：阶段=提名递交且有真实递交历史 → 提名审理时长 · 已 N 天', async () => {
+  it('概要带「审理时长」格：只提名递交 → 一行「提名审理 N天 审理中」；无签证行', async () => {
     vi.mocked(listCases).mockResolvedValue([mkCase({ id: 'ca1', current_stage: 'nomination_lodged' })])
     vi.mocked(getCaseStageHistory).mockResolvedValue([
       {
@@ -154,17 +154,73 @@ describe('CustomerDetailPage（案件中心单页 · 无 tab）', () => {
       } as CaseStageHistory,
     ])
     renderPage()
-    expect(await screen.findByText('审理时长')).toBeInTheDocument()
-    expect(screen.getByText('提名审理时长')).toBeInTheDocument()
-    expect(screen.getByText(/^已 \d+ 天$/)).toBeInTheDocument()
+    await screen.findAllByText('测试客户')
+    const band = within(document.getElementById('summary') as HTMLElement) // 概要带（递交卡也有同名文案，须锚定）
+    expect(band.getByText('审理时长')).toBeInTheDocument() // 区标题固定
+    expect(await band.findByText('提名')).toBeInTheDocument() // 行：提名(深绿)审理
+    expect(band.getByText(/^\d+$/)).toBeInTheDocument() // 天数（审理中：实时累计）
+    expect(band.getByText('天')).toBeInTheDocument()
+    expect(band.getByText('审理中')).toBeInTheDocument() // 小标（灰）
+    expect(band.queryByText('签证')).toBeNull() // 签证未递交 → 无签证行
   })
 
-  it('概要带「审理时长」：其它阶段（如下签）→ 此格不显示；无递交历史也不显示', async () => {
-    vi.mocked(listCases).mockResolvedValue([mkCase({ id: 'ca1', current_stage: 'granted' })])
+  it('概要带「审理时长」格：提名已批+签证在审 → 两行：提名定格(已批)、签证实时(审理中)', async () => {
+    vi.mocked(listCases).mockResolvedValue([mkCase({ id: 'ca1', current_stage: 'visa_lodged' })])
+    vi.mocked(getCaseStageHistory).mockResolvedValue([
+      {
+        id: 'h1', case_id: 'ca1', from_stage: 'todo', to_stage: 'nomination_lodged', note: null,
+        changed_by: null, changed_at: '2026-01-01T00:00:00Z', effective_at: '2026-01-01T00:00:00Z',
+      } as CaseStageHistory,
+      {
+        id: 'h2', case_id: 'ca1', from_stage: 'nomination_lodged', to_stage: 'nomination_approved', note: null,
+        changed_by: null, changed_at: '2026-02-01T00:00:00Z', effective_at: '2026-02-01T00:00:00Z',
+      } as CaseStageHistory,
+      {
+        id: 'h3', case_id: 'ca1', from_stage: 'nomination_approved', to_stage: 'visa_lodged', note: null,
+        changed_by: null, changed_at: '2026-03-01T00:00:00Z', effective_at: '2026-03-01T00:00:00Z',
+      } as CaseStageHistory,
+    ])
     renderPage()
-    expect((await screen.findAllByText('测试客户')).length).toBeGreaterThan(0)
-    expect(screen.queryByText('审理时长')).not.toBeInTheDocument()
-    expect(screen.queryByText(/^已 \d+ 天$/)).not.toBeInTheDocument()
+    await screen.findAllByText('测试客户')
+    const band = within(document.getElementById('summary') as HTMLElement)
+    expect(await band.findByText('提名')).toBeInTheDocument()
+    expect(band.getByText('签证')).toBeInTheDocument() // 两行都显示
+    expect(band.getByText('31')).toBeInTheDocument() // 提名定格 = 获批日(02-01)−递交日(01-01)
+    expect(band.getByText('已批')).toBeInTheDocument() // 提名行小标（绿）
+    expect(band.getByText('审理中')).toBeInTheDocument() // 签证行小标（灰，实时）
+  })
+
+  it('概要带「审理时长」格：下签 → 签证行定格 = 下签日−递交日，仍一直显示（已批）', async () => {
+    vi.mocked(listCases).mockResolvedValue([mkCase({ id: 'ca1', current_stage: 'granted' })])
+    vi.mocked(getCaseStageHistory).mockResolvedValue([
+      {
+        id: 'h1', case_id: 'ca1', from_stage: 'nomination_approved', to_stage: 'visa_lodged', note: null,
+        changed_by: null, changed_at: '2026-01-01T00:00:00Z', effective_at: '2026-01-01T00:00:00Z',
+      } as CaseStageHistory,
+      {
+        id: 'h2', case_id: 'ca1', from_stage: 'visa_lodged', to_stage: 'granted', note: null,
+        changed_by: null, changed_at: '2026-03-01T00:00:00Z', effective_at: '2026-03-01T00:00:00Z',
+      } as CaseStageHistory,
+    ])
+    renderPage()
+    await screen.findAllByText('测试客户')
+    const band = within(document.getElementById('summary') as HTMLElement)
+    expect(await band.findByText('签证')).toBeInTheDocument()
+    expect(band.getByText('59')).toBeInTheDocument() // 2026-01-01 → 2026-03-01 定格，不随今天增长
+    expect(band.getByText('已批')).toBeInTheDocument()
+  })
+
+  it('概要带「审理时长」格：提名/签证都未递交 → 整格显示 —', async () => {
+    vi.mocked(listCases).mockResolvedValue([mkCase({ id: 'ca1', current_stage: 'todo' })])
+    renderPage()
+    await screen.findAllByText('测试客户')
+    const band = within(document.getElementById('summary') as HTMLElement)
+    // 收窄到「审理时长」格本身（归属人等格的占位 — 不算数）
+    const cell = within(band.getByText('审理时长').parentElement as HTMLElement)
+    expect(await cell.findByText('—')).toBeInTheDocument()
+    expect(cell.queryByText(/^\d+$/)).toBeNull()
+    expect(band.queryByText('提名')).toBeNull()
+    expect(band.queryByText('签证')).toBeNull()
   })
 
   it('两张主卡：相关案件 + 费用记录；无案件时空态不崩', async () => {
@@ -183,7 +239,7 @@ describe('CustomerDetailPage（案件中心单页 · 无 tab）', () => {
     expect(screen.getByText('彻底删除')).toBeInTheDocument()
   })
 
-  it('有案件时：案件 tab 渲染，且概要带「案件·阶段」格列出每个案件的阶段（多案全列、可点切换）', async () => {
+  it('有案件时：案件 tab 渲染；概要带「审理时长」格随选中案件（多案切换走相关案件卡 tab）', async () => {
     vi.mocked(listCases).mockResolvedValue([
       mkCase({ id: 'ca1', visa_subclass: '482', visa_stream: 'Core Skill', current_stage: 'nomination_lodged' }),
       mkCase({ id: 'ca2', visa_subclass: '500', visa_stream: null, current_stage: 'granted', created_at: '2026-02-01' }),
@@ -192,13 +248,12 @@ describe('CustomerDetailPage（案件中心单页 · 无 tab）', () => {
     await screen.findAllByText('测试客户')
     // 案件 tab（相关案件卡内）
     expect(await screen.findByRole('button', { name: '482/Core Skill' })).toBeInTheDocument()
-    // 概要带「案件 · 阶段」格：两个案件的 visa + 阶段徽章**都**列出
-    const bandCell = screen.getByText('案件 · 阶段').parentElement as HTMLElement
-    expect(within(bandCell).getByText('482/Core Skill')).toBeInTheDocument()
-    expect(within(bandCell).getByText('500')).toBeInTheDocument()
-    expect(within(bandCell).getByText('提名递交')).toBeInTheDocument()
-    expect(within(bandCell).getByText('下签')).toBeInTheDocument()
-    expect(within(bandCell).getByText('点击切换当前案件')).toBeInTheDocument()
+    // 概要带「审理时长」格：只显示选中案件（默认 ca1）；无递交历史 → 整格 —；
+    // 旧的逐案行 + 点击切换已收进相关案件卡 tab
+    const bandCell = screen.getByText('审理时长').parentElement as HTMLElement
+    expect(await within(bandCell).findByText('—')).toBeInTheDocument()
+    expect(within(bandCell).queryByText('提名递交')).toBeNull()
+    expect(screen.queryByText('点击切换当前案件')).toBeNull()
     // 案件卡不再有「主申请人 / 副申请人」行
     expect(screen.getByText('案件类型')).toBeInTheDocument()
     expect(screen.queryByText('副申请人')).not.toBeInTheDocument()

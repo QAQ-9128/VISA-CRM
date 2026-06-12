@@ -2,20 +2,19 @@ import type { ReactNode } from 'react'
 import { Link } from 'react-router-dom'
 import { Avatar } from '../../ui/Avatar'
 import { Button } from '../../ui/Button'
-import { StageBadge } from '../../cases/StageBadge'
 import { useBackSource } from '../../../hooks/useBackSource'
 import { useUpdateCustomer } from '../../../hooks/queries/useCustomers'
 import { useReferrer } from '../../../hooks/queries/useReferrers'
 import { useCaseStageHistory } from '../../../hooks/queries/useCases'
 import { useCustomerFinance } from '../../../hooks/queries/useCustomerFinance'
-import { selectProcessingTime } from '../../../lib/processingTime'
-import { formatVisaType } from '../../../lib/visa'
+import { selectProcessingRows } from '../../../lib/processingTime'
+import { flowStatusBadgeClass } from '../../../lib/statusColor'
 import { formatMoney } from '../../../lib/money'
 import { GENDER_LABELS } from '../../../types/domain'
 import type { Case, Customer } from '../../../types/models'
 
 /** 概要带的一格（发丝分隔）：标题 + 主值 + 副说明。字号/字重略升，强化可读性。 */
-function Cell({ label, children, sub, subTone }: { label: string; children: ReactNode; sub?: ReactNode; subTone?: string }) {
+function Cell({ label, children, sub, subTone }: { label: ReactNode; children: ReactNode; sub?: ReactNode; subTone?: string }) {
   return (
     <div className="min-w-[8.5rem] flex-1 px-5 py-1">
       <div className="text-[12px] font-semibold tracking-[0.02em] text-muted">{label}</div>
@@ -26,8 +25,9 @@ function Cell({ label, children, sub, subTone }: { label: string; children: Reac
 }
 
 /**
- * ① 概要带：左=头像+姓名；中（发丝分隔）=参与案件 / 当前案件·阶段（随选中案件）/
- * 性别·生日 / 已收(客户级全部案件) / 未收(客户级全部案件)；右=收藏+编辑客户。
+ * ① 概要带：左=头像+姓名；中（发丝分隔）=参与案件 / 审理时长（随选中案件：提名/签证已递交各占一行
+ * 「{流程}审理 N 天 + 审理中/已批小标」，已批定格仍显示）/ 性别·生日 / 已收 / 未收（客户级全部案件合计）；
+ * 右=收藏+编辑客户。
  * 性别·生日读 customer.gender / birth_date，空则留空不编造。
  * 已收/未收为客户级跨全部案件合计，不随选中案件切换。
  */
@@ -35,17 +35,12 @@ export function SummaryBand({
   customer,
   selectedCase,
   caseCount = 0,
-  cases = [],
-  onSelectCase,
 }: {
   customer: Customer
+  /** 当前选中案件（多案切换在相关案件卡 tab，「审理时长」格随之联动） */
   selectedCase: Case | null
   /** TA 参与的案件数（拥有 ∪ 参与，一案一组） */
   caseCount?: number
-  /** TA 参与的全部案件（「案件 · 阶段」格逐案列出阶段） */
-  cases?: Case[]
-  /** 点某个案件行 → 切换选中案件（与下方相关案件卡联动） */
-  onSelectCase?: (caseId: string) => void
 }) {
   const source = useBackSource() // 进案件参与管理带来源 → 返回文案随来源
   const update = useUpdateCustomer()
@@ -57,11 +52,12 @@ export function SummaryBand({
   const t = finance.receivableTotals
   const unpaidCount = finance.receivables.filter((r) => r.unpaid > 0).length
 
-  // 审理时长：仅当前案件阶段=提名递交/签证递交时显示「已 N 天」，N=今天−真实递交日（stage_history 派生）
+  // 「审理时长」格：选中案件的阶段历史派生递交日，按在审阶段一行（提名或签证）或两行（都递交了），
+  // 口径 = flowProcessing 单一来源（审理中=今天−递交实时；已批=获批日−递交定格仍显示；本地日期）
   const history = useCaseStageHistory(selectedCase?.id)
-  const processing = selectedCase
-    ? selectProcessingTime(selectedCase.current_stage, history.data ?? [])
-    : null
+  const processingRows = selectedCase
+    ? selectProcessingRows(selectedCase.current_stage, history.data ?? [])
+    : []
 
   return (
     <div className="flex flex-col gap-4 rounded-card bg-white p-[18px] shadow-soft xl:flex-row xl:items-center">
@@ -88,40 +84,35 @@ export function SummaryBand({
             <span aria-hidden className="text-[12px]">›</span>
           </Link>
         </Cell>
-        <Cell label="案件 · 阶段" sub={cases.length > 1 ? '点击切换当前案件' : undefined}>
-          {cases.length === 0 ? (
+        {/* 审理时长格（随选中案件）：按在审阶段一行或两行——提名/签证已递交就各占一行
+            「{提名/签证}审理 N 天 + 状态小标」（selectProcessingRows 单一来源）。
+            已批定格仍一直显示（小标转绿「已批」）；都未递交 → 整格 —。 */}
+        <Cell label="审理时长">
+          {!selectedCase ? (
             <span className="text-faint">暂无案件</span>
-          ) : (
-            <span className="flex flex-col gap-1">
-              {/* 多案全列：每案一行 签证 + 阶段徽章；当前选中行高亮，可点切换（与相关案件卡同步） */}
-              {cases.map((cs) => {
-                const active = cs.id === selectedCase?.id
-                return (
-                  <button
-                    key={cs.id}
-                    type="button"
-                    onClick={() => onSelectCase?.(cs.id)}
-                    className={`flex w-fit flex-wrap items-center gap-1.5 rounded text-left ${
-                      active ? '' : 'opacity-60 hover:opacity-100'
-                    }`}
-                    title={active ? '当前案件' : '切换为当前案件'}
+          ) : processingRows.length > 0 ? (
+            <span className="flex flex-col gap-0.5">
+              {processingRows.map((row) => (
+                <span key={row.flow} className="flex items-baseline gap-1.5" title={row.text}>
+                  <span className="text-[13px] font-semibold">
+                    <span className="text-emerald-700">{row.flowLabel}</span>审理
+                  </span>
+                  <span className="text-[20px] leading-tight font-extrabold tabular-nums text-emerald-700">
+                    {row.days}
+                  </span>
+                  <span className="text-[12px] font-semibold text-muted">天</span>
+                  <span
+                    className={`inline-flex items-center self-center rounded-full px-2 py-px text-[11px] font-bold ${flowStatusBadgeClass(row.status)}`}
                   >
-                    <span className={active ? '' : 'font-medium'}>
-                      {formatVisaType(cs.visa_subclass, cs.visa_stream)}
-                    </span>
-                    <StageBadge stage={cs.current_stage} />
-                  </button>
-                )
-              })}
+                    {row.tag}
+                  </span>
+                </span>
+              ))}
             </span>
+          ) : (
+            <span className="text-faint">—</span>
           )}
         </Cell>
-        {/* 审理时长：只在提名递交/签证递交阶段出现，其余阶段整格不显示 */}
-        {processing && (
-          <Cell label="审理时长" sub={processing.label}>
-            <span className="tabular-nums">已 {processing.days} 天</span>
-          </Cell>
-        )}
         <Cell
           label="性别 · 生日"
           sub={customer.birth_date ? <span className="tabular-nums">{customer.birth_date}</span> : null}
