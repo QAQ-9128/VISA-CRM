@@ -1,32 +1,49 @@
 name: Supabase keep-alive
 
-# 防止 Supabase 免费版「连续 ~7 天无活动自动暂停」导致整个后端下线、谁都登录不了。
-# 每天对 REST 接口发一次很轻的只读请求（命中数据库 = 一次活动），保持项目“活着”。
+# 目的：防止 Supabase 免费版「连续 ~7 天无活动自动暂停」——一旦暂停，Auth 也停，
+#       整站会突然登录不了（连已登录会话都无法刷新）。每天对 REST 端点发一次很轻的请求
+#       （命中数据库 = 一次活动），使项目始终「活着」，永不进入闲置暂停。
+#
+# 这里直接内联 publishable key（= 旧 anon key 的新版形态）：它是客户端公钥，本就打包在
+# 前端 bundle 里公开可见、受 RLS 保护，内联进来没有任何额外泄露风险，且不依赖仓库 Secret
+# 是否配置——消除「secret 没配 → 任务每天失败 → 实际没保活」这个隐蔽单点故障。
+# ⚠ 绝不要把 service_role / secret key 放进来——那才是真正的机密。
+#
+# 端点选择（均已实测）：
+#   - REST /rest/v1/customers?select=id&limit=1（仅 apikey）→ 200，命中数据库=最有效的活动信号
+#   - Auth /auth/v1/health → 200，直接确认登录服务在线（附带健康检查）
+# 任一异常即任务失败 → GitHub 按你的通知设置发邮件提醒。
+
 on:
   schedule:
-    - cron: '17 7 * * *' # 每天 07:17 UTC ping 一次（远小于 7 天阈值，留足余量）
-  workflow_dispatch: {} # 也可在 Actions 页手动触发测试
+    # 每天 05:37 UTC（避开整点——GitHub 定时任务在整点高峰容易被延迟/丢弃）。
+    # 每天一次对 7 天暂停窗口留足余量：即便 GitHub 偶发丢几次也安全。
+    - cron: '37 5 * * *'
+  workflow_dispatch: {} # 也可在 Actions 页「Run workflow」手动触发测试
 
 jobs:
   ping:
     runs-on: ubuntu-latest
     steps:
-      - name: Ping Supabase REST
-        env:
-          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
-          SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+      - name: Ping Supabase（REST 命中数据库 + Auth 健康检查）
         run: |
-          if [ -z "$SUPABASE_URL" ] || [ -z "$SUPABASE_ANON_KEY" ]; then
-            echo "缺少仓库 Secret：SUPABASE_URL / SUPABASE_ANON_KEY（在 GitHub 仓库 Settings → Secrets and variables → Actions 添加）"
-            exit 1
+          URL="https://nloqupnzffxeswajfnjd.supabase.co"
+          KEY="sb_publishable_PG-drOch8WcTDm4qPxM66w_tXuovv5u"
+
+          rest=$(curl -sS -o /dev/null -w '%{http_code}' \
+            -H "apikey: ${KEY}" \
+            "${URL}/rest/v1/customers?select=id&limit=1")
+          echo "REST（数据库活动）→ HTTP ${rest}"
+
+          auth=$(curl -sS -o /dev/null -w '%{http_code}' \
+            -H "apikey: ${KEY}" \
+            "${URL}/auth/v1/health")
+          echo "Auth（登录服务）→ HTTP ${auth}"
+
+          if [ "${rest}" != "200" ]; then
+            echo "::error::REST 未返回 200（项目可能已暂停或配置异常）"; exit 1
           fi
-          # 只读查询；受 RLS 保护，匿名只会拿到空结果，但请求会命中数据库 → 算一次活动。
-          code=$(curl -s -o /dev/null -w '%{http_code}' \
-            -H "apikey: $SUPABASE_ANON_KEY" \
-            "$SUPABASE_URL/rest/v1/customers?select=id&limit=1")
-          echo "Supabase REST 返回 HTTP $code"
-          if [ "$code" != "200" ]; then
-            echo "保活请求未返回 200（项目可能已暂停或配置有误）"
-            exit 1
+          if [ "${auth}" != "200" ]; then
+            echo "::error::Auth 服务未返回 200（登录可能受影响）"; exit 1
           fi
-          echo "保活成功 ✅"
+          echo "✓ 数据库 + 登录服务均在线，保活成功"
