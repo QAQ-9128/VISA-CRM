@@ -20,7 +20,7 @@ export function AppLayout() {
           </span>
           <span className="text-base font-bold text-ink">签证 CRM</span>
         </header>
-        <main className="flex-1 px-4 pt-4 pb-24 md:px-8 md:pt-6 md:pb-8">
+        <main className="flex-1 px-4 pt-4 pb-[calc(6rem+env(safe-area-inset-bottom))] md:px-8 md:pt-6 md:pb-8">
           <Outlet />
         </main>
         <BottomTabBar />

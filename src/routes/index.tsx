@@ -16,6 +16,7 @@ import { EmployerListPage } from '../pages/employers/EmployerListPage'
 import { EmployerFormPage } from '../pages/employers/EmployerFormPage'
 import { ReferrerListPage } from '../pages/referrers/ReferrerListPage'
 import { ReferrerFormPage } from '../pages/referrers/ReferrerFormPage'
+import { ImmiAccountsPage } from '../pages/immiAccounts/ImmiAccountsPage'
 import { FinancePage } from '../pages/finance/FinancePage'
 import { ArchivePage } from '../pages/archive/ArchivePage'
 import { UserManagementPage } from '../pages/admin/UserManagementPage'
@@ -50,6 +51,7 @@ export const appRoutes: RouteObject[] = [
           { path: 'referrers', element: <ReferrerListPage /> },
           { path: 'referrers/new', element: <ReferrerFormPage /> },
           { path: 'referrers/:id/edit', element: <ReferrerFormPage /> },
+          { path: 'immi-accounts', element: <ImmiAccountsPage /> },
           { path: 'finance', element: <FinancePage /> },
           { path: 'storage', element: <ArchivePage /> },
           {

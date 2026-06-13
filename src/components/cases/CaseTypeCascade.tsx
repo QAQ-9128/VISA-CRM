@@ -12,6 +12,7 @@ import {
   STREAM_OPTIONS,
   SUB_TITLES,
   VISA_TYPES,
+  showSponsorFields,
 } from '../../lib/caseTypeCascade'
 import type { CascadeValue, VisaTypeKey } from '../../lib/caseTypeCascade'
 import { CASE_CATEGORIES } from '../../types/domain'
@@ -73,7 +74,12 @@ export function CaseTypeCascade({
             placeholder="— 请选择 —"
             options={CASE_CATEGORIES.map((c) => ({ value: c, label: c }))}
             value={category}
-            onChange={(e) => onChange({ ...EMPTY_CASCADE, category: e.target.value as '' | CaseCategory })}
+            onChange={(e) => {
+              // 切大类清空全部下级；TRT/同居提醒是独立状态，一并复位避免残留
+              onTrtReminderChange?.(false)
+              onCohabReminderChange?.(false)
+              onChange({ ...EMPTY_CASCADE, category: e.target.value as '' | CaseCategory })
+            }}
           />
 
           {/* 签证申请 → 签证类型（切换 → 清空子字段） */}
@@ -83,9 +89,12 @@ export function CaseTypeCascade({
               placeholder="— 请选择 —"
               options={VISA_TYPES.map((t) => ({ value: t.key, label: t.label }))}
               value={visaType}
-              onChange={(e) =>
+              onChange={(e) => {
+                // 切签证类型即清空子字段；TRT/同居提醒是独立状态，一并复位避免类型来回切后勾选残留
+                onTrtReminderChange?.(false)
+                onCohabReminderChange?.(false)
                 onChange({ ...EMPTY_CASCADE, category, visaType: e.target.value as '' | VisaTypeKey })
-              }
+              }}
             />
           )}
         </div>
@@ -103,12 +112,23 @@ export function CaseTypeCascade({
               placeholder="— 请选择 —"
               options={streamCfg.options}
               value={value.stream}
-              onChange={(e) => onChange({ ...value, stream: e.target.value })}
+              onChange={(e) => {
+                const stream = e.target.value
+                // 切到「副申请」等隐藏担保的子类别 → 即时清空担保职位/雇主，避免残留脏数据
+                const next = { ...value, stream }
+                if (!showSponsorFields(visaType, stream)) {
+                  // 副申请：无自己的担保职位/雇主，也不做自己的 2 年转 186 → 一并清空
+                  next.sponsorPosition = ''
+                  next.sponsorEmployerId = ''
+                  onTrtReminderChange?.(false)
+                }
+                onChange(next)
+              }}
             />
           )}
 
-          {/* 担保职位（仅 482 / 186） */}
-          {visaType && SPONSOR_TYPES.has(visaType) && (
+          {/* 担保职位（仅 482 / 186 / 407；482 选「副申请」时隐藏） */}
+          {visaType && SPONSOR_TYPES.has(visaType) && showSponsorFields(visaType, value.stream) && (
             <TextField
               label="担保职位"
               value={value.sponsorPosition}
@@ -117,8 +137,8 @@ export function CaseTypeCascade({
             />
           )}
 
-          {/* 担保雇主 / 雇主名称（482 / 186 / 482sbs）：复用现有雇主选择器（选已有 + 内联新建） */}
-          {visaType && EMPLOYER_TYPES.has(visaType) && (
+          {/* 担保雇主 / 雇主名称（482 / 186 / 482sbs / 407；482 选「副申请」时隐藏） */}
+          {visaType && EMPLOYER_TYPES.has(visaType) && showSponsorFields(visaType, value.stream) && (
             <EmployerSelect
               label={visaType === '482sbs' ? '雇主名称' : '担保雇主'}
               value={value.sponsorEmployerId}
@@ -126,8 +146,8 @@ export function CaseTypeCascade({
             />
           )}
 
-          {/* 482 TSS：2 年转 186 TRT 提醒（与签证子类别/担保配套，放在签证详情卡内，不进组区） */}
-          {visaType === '482' && onTrtReminderChange && (
+          {/* 482 TSS：2 年转 186 TRT 提醒（仅主申；副申请 Subsequent Entrant 不做自己的转 186，隐藏） */}
+          {visaType === '482' && showSponsorFields(visaType, value.stream) && onTrtReminderChange && (
             <label className="flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50/60 p-3 text-sm text-slate-700">
               <input
                 type="checkbox"

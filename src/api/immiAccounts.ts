@@ -29,3 +29,25 @@ export async function createImmiAccount(input: ImmiAccountInsert): Promise<ImmiA
   if (error) throw error
   return data
 }
+
+/** 引用该账号的案件数（删除前提示「X 个案件在用」；含归档案件，与置空范围一致）。 */
+export async function countCasesUsingImmiAccount(id: string): Promise<number> {
+  const { count, error } = await supabase
+    .from('cases')
+    .select('id', { count: 'exact', head: true })
+    .eq('immi_account_id', id)
+  if (error) throw error
+  return count ?? 0
+}
+
+/**
+ * 删除账号：① 把引用它的案件「所属账号」置空（未指定）；② 归档账号本身（从下拉/管理列表移除）。
+ * 两步都是 UPDATE（RLS=authenticated，staff 可用）；不做硬删（硬删 RLS=admin）。
+ * 对用户等同删除：账号消失，原引用案件显示「未指定」。
+ */
+export async function deleteImmiAccount(id: string): Promise<void> {
+  const { error: refErr } = await supabase.from('cases').update({ immi_account_id: null }).eq('immi_account_id', id)
+  if (refErr) throw refErr
+  const { error } = await supabase.from('immi_accounts').update({ is_archived: true }).eq('id', id)
+  if (error) throw error
+}

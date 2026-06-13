@@ -24,6 +24,7 @@ const APP_LINKS = [
   '/referrers',
   '/referrers/new', // 含 ?kind=owner
   '/referrers/abc/edit',
+  '/immi-accounts', // 所属账号管理
   '/finance',
   '/storage', // 档案库（含回收站 tab）
   '/admin/users',

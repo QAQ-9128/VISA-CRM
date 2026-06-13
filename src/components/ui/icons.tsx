@@ -240,3 +240,14 @@ export function LogOutIcon(props: SVGProps<SVGSVGElement>) {
     </svg>
   )
 }
+
+/** 水平省略号（底部导航「更多」用）。 */
+export function MoreIcon(props: SVGProps<SVGSVGElement>) {
+  return (
+    <svg {...base} {...props}>
+      <circle cx="5" cy="12" r="1.4" fill="currentColor" stroke="none" />
+      <circle cx="12" cy="12" r="1.4" fill="currentColor" stroke="none" />
+      <circle cx="19" cy="12" r="1.4" fill="currentColor" stroke="none" />
+    </svg>
+  )
+}

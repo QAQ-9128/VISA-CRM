@@ -6,6 +6,7 @@ import { AuthContext } from '../../providers/auth-context'
 import type { AuthContextValue } from '../../providers/auth-context'
 import { CaseForm } from './CaseForm'
 import { caseGroupCode } from '../../lib/caseGroups'
+import { SECONDARY_APPLICANT_STREAM } from '../../lib/caseTypeCascade'
 import { queryKeys } from '../../hooks/queries/keys'
 import { addCaseApplicant, removeCaseApplicant, removeSelfFromCase } from '../../api/caseApplicants'
 import type { Case, Customer } from '../../types/models'
@@ -111,7 +112,7 @@ describe('CaseForm（新增案件 · 一案一组）', () => {
     expect(screen.getByRole('button', { name: '保存' })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: '保存并记账' })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: '取消' })).toBeInTheDocument()
-    // 去主/副申措辞（new_case.html 的主申/副申提示不引入）
+    // 去主/副申措辞（new_case.html 的主申/副申角色提示不引入；子类别选项已用英文 Subsequent Entrant）
     expect(screen.queryByText(/主申/)).not.toBeInTheDocument()
     expect(screen.queryByText(/副申/)).not.toBeInTheDocument()
   })
@@ -204,6 +205,65 @@ describe('CaseForm（新增案件 · 一案一组）', () => {
     expect(v.visa_stream).toBe('Core Skills') // 入库值=现有目录 stream（标签才是 mock 文案）
     expect(v.sponsor_position).toBe('Senior Cook')
     expect(v.case_details).toBeNull() // 482 无 JSON 子字段
+  })
+
+  // 482 子类别「Subsequent Entrant」（原显示名「副申请」）：选中 → 隐藏担保职位/雇主且不入库；切回恢复且无残留
+  it('482 Subsequent Entrant：选项存在（英文名）；选中隐藏担保职位/雇主、切换即时显隐无残留；保存 stream=Secondary Applicant、担保不写', async () => {
+    const { onSubmit } = renderForm()
+    await screen.findByLabelText('案件大类')
+    pickVisa('482')
+    // 显示名为「Subsequent Entrant」（与 Core/Specialist/Labour 并列）；不再出现旧标签「副申请」
+    expect(screen.getByRole('option', { name: 'Subsequent Entrant' })).toBeInTheDocument()
+    expect(screen.queryByRole('option', { name: '副申请' })).toBeNull()
+    // 默认（未选子类别）担保显示，先填入数据
+    expect(screen.getByLabelText('担保职位')).toBeInTheDocument()
+    fireEvent.change(screen.getByLabelText('担保职位'), { target: { value: 'Senior Cook' } })
+    // 选「Subsequent Entrant」→ 担保职位/雇主 + 2年转186 TRT 提醒 即时隐藏（副申不做自己的转186）
+    expect(screen.getByText(/2 年转 186 TRT 提醒/)).toBeInTheDocument() // Core Skills 默认下可见
+    fireEvent.change(screen.getByLabelText('签证子类别'), { target: { value: SECONDARY_APPLICANT_STREAM } })
+    expect(screen.queryByLabelText('担保职位')).toBeNull()
+    expect(screen.queryByLabelText('担保雇主')).toBeNull()
+    expect(screen.queryByText(/2 年转 186 TRT 提醒/)).toBeNull()
+    // 切回 Core Skills → 担保恢复显示，且之前填的已被清空（无残留脏数据）
+    fireEvent.change(screen.getByLabelText('签证子类别'), { target: { value: 'Core Skills' } })
+    expect(screen.getByLabelText('担保职位')).toBeInTheDocument()
+    expect((screen.getByLabelText('担保职位') as HTMLInputElement).value).toBe('')
+    // 再选回 Subsequent Entrant 并保存：stream 存 'Secondary Applicant'（值不变，旧数据不丢），担保两字段一律 null
+    fireEvent.change(screen.getByLabelText('签证子类别'), { target: { value: SECONDARY_APPLICANT_STREAM } })
+    fireEvent.click(screen.getByRole('button', { name: '保存' }))
+    const v = onSubmit.mock.calls[0][0]
+    expect(v.visa_subclass).toBe('482')
+    expect(v.visa_stream).toBe(SECONDARY_APPLICANT_STREAM)
+    expect(v.sponsor_position).toBeNull()
+    expect(v.sponsor_employer_id).toBeNull()
+    expect(v.trt_reminder_enabled).toBe(false) // 副申请不存 TRT
+  })
+
+  // 485 毕业生工签：列表有它；选 485 → 子类别(含 Subsequent Entrant)、无担保、无 186 TRT 提醒；保存走现有列
+  it('485 毕业生工签：类型在册；选 485 → 子类别含 Subsequent Entrant、无担保职位/雇主、无 TRT 提醒；保存 visa_subclass=485 + stream', async () => {
+    const { onSubmit } = renderForm()
+    await screen.findByLabelText('案件大类')
+    fireEvent.change(screen.getByLabelText('案件大类'), { target: { value: '签证申请' } })
+    // 「485 毕业生工签」在签证类型下拉
+    expect(screen.getByRole('option', { name: '485 毕业生工签' })).toBeInTheDocument()
+    fireEvent.change(screen.getByLabelText('签证类型'), { target: { value: '485' } })
+    // 子类别出现，含 Subsequent Entrant + 常规 stream
+    expect(screen.getByLabelText('签证子类别')).toBeInTheDocument()
+    expect(screen.getByRole('option', { name: 'Subsequent Entrant' })).toBeInTheDocument()
+    expect(screen.getByRole('option', { name: 'Post-Study Work Stream' })).toBeInTheDocument()
+    // 485 无担保字段、无 186 TRT 提醒
+    expect(screen.queryByLabelText('担保职位')).toBeNull()
+    expect(screen.queryByLabelText('担保雇主')).toBeNull()
+    expect(screen.queryByText(/2 年转 186 TRT 提醒/)).toBeNull()
+    // 选常规 stream 保存：visa_subclass=485，子类别入 visa_stream
+    fireEvent.change(screen.getByLabelText('签证子类别'), { target: { value: 'Graduate Work' } })
+    fireEvent.click(screen.getByRole('button', { name: '保存' }))
+    const v = onSubmit.mock.calls[0][0]
+    expect(v.visa_subclass).toBe('485')
+    expect(v.visa_stream).toBe('Graduate Work')
+    expect(v.sponsor_position).toBeNull()
+    expect(v.sponsor_employer_id).toBeNull()
+    expect(v.trt_reminder_enabled).toBe(false)
   })
 
   // 407 培训签：担保职位 + 担保雇主与 482/186 同款；保存走现有列；无 TRT 提醒

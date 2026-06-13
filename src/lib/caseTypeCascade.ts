@@ -21,10 +21,17 @@ export const VISA_TYPES = [
   { key: '407', label: '407 培训签', subclass: '407' },
   { key: '600', label: '600 旅游签', subclass: '600' },
   { key: '500', label: '500 学生签', subclass: '500' },
+  { key: '485', label: '485 毕业生工签', subclass: '485' },
   { key: '820', label: '配偶签证 TR（820 / 801）', subclass: '820/801' },
   { key: '309', label: '配偶签证 PR（309 / 100）', subclass: '309/100' },
 ] as const
 export type VisaTypeKey = (typeof VISA_TYPES)[number]['key']
+
+/**
+ * 482 TSS 的「副申请」子类别：与其它子类别同存 cases.visa_stream（零迁移）。
+ * 选中后该案是副申，没有自己的担保职位/雇主 → 见 showSponsorFields（隐藏且不入库）。
+ */
+export const SECONDARY_APPLICANT_STREAM = 'Secondary Applicant'
 
 export interface StreamOption {
   value: string
@@ -39,6 +46,8 @@ export const STREAM_OPTIONS: Partial<Record<VisaTypeKey, { label: string; option
       { value: 'Core Skills', label: 'Core Skill Stream' },
       { value: 'Specialist Skills', label: 'Specialist Skills Stream' },
       { value: 'Labour Agreement', label: 'Labour Agreement Stream' },
+      // 显示名改为 Subsequent Entrant；入库值仍为 'Secondary Applicant'（不变，旧数据不丢）
+      { value: SECONDARY_APPLICANT_STREAM, label: 'Subsequent Entrant' },
     ],
   },
   '186': {
@@ -64,6 +73,17 @@ export const STREAM_OPTIONS: Partial<Record<VisaTypeKey, { label: string; option
       { value: '590', label: 'Student Guardian (590)' },
     ],
   },
+  // 485 毕业生工签：常规 stream + Subsequent Entrant（副申/随行）。
+  // ⚠ 常规 stream 取值为临时占位（待用户确认准确清单后一处改定）；Subsequent Entrant 与 482 同存 'Secondary Applicant'。
+  '485': {
+    label: '签证子类别',
+    options: [
+      { value: 'Post-Study Work', label: 'Post-Study Work Stream' },
+      { value: 'Graduate Work', label: 'Graduate Work Stream' },
+      { value: 'Replacement', label: 'Replacement Stream' },
+      { value: SECONDARY_APPLICANT_STREAM, label: 'Subsequent Entrant' },
+    ],
+  },
   '820': {
     label: '当前阶段',
     options: [
@@ -84,6 +104,14 @@ export const STREAM_OPTIONS: Partial<Record<VisaTypeKey, { label: string; option
 export const SPONSOR_TYPES: ReadonlySet<VisaTypeKey> = new Set<VisaTypeKey>(['482', '186', '407'])
 /** 有「担保雇主 / 雇主名称」的类型（482 / 186 / 482sbs / 407 培训签）。 */
 export const EMPLOYER_TYPES: ReadonlySet<VisaTypeKey> = new Set<VisaTypeKey>(['482', '186', '482sbs', '407'])
+
+/**
+ * 是否显示/写入担保职位 + 担保雇主：482 TSS 选「副申请」子类别时隐藏（副申无自己的担保雇主/职位）。
+ * 与 SPONSOR_TYPES/EMPLOYER_TYPES 组合使用：本函数只负责「该子类别下要不要显示担保」这一额外条件。
+ */
+export function showSponsorFields(visaType: '' | VisaTypeKey, stream: string): boolean {
+  return !(visaType === '482' && stream === SECONDARY_APPLICANT_STREAM)
+}
 /** 配偶签证的静态「申请地点」（展示用，不入库——由签证类型隐含）。 */
 export const STATIC_LOCATION: Partial<Record<VisaTypeKey, string>> = {
   '820': 'Onshore（澳洲境内）',
@@ -98,6 +126,7 @@ export const SUB_TITLES: Record<VisaTypeKey, string> = {
   '407': '407 培训签 — 签证详情',
   '600': '600 旅游签 — 签证详情',
   '500': '500 学生签 — 签证详情',
+  '485': '485 毕业生工签 — 签证详情',
   '820': '配偶签证 TR — 签证详情',
   '309': '配偶签证 PR — 签证详情',
 }
@@ -187,6 +216,7 @@ export function cascadeFromCase(c: {
     case '600': visaType = '600'; break
     case '500': visaType = '500'; stream = '500'; break
     case '590': visaType = '500'; stream = '590'; break
+    case '485': visaType = '485'; break
     case '820/801': visaType = '820'; break
     case '309/100': visaType = '309'; break
   }

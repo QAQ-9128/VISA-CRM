@@ -672,6 +672,9 @@ export function CaseFeesCard({
     () => (paymentsQ.data ?? []).filter((p) => p.case_id === (caseRow?.id ?? '')),
     [paymentsQ.data, caseRow?.id],
   )
+  // 本案净额 = 已收(收款) − 支出合计（含垫付杂项）。两者均复用现有派生（getCaseTotals / selectCaseExpenses），
+  // 与卡上「已收」「支出合计」是同一组数字，当场可对账。
+  const expenseTotal = useMemo(() => selectCaseExpenses(casePayments).totals.total, [casePayments])
   const handleUndo = (id: string) => {
     if (window.confirm('确定撤销这笔收款吗？将删除该收款记录（状态与合计随之回退），不可恢复。')) del.mutate(id)
   }
@@ -689,6 +692,8 @@ export function CaseFeesCard({
   }
   const cur = caseRow.currency || 'AUD'
   const loading = plansQ.isPending || paymentsQ.isPending || planItemsQ.isPending || applicantsQ.isPending || customersQ.isPending
+  // 本案净额 = 已收 − 支出合计（含垫付）
+  const caseNet = Math.round(((fees?.totals.paid ?? 0) - expenseTotal) * 100) / 100
 
   return (
     <Card className="h-full">
@@ -760,6 +765,20 @@ export function CaseFeesCard({
                 </div>
               </div>
             </div>
+
+            {/* 本案净额 = 已收 − 支出合计（含垫付杂项），即卡上「已收」减「支出合计」。 */}
+            <div className="mt-3 flex flex-wrap items-end justify-between gap-x-3 gap-y-1 border-t border-line pt-2.5">
+              <div>
+                <div className="text-[11.5px] text-muted">本案净额（收款 − 支出）</div>
+                <div className="text-[11px] text-faint tabular-nums">
+                  收款 {formatMoney(fees.totals.paid, cur)} − 支出 {formatMoney(expenseTotal, cur)}
+                </div>
+              </div>
+              <div className={`font-serif text-[20px] font-bold tabular-nums ${caseNet >= 0 ? 'text-brand' : 'text-[var(--color-coral)]'}`}>
+                {formatMoney(caseNet, cur)}
+              </div>
+            </div>
+            <p className="mt-1 text-[10.5px] text-faint">支出 = 付主代理 + 付介绍人 + 垫付杂项（= 上方「支出合计」）</p>
           </div>
         </>
       )}

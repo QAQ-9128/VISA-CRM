@@ -23,6 +23,7 @@ import {
   EMPLOYER_TYPES,
   EMPTY_CASCADE,
   SPONSOR_TYPES,
+  showSponsorFields,
 } from '../../lib/caseTypeCascade'
 import type { CascadeValue } from '../../lib/caseTypeCascade'
 import type { Case, CaseInsert, Customer } from '../../types/models'
@@ -137,8 +138,8 @@ export function CaseForm({
         destination_country: trimOrNull(destination),
         currency: currency.trim() || 'AUD',
         sync_tracking: financeCombined,
-        // 仅 482 TSS 才可能开启；切到其它签证类型自动清掉，避免残留 true
-        trt_reminder_enabled: is482tss ? trtReminder : false,
+        // 仅 482 TSS 主申才可能开启；切到其它类型或副申请(Subsequent Entrant)一律清掉，避免残留 true
+        trt_reminder_enabled: is482tss && showSponsorFields(cascade.visaType, cascade.stream) ? trtReminder : false,
         // 保存恒复位：勾选 = 复活提醒；未勾 = enabled 已是 false，dismissed 无需保留
         trt_reminder_dismissed: false,
         // 仅 186/配偶签才可能开启（同上：切走清空，不残留）
@@ -146,10 +147,15 @@ export function CaseForm({
         case_category: cascade.category || null,
         visa_subclass: derivedSubclass,
         visa_stream: cascadeStream(cascade.visaType, cascade.stream),
+        // 482「副申请」隐藏担保字段 → 兜底不写入（showSponsorFields=false 时一律 null，不留脏数据）
         sponsor_position:
-          cascade.visaType && SPONSOR_TYPES.has(cascade.visaType) ? trimOrNull(cascade.sponsorPosition) : null,
+          cascade.visaType && SPONSOR_TYPES.has(cascade.visaType) && showSponsorFields(cascade.visaType, cascade.stream)
+            ? trimOrNull(cascade.sponsorPosition)
+            : null,
         sponsor_employer_id:
-          cascade.visaType && EMPLOYER_TYPES.has(cascade.visaType) ? cascade.sponsorEmployerId || null : null,
+          cascade.visaType && EMPLOYER_TYPES.has(cascade.visaType) && showSponsorFields(cascade.visaType, cascade.stream)
+            ? cascade.sponsorEmployerId || null
+            : null,
         case_details: pruneDetails(cascade.details),
         immi_account_id: immiAccountId || null,
       },
