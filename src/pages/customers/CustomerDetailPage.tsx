@@ -96,7 +96,7 @@ export function CustomerDetailPage() {
             key={target}
             type="button"
             onClick={() => document.getElementById(target)?.scrollIntoView({ behavior: 'smooth', block: 'start' })}
-            className="min-h-9 flex-1 rounded-full text-[13px] font-semibold text-muted active:bg-brand-50 active:text-brand-700"
+            className="min-h-11 flex-1 rounded-full text-[13px] font-semibold text-muted active:bg-brand-50 active:text-brand-700"
           >
             {label}
           </button>

@@ -9,7 +9,7 @@ import type { ReceivableRow } from '../../lib/finance'
 /** 行内编辑模式：分阶段/应收编辑器 或 案件级支出表单。 */
 export type RowMode = null | 'receivables' | 'expense-company' | 'expense-referrer'
 
-/** 记账▾ 下拉：记应收 / 记收款 / 创建付款计划 / 付主代理 / 付介绍人。前三项打开应收编辑器，后两项打开支出表单。 */
+/** 记账▾ 下拉：应收/收款（打开应收编辑器，含建计划/款项/收款/分阶段） / 付主代理 / 付介绍人（支出表单）。 */
 export function RecMenu({ onPick }: { onPick: (mode: Exclude<RowMode, null>) => void }) {
   const [open, setOpen] = useState(false)
   const ref = useRef<HTMLSpanElement>(null)
@@ -23,9 +23,7 @@ export function RecMenu({ onPick }: { onPick: (mode: Exclude<RowMode, null>) => 
   }, [open])
 
   const items: { label: string; mode: Exclude<RowMode, null> }[] = [
-    { label: '记应收', mode: 'receivables' },
-    { label: '记收款', mode: 'receivables' },
-    { label: '创建付款计划', mode: 'receivables' },
+    { label: '应收 / 收款', mode: 'receivables' },
     { label: '付主代理', mode: 'expense-company' },
     { label: '付介绍人', mode: 'expense-referrer' },
   ]

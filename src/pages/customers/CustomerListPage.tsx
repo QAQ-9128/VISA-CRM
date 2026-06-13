@@ -264,7 +264,7 @@ export function CustomerListPage() {
               key={v}
               type="button"
               onClick={() => setView(v)}
-              className={`rounded-full px-4 py-2 text-[13.5px] font-semibold transition-colors ${
+              className={`inline-flex min-h-11 items-center rounded-full px-4 text-[13.5px] font-semibold transition-colors ${
                 view === v ? 'bg-white text-brand shadow-xs' : 'text-muted hover:text-body'
               }`}
             >
@@ -356,7 +356,7 @@ export function CustomerListPage() {
       )}
 
       <div>
-        {customers.isPending ? (
+        {customers.isPending || cases.isPending || applicants.isPending ? (
           <LoadingBlock />
         ) : customers.isError ? (
           <ErrorBlock error={customers.error} />

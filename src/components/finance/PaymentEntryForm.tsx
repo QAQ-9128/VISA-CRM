@@ -102,6 +102,7 @@ export function PaymentEntryForm({
 
   function submit(e: FormEvent) {
     e.preventDefault()
+    if (!(Number(amount) > 0)) return
     onSubmit({
       amount: Number(amount),
       method,
@@ -158,7 +159,7 @@ export function PaymentEntryForm({
         </>
       )}
       <div className="flex items-end gap-2 md:col-span-2">
-        <Button type="submit" disabled={pending || amount.trim() === ''}>
+        <Button type="submit" disabled={pending || !(Number(amount) > 0)}>
           {pending ? '保存中…' : submitLabel}
         </Button>
         <Button type="button" variant="ghost" onClick={onCancel}>

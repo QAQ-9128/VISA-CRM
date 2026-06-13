@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { Button } from '../ui/Button'
 import { Select } from '../ui/Select'
 import { TextField } from '../ui/TextField'
+import { useConfirm } from '../ui/useConfirm'
 import { PaymentEntryForm } from './PaymentEntryForm'
 import type { PaymentEntryValues } from './PaymentEntryForm'
 import {
@@ -39,7 +40,7 @@ function AddItemForm({ onAdd, onCancel, pending }: { onAdd: (cat: string, amount
       )}
       <TextField label="应收（AUD）" type="number" min={0} step="0.01" value={amount} onChange={(e) => setAmount(e.target.value)} />
       <div className="flex items-end gap-2 md:col-span-3">
-        <Button type="button" disabled={pending || resolved === '' || amount.trim() === ''} onClick={() => onAdd(resolved, Number(amount))}>
+        <Button type="button" disabled={pending || resolved === '' || !(Number(amount) > 0)} onClick={() => onAdd(resolved, Number(amount))}>
           {pending ? '保存中…' : '添加款项'}
         </Button>
         <Button type="button" variant="ghost" onClick={onCancel}>取消</Button>
@@ -72,6 +73,7 @@ export function PlanItemsTable({
   const delItem = useDeletePlanItem()
   const createPayment = useCreatePayment(caseId)
   const createPlan = useCreatePaymentPlan(caseId)
+  const { confirm, confirmNode } = useConfirm()
 
   const items = (allItems.data ?? []).filter((i) => planId && i.plan_id === planId)
   const payments = paymentsQ.data ?? []
@@ -190,7 +192,10 @@ export function PlanItemsTable({
                           <button
                             type="button"
                             className="ml-3 text-xs font-medium text-slate-400 hover:text-rose-600"
-                            onClick={() => delItem.mutate({ id: it.id, payments })}
+                            onClick={async () => {
+                              if (await confirm({ title: '删除款项', description: `删除「${it.fee_category}」这条款项？`, confirmLabel: '删除', tone: 'danger' }))
+                                delItem.mutate({ id: it.id, payments })
+                            }}
                             disabled={delItem.isPending}
                           >
                             删除
@@ -239,6 +244,7 @@ export function PlanItemsTable({
       ) : (
         <Button type="button" variant="secondary" onClick={() => setAdding(true)}>+ 新增款项</Button>
       )}
+      {confirmNode}
     </div>
   )
 }

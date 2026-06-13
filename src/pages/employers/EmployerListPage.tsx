@@ -3,6 +3,7 @@ import { useArchiveEmployer, useDeleteEmployer, useEmployers } from '../../hooks
 import { Button } from '../../components/ui/Button'
 import { Card } from '../../components/ui/Card'
 import { Well } from '../../components/ui/Well'
+import { useConfirm } from '../../components/ui/useConfirm'
 import { BuildingIcon, PlusIcon } from '../../components/ui/icons'
 import { LoadingBlock, ErrorBlock, EmptyState } from '../../components/ui/states'
 import type { Employer } from '../../types/models'
@@ -10,6 +11,7 @@ import type { Employer } from '../../types/models'
 function EmployerRow({ e }: { e: Employer }) {
   const archive = useArchiveEmployer()
   const del = useDeleteEmployer()
+  const { confirm, confirmNode } = useConfirm()
   // 0031 起彻底删除全员开放（两位用户均 staff，2026-06 拍板）；防误删靠红色确认弹窗
   return (
     <li className="flex min-h-12 items-center gap-3 border-t border-line py-3 first:border-t-0">
@@ -28,24 +30,33 @@ function EmployerRow({ e }: { e: Employer }) {
       <button
         type="button"
         disabled={archive.isPending}
-        className="shrink-0 text-xs text-faint hover:text-body"
-        onClick={() => {
-          if (window.confirm(`归档雇主「${e.name}」？已挂靠的客户不受影响。`)) archive.mutate(e.id)
+        className="inline-flex min-h-11 shrink-0 items-center px-2 text-xs text-faint hover:text-body"
+        onClick={async () => {
+          if (await confirm({ title: '归档雇主', description: `归档雇主「${e.name}」？已挂靠的客户不受影响。`, confirmLabel: '归档' }))
+            archive.mutate(e.id)
         }}
       >
         归档
       </button>
-        <button
-          type="button"
-          disabled={del.isPending}
-          className="shrink-0 text-xs text-faint hover:text-rose-600"
-          onClick={() => {
-            if (window.confirm(`彻底删除雇主「${e.name}」？【不可恢复】，已挂靠客户的「担保雇主」将被清空。如只想隐藏请用「归档」。`))
-              del.mutate(e.id)
-          }}
-        >
-          彻底删除
-        </button>
+      <button
+        type="button"
+        disabled={del.isPending}
+        className="inline-flex min-h-11 shrink-0 items-center px-2 text-xs text-faint hover:text-rose-600"
+        onClick={async () => {
+          if (
+            await confirm({
+              title: '彻底删除雇主',
+              description: `彻底删除雇主「${e.name}」？此操作不可恢复，已挂靠客户的「担保雇主」将被清空。如只想隐藏请用「归档」。`,
+              confirmLabel: '彻底删除',
+              tone: 'danger',
+            })
+          )
+            del.mutate(e.id)
+        }}
+      >
+        彻底删除
+      </button>
+      {confirmNode}
     </li>
   )
 }

@@ -8,9 +8,14 @@ import { useCreateLodgement, useUpdateLodgement } from '../../hooks/queries/useL
 import { LODGEMENT_OUTCOMES, LODGEMENT_OUTCOME_LABELS } from '../../types/domain'
 import type { LodgementOutcome, LodgementType } from '../../types/domain'
 import type { Lodgement } from '../../types/models'
+import { todayYmd } from '../../lib/dateRules'
 
-const numOrNull = (s: string) => (s.trim() === '' ? null : Number(s))
 const strOrNull = (s: string) => (s.trim() === '' ? null : s.trim())
+// DHA 处理天数：正整数；非数字/小于 1 视为未填（避免 NaN/小数写入整型列）
+const daysOrNull = (s: string) => {
+  const n = Number(s)
+  return s.trim() === '' || !Number.isFinite(n) || n < 1 ? null : Math.round(n)
+}
 
 /**
  * 提名/签证 lodgement 新增·编辑表单。递交日期不在此录入（由阶段更新的实际发生日期 + stage_history 派生）。
@@ -42,7 +47,7 @@ export function LodgementForm({
     e.preventDefault()
     const fields = {
       reference_number: strOrNull(ref),
-      dha_processing_days: numOrNull(days),
+      dha_processing_days: daysOrNull(days),
       dha_processing_updated_at: strOrNull(daysUpdated),
       outcome,
       outcome_date: outcome === 'pending' ? null : strOrNull(outcomeDate),
@@ -61,8 +66,8 @@ export function LodgementForm({
     <form onSubmit={handleSubmit} className="space-y-3 rounded-lg border border-brand-100 bg-brand-50/40 p-3">
       <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
         <TextField label="移民局参考号" value={ref} onChange={(e) => setRef(e.target.value)} />
-        <TextField label="DHA 处理时间（天）" type="number" min={1} value={days} onChange={(e) => setDays(e.target.value)} />
-        <TextField label="处理时间更新于" type="date" value={daysUpdated} onChange={(e) => setDaysUpdated(e.target.value)} />
+        <TextField label="DHA 处理时间（天）" type="number" min={1} step={1} value={days} onChange={(e) => setDays(e.target.value)} />
+        <TextField label="处理时间更新于" type="date" max={todayYmd()} value={daysUpdated} onChange={(e) => setDaysUpdated(e.target.value)} />
         <Select label="结果" options={outcomeOptions} value={outcome} onChange={(e) => setOutcome(e.target.value as LodgementOutcome)} />
         {outcome !== 'pending' && (
           <TextField label="结果日期" type="date" value={outcomeDate} onChange={(e) => setOutcomeDate(e.target.value)} />

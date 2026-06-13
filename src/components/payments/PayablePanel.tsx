@@ -55,7 +55,7 @@ export function QuickPayoutForm({
       <TextField label="日期" type="date" value={paidAt} onChange={(e) => setPaidAt(e.target.value)} />
       {errMsg && <p className="text-xs text-rose-600 sm:col-span-3">记付款失败：{errMsg}</p>}
       <div className="flex items-end gap-2 sm:col-span-3">
-        <Button type="submit" disabled={create.isPending || amount.trim() === ''}>
+        <Button type="submit" disabled={create.isPending || !(Number(amount) > 0)}>
           {create.isPending ? '保存中…' : '确认付款'}
         </Button>
         <Button type="button" variant="ghost" onClick={onDone}>取消</Button>

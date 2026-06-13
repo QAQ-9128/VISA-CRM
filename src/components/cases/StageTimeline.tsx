@@ -55,7 +55,6 @@ function HistoryRow({
             max={todayYmd()}
             defaultValue={h.effective_at.slice(0, 10)}
             onChange={(e) => {
-              setEditing(false)
               const v = e.target.value
               if (!v) return
               // 阶段记录的是已发生的事 → 禁未来日期

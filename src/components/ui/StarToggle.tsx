@@ -19,7 +19,7 @@ export function StarToggle({
       disabled={disabled}
       aria-pressed={starred}
       aria-label={starred ? '取消标注优先' : '标注为优先'}
-      className={`inline-flex size-9 items-center justify-center rounded-[10px] transition-colors disabled:opacity-50 ${
+      className={`inline-flex size-11 items-center justify-center rounded-[10px] transition-colors disabled:opacity-50 ${
         starred ? 'bg-amber-50 text-amber-500' : 'text-slate-300 hover:bg-surface-2'
       }`}
     >

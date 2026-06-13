@@ -31,8 +31,12 @@ export function DocumentForm({
   const [note, setNote] = useState('')
   const [file, setFile] = useState<File | null>(initialFile)
 
+  // 至少要有 文件 / 到期日 / 标签 之一，否则只是一条空记录
+  const canSave = !!file || expiryDate !== '' || title.trim() !== ''
+
   function handleSubmit(e: FormEvent) {
     e.preventDefault()
+    if (!canSave) return
     add.mutate(
       {
         file,
@@ -95,8 +99,11 @@ export function DocumentForm({
         </p>
       )}
 
+      {!canSave && (
+        <p className="text-xs text-faint">请至少上传文件、填写到期日或标签其中一项。</p>
+      )}
       <div className="flex gap-2">
-        <Button type="submit" disabled={add.isPending}>
+        <Button type="submit" disabled={add.isPending || !canSave}>
           {add.isPending ? '保存中…' : '保存'}
         </Button>
         <Button type="button" variant="ghost" onClick={onDone}>

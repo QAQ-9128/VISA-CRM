@@ -4,6 +4,7 @@ import { Button } from '../ui/Button'
 import { TextField } from '../ui/TextField'
 import { Select } from '../ui/Select'
 import { Badge } from '../ui/Badge'
+import { useConfirm } from '../ui/useConfirm'
 import {
   useCreatePayment,
   useDeletePayment,
@@ -43,6 +44,7 @@ export function PaymentsPanel({
   const create = useCreatePayment(caseId)
   const del = useDeletePayment(caseId)
   const installments = useInstallments(planId)
+  const { confirm, confirmNode } = useConfirm()
 
   const [recording, setRecording] = useState(false)
   const [direction, setDirection] = useState<PaymentDirection>('from_client')
@@ -53,6 +55,7 @@ export function PaymentsPanel({
 
   function handleRecord(e: FormEvent) {
     e.preventDefault()
+    if (!(Number(amount) > 0)) return
     create.mutate(
       {
         case_id: caseId,
@@ -60,7 +63,8 @@ export function PaymentsPanel({
         amount: Number(amount),
         method,
         paid_at: paidAt || null,
-        installment_id: installmentId || null,
+        // 仅客户收款可关联分期；其它方向即使有残留也不写入
+        installment_id: direction === 'from_client' ? installmentId || null : null,
       },
       {
         onSuccess: () => {
@@ -92,7 +96,7 @@ export function PaymentsPanel({
 
       {recording && (
         <form onSubmit={handleRecord} className="grid grid-cols-1 gap-3 rounded-lg border border-slate-200 p-3 md:grid-cols-2">
-          <Select label="方向" options={dirOptions} value={direction} onChange={(e) => setDirection(e.target.value as PaymentDirection)} />
+          <Select label="方向" options={dirOptions} value={direction} onChange={(e) => { setDirection(e.target.value as PaymentDirection); setInstallmentId('') }} />
           <TextField label="金额" type="number" min={0} step="0.01" value={amount} onChange={(e) => setAmount(e.target.value)} />
           <Select label="方式" options={methodOptions} value={method} onChange={(e) => setMethod(e.target.value as PaymentMethod)} />
           <TextField label="日期" type="date" value={paidAt} onChange={(e) => setPaidAt(e.target.value)} />
@@ -106,7 +110,7 @@ export function PaymentsPanel({
             />
           )}
           <div className="flex items-end gap-2">
-            <Button type="submit" disabled={create.isPending || amount.trim() === ''}>
+            <Button type="submit" disabled={create.isPending || !(Number(amount) > 0)}>
               保存
             </Button>
             <Button type="button" variant="ghost" onClick={() => setRecording(false)}>
@@ -130,8 +134,9 @@ export function PaymentsPanel({
               <Button
                 variant="ghost"
                 disabled={del.isPending}
-                onClick={() => {
-                  if (window.confirm('删除这笔收付款记录？')) del.mutate(p.id)
+                onClick={async () => {
+                  if (await confirm({ title: '删除收付款', description: '删除这笔收付款记录？', confirmLabel: '删除', tone: 'danger' }))
+                    del.mutate(p.id)
                 }}
               >
                 删除
@@ -142,6 +147,7 @@ export function PaymentsPanel({
       ) : (
         <p className="text-sm text-slate-400">暂无收付款记录</p>
       )}
+      {confirmNode}
     </div>
   )
 }

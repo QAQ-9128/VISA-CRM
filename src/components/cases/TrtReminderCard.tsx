@@ -32,7 +32,7 @@ export function TrtReminderCard({
           <div className="mt-3 flex flex-wrap items-center gap-2.5">
             <Link
               to={`/cases/new?customer=${customerId}&prefill=186trt`}
-              className="inline-flex min-h-9 items-center justify-center rounded-full bg-brand-700 px-4 text-[13px] font-semibold text-white shadow-brand transition-colors hover:bg-brand-800"
+              className="inline-flex min-h-11 items-center justify-center rounded-full bg-brand-700 px-4 text-[13px] font-semibold text-white shadow-brand transition-colors hover:bg-brand-800"
             >
               新建 186 TRT 案件
             </Link>
@@ -40,7 +40,7 @@ export function TrtReminderCard({
               type="button"
               disabled={dismiss.isPending}
               onClick={() => dismiss.mutate(caseId)}
-              className="inline-flex min-h-9 items-center rounded-full px-3 text-[12.5px] font-semibold text-emerald-700 transition-colors hover:bg-emerald-100 disabled:opacity-50"
+              className="inline-flex min-h-11 items-center rounded-full px-3 text-[12.5px] font-semibold text-emerald-700 transition-colors hover:bg-emerald-100 disabled:opacity-50"
             >
               {dismiss.isPending ? '处理中…' : '已处理 / 不再提醒'}
             </button>

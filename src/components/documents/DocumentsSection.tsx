@@ -42,7 +42,7 @@ import { toastError } from '../../store/ui'
 const PAGE_SIZE = 10
 
 const STATUS_PILL: Record<DocStatusKind, string> = {
-  pending: 'bg-amber-50 text-amber-700',
+  pending: 'bg-slate-100 text-slate-600', // 待上传=中性灰，与「即将到期」黄区分
   overdue: 'bg-rose-50 text-rose-600',
   soon: 'bg-amber-50 text-amber-700',
   ok: 'bg-emerald-50 text-emerald-600',
@@ -323,13 +323,15 @@ export function DocumentsSection({
                   value={search}
                   onChange={(e) => resetPage(setSearch)(e.target.value)}
                   placeholder="搜索文件名"
-                  className="h-9 w-40 rounded-full border border-line-2 bg-white pl-8 pr-3 text-sm text-ink outline-none focus:border-brand"
+                  aria-label="搜索文件名"
+                  className="h-11 w-40 rounded-full border border-line-2 bg-white pl-8 pr-3 text-sm text-ink outline-none focus:border-brand"
                 />
               </div>
               <select
                 value={status}
                 onChange={(e) => resetPage(setStatus)(e.target.value as DocStatusKind | 'all')}
-                className="h-9 rounded-full border border-line-2 bg-white px-3 text-sm text-ink outline-none focus:border-brand"
+                aria-label="按状态筛选"
+                className="h-11 rounded-full border border-line-2 bg-white px-3 text-sm text-ink outline-none focus:border-brand"
               >
                 {STATUS_OPTIONS.map((o) => (
                   <option key={o.value} value={o.value}>{o.label}</option>
@@ -396,9 +398,9 @@ export function DocumentsSection({
                 <span className="text-faint">共 {filtered.length} 条</span>
                 {totalPages > 1 && (
                   <div className="flex items-center gap-1.5">
-                    <button type="button" disabled={pageSafe <= 1} onClick={() => setPage(pageSafe - 1)} className="rounded-lg px-2 py-1 text-muted disabled:opacity-40">上一页</button>
+                    <button type="button" disabled={pageSafe <= 1} onClick={() => setPage(pageSafe - 1)} className="inline-flex min-h-11 items-center rounded-lg px-3 text-muted disabled:opacity-40">上一页</button>
                     <span className="tabular-nums text-body">{pageSafe} / {totalPages}</span>
-                    <button type="button" disabled={pageSafe >= totalPages} onClick={() => setPage(pageSafe + 1)} className="rounded-lg px-2 py-1 text-muted disabled:opacity-40">下一页</button>
+                    <button type="button" disabled={pageSafe >= totalPages} onClick={() => setPage(pageSafe + 1)} className="inline-flex min-h-11 items-center rounded-lg px-3 text-muted disabled:opacity-40">下一页</button>
                   </div>
                 )}
               </div>
@@ -417,7 +419,7 @@ export function DocumentsSection({
               value={missingDraft}
               onChange={(e) => setMissingDraft(e.target.value)}
               placeholder="如：无犯罪证明、体检回执…"
-              className="h-9 min-w-0 flex-1 rounded-[12px] border border-line-2 bg-white px-3 text-sm text-ink outline-none focus:border-brand"
+              className="h-11 min-w-0 flex-1 rounded-[12px] border border-line-2 bg-white px-3 text-sm text-ink outline-none focus:border-brand"
             />
             <Button type="submit" variant="secondary" disabled={addChecklist.isPending || missingDraft.trim() === ''}>
               <PlusIcon className="size-4" />

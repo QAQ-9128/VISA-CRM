@@ -24,7 +24,7 @@ export function CohabReminderCard({ caseId, months }: { caseId: string; months: 
               type="button"
               disabled={mark.isPending}
               onClick={() => mark.mutate(caseId)}
-              className="inline-flex min-h-9 items-center justify-center rounded-full bg-brand-700 px-4 text-[13px] font-semibold text-white shadow-brand transition-colors hover:bg-brand-800 disabled:opacity-50"
+              className="inline-flex min-h-11 items-center justify-center rounded-full bg-brand-700 px-4 text-[13px] font-semibold text-white shadow-brand transition-colors hover:bg-brand-800 disabled:opacity-50"
             >
               {mark.isPending ? '处理中…' : '本次已更新（3 个月后再提醒）'}
             </button>

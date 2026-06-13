@@ -3,6 +3,7 @@ import type { FormEvent } from 'react'
 import { Pill } from '../ui/Pill'
 import { TextField } from '../ui/TextField'
 import { Button } from '../ui/Button'
+import { useConfirm } from '../ui/useConfirm'
 import {
   useInstallments,
   useUpdateInstallment,
@@ -28,6 +29,7 @@ function instStatus(inst: Installment): { tone: 'emerald' | 'amber' | 'rose'; la
 function InstRow({ planId, inst, index, currency }: { planId: string; inst: Installment; index: number; currency: string }) {
   const update = useUpdateInstallment(planId)
   const del = useDeleteInstallment(planId)
+  const { confirm, confirmNode } = useConfirm()
   const st = instStatus(inst)
   const overdue = !inst.is_paid && isInstallmentOverdue(inst.due_date, inst.is_paid)
 
@@ -64,11 +66,15 @@ function InstRow({ planId, inst, index, currency }: { planId: string; inst: Inst
         <button
           type="button"
           disabled={del.isPending}
-          onClick={() => { if (window.confirm('删除该分期节点？')) del.mutate(inst.id) }}
+          onClick={async () => {
+            if (await confirm({ title: '删除分期', description: '删除该分期节点？', confirmLabel: '删除', tone: 'danger' }))
+              del.mutate(inst.id)
+          }}
           className="ml-3 text-xs text-faint hover:text-rose-600"
         >
           删
         </button>
+        {confirmNode}
       </td>
     </tr>
   )
@@ -87,6 +93,7 @@ export function PlanInstallments({ planId, currency = 'AUD' }: { planId: string;
 
   function handleAdd(e: FormEvent) {
     e.preventDefault()
+    if (!(Number(amount) > 0)) return
     create.mutate(
       { payment_plan_id: planId, label: label.trim() || null, due_date: dueDate || null, amount: Number(amount) },
       { onSuccess: () => { setLabel(''); setDueDate(''); setAmount(''); setAdding(false) } },
@@ -110,7 +117,7 @@ export function PlanInstallments({ planId, currency = 'AUD' }: { planId: string;
           <TextField label="到期日" type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)} />
           <TextField label="金额" type="number" min={0} step="0.01" value={amount} onChange={(e) => setAmount(e.target.value)} />
           <div className="flex items-end gap-2">
-            <Button type="submit" disabled={create.isPending || amount.trim() === ''}>添加</Button>
+            <Button type="submit" disabled={create.isPending || !(Number(amount) > 0)}>添加</Button>
             <Button type="button" variant="ghost" onClick={() => setAdding(false)}>取消</Button>
           </div>
         </form>

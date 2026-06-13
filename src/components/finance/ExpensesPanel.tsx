@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import { Button } from '../ui/Button'
 import { Badge } from '../ui/Badge'
 import { Select } from '../ui/Select'
+import { useConfirm } from '../ui/useConfirm'
 import { PaymentEntryForm } from './PaymentEntryForm'
 import type { PaymentEntryValues } from './PaymentEntryForm'
 import { useCreatePayment, useDeletePayment, useUpdatePayment } from '../../hooks/queries/usePayments'
@@ -95,6 +96,7 @@ function PayoutItemRow({ item, signed = false }: { item: PayoutItem; signed?: bo
   const update = useUpdatePayment(item.caseId)
   const del = useDeletePayment(item.caseId)
   const source = useBackSource()
+  const { confirm, confirmNode } = useConfirm()
   const [editing, setEditing] = useState(false)
 
   function save(v: PaymentEntryValues) {
@@ -140,12 +142,14 @@ function PayoutItemRow({ item, signed = false }: { item: PayoutItem; signed?: bo
       <Button
         variant="ghost"
         disabled={del.isPending}
-        onClick={() => {
-          if (window.confirm('删除这笔支出？')) del.mutate(item.paymentId)
+        onClick={async () => {
+          if (await confirm({ title: '删除支出', description: '删除这笔支出？', confirmLabel: '删除', tone: 'danger' }))
+            del.mutate(item.paymentId)
         }}
       >
         删除
       </Button>
+      {confirmNode}
     </li>
   )
 }

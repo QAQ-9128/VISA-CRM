@@ -1,9 +1,9 @@
-import { useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { useArchiveReferrer, useDeleteReferrer, useReferrers } from '../../hooks/queries/useReferrers'
 import { Button } from '../../components/ui/Button'
 import { Card } from '../../components/ui/Card'
 import { Well } from '../../components/ui/Well'
+import { useConfirm } from '../../components/ui/useConfirm'
 import { UserPlusIcon, PlusIcon } from '../../components/ui/icons'
 import { LoadingBlock, ErrorBlock, EmptyState } from '../../components/ui/states'
 import { REFERRER_KIND_LABELS } from '../../types/domain'
@@ -13,6 +13,7 @@ import type { Referrer } from '../../types/models'
 function ReferrerRow({ r, kindLabel }: { r: Referrer; kindLabel: string }) {
   const archive = useArchiveReferrer()
   const del = useDeleteReferrer()
+  const { confirm, confirmNode } = useConfirm()
   // 0031 起彻底删除全员开放（两位用户均 staff，2026-06 拍板）；防误删靠红色确认弹窗
   return (
     <li className="flex min-h-12 items-center gap-3 border-t border-line py-3 first:border-t-0">
@@ -31,24 +32,33 @@ function ReferrerRow({ r, kindLabel }: { r: Referrer; kindLabel: string }) {
       <button
         type="button"
         disabled={archive.isPending}
-        className="shrink-0 text-xs text-faint hover:text-body"
-        onClick={() => {
-          if (window.confirm(`归档${kindLabel}「${r.name}」？已挂靠的客户不受影响。`)) archive.mutate(r.id)
+        className="inline-flex min-h-11 shrink-0 items-center px-2 text-xs text-faint hover:text-body"
+        onClick={async () => {
+          if (await confirm({ title: `归档${kindLabel}`, description: `归档${kindLabel}「${r.name}」？已挂靠的客户不受影响。`, confirmLabel: '归档' }))
+            archive.mutate(r.id)
         }}
       >
         归档
       </button>
-        <button
-          type="button"
-          disabled={del.isPending}
-          className="shrink-0 text-xs text-faint hover:text-rose-600"
-          onClick={() => {
-            if (window.confirm(`彻底删除${kindLabel}「${r.name}」？【不可恢复】，已挂靠客户的「${kindLabel}」将被清空。如只想隐藏请用「归档」。`))
-              del.mutate(r.id)
-          }}
-        >
-          彻底删除
-        </button>
+      <button
+        type="button"
+        disabled={del.isPending}
+        className="inline-flex min-h-11 shrink-0 items-center px-2 text-xs text-faint hover:text-rose-600"
+        onClick={async () => {
+          if (
+            await confirm({
+              title: `彻底删除${kindLabel}`,
+              description: `彻底删除${kindLabel}「${r.name}」？此操作不可恢复，已挂靠客户的「${kindLabel}」将被清空。如只想隐藏请用「归档」。`,
+              confirmLabel: '彻底删除',
+              tone: 'danger',
+            })
+          )
+            del.mutate(r.id)
+        }}
+      >
+        彻底删除
+      </button>
+      {confirmNode}
     </li>
   )
 }
@@ -56,11 +66,11 @@ function ReferrerRow({ r, kindLabel }: { r: Referrer; kindLabel: string }) {
 /** 介绍人 / 归属人管理（referrers 一表两用，开关切换；kind 缺失的旧数据按介绍人处理）。 */
 export function ReferrerListPage() {
   const referrers = useReferrers()
-  // ?kind=owner 深链直达归属人视图（新建归属人保存后返回也好落回原 tab）
-  const [searchParams] = useSearchParams()
-  const [kind, setKind] = useState<ReferrerKind>(
-    searchParams.get('kind') === 'owner' ? 'owner' : 'referrer',
-  )
+  // ?kind= 作为唯一数据源：深链直达 + 前进/后退导航时 tab 自动跟随；段控直接改 URL
+  const [searchParams, setSearchParams] = useSearchParams()
+  const kind: ReferrerKind = searchParams.get('kind') === 'owner' ? 'owner' : 'referrer'
+  const setKind = (k: ReferrerKind) =>
+    setSearchParams(k === 'owner' ? { kind: 'owner' } : {}, { replace: true })
   const kindLabel = REFERRER_KIND_LABELS[kind]
   const rows = (referrers.data ?? []).filter((r) => (r.kind ?? 'referrer') === kind)
   const newTo = kind === 'owner' ? '/referrers/new?kind=owner' : '/referrers/new'
@@ -88,7 +98,7 @@ export function ReferrerListPage() {
             key={k}
             type="button"
             onClick={() => setKind(k)}
-            className={`min-h-9 rounded-full px-4 text-[13.5px] font-semibold transition-colors ${
+            className={`min-h-11 rounded-full px-4 text-[13.5px] font-semibold transition-colors ${
               kind === k ? 'bg-white text-brand-700 shadow-xs' : 'text-muted hover:text-body'
             }`}
           >

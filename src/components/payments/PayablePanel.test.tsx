@@ -111,6 +111,21 @@ describe('PayablePanel 每行操作 + 状态派生', () => {
     expect(row.getByLabelText(/金额/)).toBeInTheDocument()
   })
 
+  it('金额必须 > 0：空/0/负数时「确认付款」禁用，正数才启用', () => {
+    renderPanel(plan({ company_total: 800 }), acct({ companyOwes: 800 }))
+    const row = within(screen.getByTestId('payable-to_company'))
+    fireEvent.click(row.getByText('记付款'))
+    const submit = row.getByText('确认付款')
+    const amount = row.getByLabelText(/金额/)
+    expect(submit).toBeDisabled() // 空
+    fireEvent.change(amount, { target: { value: '0' } })
+    expect(submit).toBeDisabled() // 零
+    fireEvent.change(amount, { target: { value: '-5' } })
+    expect(submit).toBeDisabled() // 负数
+    fireEvent.change(amount, { target: { value: '100' } })
+    expect(submit).not.toBeDisabled() // 正数
+  })
+
   it('点介绍人「编辑」(未设亦可)→ 只显介绍人总额，不显主代理（互不混）', () => {
     renderPanel(undefined, acct())
     fireEvent.click(within(screen.getByTestId('payable-to_referrer')).getByText('编辑'))

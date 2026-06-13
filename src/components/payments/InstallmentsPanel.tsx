@@ -2,6 +2,7 @@ import { useState } from 'react'
 import type { FormEvent } from 'react'
 import { Button } from '../ui/Button'
 import { TextField } from '../ui/TextField'
+import { useConfirm } from '../ui/useConfirm'
 import {
   useCreateInstallment,
   useDeleteInstallment,
@@ -20,6 +21,7 @@ const todayStr = todayYmd
 function InstallmentRow({ planId, inst, currency }: { planId: string; inst: Installment; currency: string }) {
   const update = useUpdateInstallment(planId)
   const del = useDeleteInstallment(planId)
+  const { confirm, confirmNode } = useConfirm()
   const overdue = isInstallmentOverdue(inst.due_date, inst.is_paid)
 
   return (
@@ -45,12 +47,14 @@ function InstallmentRow({ planId, inst, currency }: { planId: string; inst: Inst
       <Button
         variant="ghost"
         disabled={del.isPending}
-        onClick={() => {
-          if (window.confirm('删除该分期节点？')) del.mutate(inst.id)
+        onClick={async () => {
+          if (await confirm({ title: '删除分期', description: '删除该分期节点？', confirmLabel: '删除', tone: 'danger' }))
+            del.mutate(inst.id)
         }}
       >
         删除
       </Button>
+      {confirmNode}
     </li>
   )
 }
@@ -65,6 +69,7 @@ export function InstallmentsPanel({ planId, currency }: { planId: string; curren
 
   function handleAdd(e: FormEvent) {
     e.preventDefault()
+    if (!(Number(amount) > 0)) return
     create.mutate(
       {
         payment_plan_id: planId,
@@ -100,7 +105,7 @@ export function InstallmentsPanel({ planId, currency }: { planId: string; curren
           <TextField label="应付日期" type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)} />
           <TextField label="金额" type="number" min={0} step="0.01" value={amount} onChange={(e) => setAmount(e.target.value)} />
           <div className="flex items-end gap-2">
-            <Button type="submit" disabled={create.isPending || amount.trim() === ''}>
+            <Button type="submit" disabled={create.isPending || !(Number(amount) > 0)}>
               添加
             </Button>
             <Button type="button" variant="ghost" onClick={() => setAdding(false)}>

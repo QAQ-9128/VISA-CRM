@@ -1,3 +1,4 @@
+import { useEffect } from 'react'
 import type { ReactNode } from 'react'
 import { Button } from './Button'
 
@@ -28,12 +29,21 @@ export function ConfirmDialog({
   onConfirm: () => void
   onClose: () => void
 }) {
+  // Esc 关闭：挂在 document 上，避免遮罩 div 不可聚焦时收不到键事件
+  useEffect(() => {
+    if (!open) return
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose()
+    }
+    document.addEventListener('keydown', onKey)
+    return () => document.removeEventListener('keydown', onKey)
+  }, [open, onClose])
+
   if (!open) return null
   return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center bg-ink/40 p-4"
       onClick={onClose}
-      onKeyDown={(e) => e.key === 'Escape' && onClose()}
     >
       <div
         role="dialog"

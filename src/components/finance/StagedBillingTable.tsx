@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Button } from '../ui/Button'
 import { TextField } from '../ui/TextField'
+import { useConfirm } from '../ui/useConfirm'
 import { PaymentEntryForm } from './PaymentEntryForm'
 import type { PaymentEntryValues } from './PaymentEntryForm'
 import { PayCell, StatusPill } from './receivableCells'
@@ -78,6 +79,7 @@ export function StagedBillingTable({
   const delItem = useDeletePlanItem()
   const createPayment = useCreatePayment(caseId)
   const createPlan = useCreatePaymentPlan(caseId)
+  const { confirm, confirmNode } = useConfirm()
 
   const items = (allItems.data ?? []).filter((i) => planId && i.plan_id === planId)
   const payments = paymentsQ.data ?? []
@@ -205,7 +207,11 @@ export function StagedBillingTable({
                             <button
                               type="button"
                               className="block w-full px-3 py-1 text-left text-xs text-rose-600 hover:bg-rose-50"
-                              onClick={() => { setMenuId(null); delItem.mutate({ id: it.id, payments }) }}
+                              onClick={async () => {
+                                setMenuId(null)
+                                if (await confirm({ title: '删除阶段', description: `删除「${it.fee_category}」这个收费阶段？`, confirmLabel: '删除', tone: 'danger' }))
+                                  delItem.mutate({ id: it.id, payments })
+                              }}
                             >
                               删除
                             </button>
@@ -257,6 +263,7 @@ export function StagedBillingTable({
       ) : (
         <Button type="button" variant="secondary" onClick={() => setAdding(true)}>+ 新增阶段</Button>
       )}
+      {confirmNode}
     </div>
   )
 }

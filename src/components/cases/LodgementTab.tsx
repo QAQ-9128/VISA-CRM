@@ -79,7 +79,7 @@ function RecordTable({
           <button
             type="button"
             onClick={() => setAdding(true)}
-            className="mt-3 inline-flex min-h-9 items-center rounded-full bg-brand px-4 text-xs font-semibold text-white shadow-brand hover:bg-brand-600"
+            className="mt-3 inline-flex min-h-11 items-center rounded-full bg-brand px-4 text-xs font-semibold text-white shadow-brand hover:bg-brand-600"
           >
             添加{typeLabel}递交
           </button>

@@ -18,13 +18,13 @@ export function BottomTabBar() {
           to={to}
           end={end}
           className={({ isActive }) =>
-            `flex flex-1 flex-col items-center gap-0.5 py-2 text-xs font-medium transition-colors ${
+            `flex min-w-0 flex-1 flex-col items-center gap-0.5 px-0.5 py-2 font-medium transition-colors ${
               isActive ? 'text-brand' : 'text-faint'
             }`
           }
         >
           <Icon className="size-6" />
-          {label}
+          <span className="max-w-full truncate text-[10px] leading-none">{label}</span>
         </NavLink>
       ))}
     </nav>

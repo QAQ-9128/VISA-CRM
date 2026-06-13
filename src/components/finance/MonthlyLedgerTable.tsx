@@ -42,10 +42,11 @@ const td = 'px-3 py-2.5 align-middle'
 function TypeBadge({ row }: { row: LedgerRow }) {
   if (row.kind === 'receipt') return <Badge className="bg-emerald-50 text-emerald-600">收款</Badge>
   const dir = row.item.direction
+  // 方向配色全站统一：付主代理=amber、付介绍人=violet（与 PaymentsPanel/ExpensesPanel/pillTones 一致）
   if (dir === 'to_company')
-    return <Badge className="bg-violet-50 text-violet-700">{PAYMENT_DIRECTION_LABELS.to_company}</Badge>
+    return <Badge className="bg-amber-50 text-amber-700">{PAYMENT_DIRECTION_LABELS.to_company}</Badge>
   if (dir === 'to_referrer')
-    return <Badge className="bg-amber-50 text-amber-700">{PAYMENT_DIRECTION_LABELS.to_referrer}</Badge>
+    return <Badge className="bg-violet-50 text-violet-700">{PAYMENT_DIRECTION_LABELS.to_referrer}</Badge>
   return <Badge className="bg-rose-50 text-rose-700">{PAYMENT_DIRECTION_LABELS.misc_expense}</Badge>
 }
 
@@ -234,8 +235,8 @@ export function MonthlyLedgerTable({
       {/* 小计（用现有计算，数值不变） */}
       <div className="flex flex-wrap gap-x-4 gap-y-1 text-[12px] text-muted">
         <span>收入合计 <b className="tabular-nums text-emerald-600">+{formatMoney(receipts.total)}</b></span>
-        <span>付主代理合计 <b className="tabular-nums text-violet-700">{formatMoney(payouts.toCompanyTotal)}</b></span>
-        <span>付介绍人合计 <b className="tabular-nums text-amber-700">{formatMoney(payouts.toReferrerTotal)}</b></span>
+        <span>付主代理合计 <b className="tabular-nums text-amber-700">{formatMoney(payouts.toCompanyTotal)}</b></span>
+        <span>付介绍人合计 <b className="tabular-nums text-violet-700">{formatMoney(payouts.toReferrerTotal)}</b></span>
         <span>垫付杂项合计 <b className="tabular-nums text-rose-700">{formatMoney(payouts.miscTotal)}</b></span>
       </div>
 

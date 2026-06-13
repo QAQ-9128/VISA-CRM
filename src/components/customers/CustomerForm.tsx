@@ -1,10 +1,11 @@
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import type { FormEvent, KeyboardEvent, ReactNode } from 'react'
 import { Button } from '../ui/Button'
 import { TextField } from '../ui/TextField'
 import { Textarea } from '../ui/Textarea'
 import { Select } from '../ui/Select'
 import { Checkbox } from '../ui/Checkbox'
+import { useConfirm } from '../ui/useConfirm'
 import { ReferrerSelect } from '../referrers/ReferrerSelect'
 import { NameFields } from './NameFields'
 import { OwnerSelect } from './OwnerSelect'
@@ -49,7 +50,9 @@ function Section({ title, first, children }: { title: string; first?: boolean; c
 }
 
 export function CustomerForm({ initial, submitting, error, onSubmit, onCancel }: CustomerFormProps) {
-  const [state, setState] = useState<CustomerFormState>(() => initialFormState(initial))
+  const initialSnapshot = useMemo(() => initialFormState(initial), [initial])
+  const [state, setState] = useState<CustomerFormState>(initialSnapshot)
+  const { confirm, confirmNode } = useConfirm()
   // 一案一组：加入已有案件（成为本案参与人）/ 新建独立客户（自成一组）
   const [joinMode, setJoinMode] = useState(false)
   const [joinCaseId, setJoinCaseId] = useState<string | null>(null)
@@ -89,9 +92,20 @@ export function CustomerForm({ initial, submitting, error, onSubmit, onCancel }:
     e.preventDefault()
     submit('detail')
   }
+  // 有未保存改动时，取消前确认，避免误丢
+  const dirty =
+    JSON.stringify(state) !== JSON.stringify(initialSnapshot) || companions.length > 0 || joinMode
+  async function requestCancel() {
+    if (
+      dirty &&
+      !(await confirm({ title: '放弃编辑', description: '有未保存的修改，确定放弃？', confirmLabel: '放弃', tone: 'danger' }))
+    )
+      return
+    onCancel()
+  }
   // Esc 取消（与底部提示一致）；Enter 由表单原生提交，textarea 内换行不受影响
   function handleKeyDown(e: KeyboardEvent<HTMLFormElement>) {
-    if (e.key === 'Escape') onCancel()
+    if (e.key === 'Escape') requestCancel()
   }
 
   return (
@@ -274,11 +288,12 @@ export function CustomerForm({ initial, submitting, error, onSubmit, onCancel }:
               保存并新建案件
             </Button>
           )}
-          <Button type="button" variant="secondary" onClick={onCancel}>
+          <Button type="button" variant="secondary" onClick={requestCancel}>
             取消
           </Button>
         </div>
       </div>
+      {confirmNode}
     </form>
   )
 }

@@ -146,7 +146,6 @@ function InlineDate({
         max={max}
         defaultValue={value}
         onChange={(e) => {
-          setEditing(false)
           const v = e.target.value
           if (v === value) return
           // min/max 属性挡选择器，这里兜底拦手输
@@ -213,7 +212,7 @@ function TimelineEntry({
     update.mutate({ id: rec.id, patch: p })
 
   return (
-    <li className="relative flex gap-3.5 pb-5 last:pb-0">
+    <li className="group relative flex gap-3.5 pb-5 last:pb-0">
       {!isLast && <span className="absolute left-[7px] top-5 bottom-0 w-px bg-line-2" aria-hidden />}
       <span
         className={`relative z-10 mt-1 size-3.5 shrink-0 rounded-full border-2 border-white ${
@@ -492,7 +491,7 @@ export function RecordsSection({ customerId, caseId, variant = 'full' }: Scope &
         ) : shown.length === 0 ? (
           <p className="py-6 text-center text-sm text-faint">暂无记录，可在上方「快速添加记录」。</p>
         ) : (
-          <ol className="group">
+          <ol>
             {shown.map((r, i) => (
               <TimelineEntry key={r.id} rec={r} who={whoOptions} today={today} isLast={i === shown.length - 1} />
             ))}

@@ -15,6 +15,7 @@ import { Badge } from '../../components/ui/Badge'
 import { Select } from '../../components/ui/Select'
 import { TextField } from '../../components/ui/TextField'
 import { LoadingBlock, ErrorBlock } from '../../components/ui/states'
+import { useConfirm } from '../../components/ui/useConfirm'
 import { RecycleBin } from './RecycleBin'
 import { toastError } from '../../store/ui'
 import { todayYmd, isFutureYmd } from '../../lib/dateRules'
@@ -75,6 +76,19 @@ function LinkedTo({ file }: { file: ArchiveFile }) {
 export function ArchivePage() {
   const { isPending, isError, files, customers } = useArchiveFiles()
   const del = useDeleteArchiveFile()
+  const { confirm, confirmNode } = useConfirm()
+
+  async function handleDelete(f: ArchiveFile) {
+    if (
+      await confirm({
+        title: '删除文件',
+        description: `永久删除文件「${f.fileName}」？此操作不可恢复，存储中的文件也会一并删除。`,
+        confirmLabel: '删除',
+        tone: 'danger',
+      })
+    )
+      del.mutate(f)
+  }
 
   // 文件 = 全部上传文件；回收站 = 已归档的客户/案件/文件/雇主/介绍人（可恢复）
   const [view, setView] = useState<'files' | 'recycle'>('files')
@@ -153,7 +167,7 @@ export function ArchivePage() {
             key={v}
             type="button"
             onClick={() => setView(v)}
-            className={`min-h-9 rounded-full px-4 text-[13.5px] font-semibold transition-colors ${
+            className={`min-h-11 rounded-full px-4 text-[13.5px] font-semibold transition-colors ${
               view === v ? 'bg-white text-brand-700 shadow-xs' : 'text-muted hover:text-body'
             }`}
           >
@@ -247,7 +261,7 @@ export function ArchivePage() {
                     <td className="px-3 py-3 text-muted">{f.uploadedByName}</td>
                     <td className="px-3 py-3 text-right whitespace-nowrap">
                       <DownloadButton path={f.storagePath} />
-                      <Button variant="ghost" disabled={isDeleting(f)} onClick={() => del.mutate(f)}>
+                      <Button variant="ghost" disabled={isDeleting(f)} onClick={() => handleDelete(f)}>
                         {isDeleting(f) ? '删除中…' : '删除'}
                       </Button>
                     </td>
@@ -276,7 +290,7 @@ export function ArchivePage() {
                 </div>
                 <div className="mt-2 flex justify-end gap-1 border-t border-line pt-1.5">
                   <DownloadButton path={f.storagePath} />
-                  <Button variant="ghost" disabled={isDeleting(f)} onClick={() => del.mutate(f)}>
+                  <Button variant="ghost" disabled={isDeleting(f)} onClick={() => handleDelete(f)}>
                     {isDeleting(f) ? '删除中…' : '删除'}
                   </Button>
                 </div>
@@ -287,6 +301,7 @@ export function ArchivePage() {
       )}
         </>
       )}
+      {confirmNode}
     </section>
   )
 }
