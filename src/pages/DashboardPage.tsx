@@ -22,7 +22,7 @@ import { formatAmount, formatMoney } from '../lib/money'
  * 概览（mockup「精简案件优先」1:1）：
  * ① Header（衬线问候 + 摘要 + 新建客户）② KPI 四卡 ③ 案件阶段分布（整宽环图）
  * ④ 待办清单（含临近到期浅绿条）+ 欠款总览（逾期分期折进底行）⑤ 官方签证处理时间
- * ⑥ 待办阶段案件（置底 · 全部列出 · 长则本区内滚动）。
+ * ⑥ 待办 / 已草拟 案件（阶段∈{todo,drafted} · 置底 · 全部列出 · 长则本区内滚动）。
  * 纯展示页：全部数字来自 useDashboard / useChecklistView 现有派生，本页零聚合。
  * mockup 色对应：green-d=emerald-700 · green-deep=brand-700 · green-bg=emerald-50 · coral-d=#c25a52
  *               coral-bg=rose-50 · line2=surface-2 · blue/blue-bg=#3f7cb5/#e6edf7（无令牌，按图取值）
@@ -365,12 +365,12 @@ export function DashboardPage() {
         </span>
       </a>
 
-      {/* ── ⑥ 待办阶段案件（置底·全部列出·长则滚动）──────────────────
-          条数不设上限：列出全部待办阶段案件；列表过长时本区内纵向滚动，不撑长整页。 */}
+      {/* ── ⑥ 待办 / 已草拟 案件（置底·全部列出·长则滚动）──────────────
+          阶段 ∈ {待办, 已草拟} 都列入；条数不设上限，列表过长时本区内纵向滚动，不撑长整页。 */}
       <section className={`pb-2 ${CARD}`}>
-        <Ch title="待办阶段案件" count={d.todoCases.length} more={{ to: '/cases', label: '全部' }} />
+        <Ch title="待办 / 已草拟 案件" count={d.todoCases.length} more={{ to: '/cases', label: '全部' }} />
         {d.todoCases.length === 0 ? (
-          <p className="px-[22px] py-2.5 text-sm text-faint">暂无待办阶段案件</p>
+          <p className="px-[22px] py-2.5 text-sm text-faint">暂无待办 / 已草拟 案件</p>
         ) : (
           <div className="max-h-[480px] overflow-y-auto pt-1">
             {d.todoCases.map((t) => (
@@ -418,7 +418,7 @@ export function DashboardPage() {
                   </span>
                 </span>
                 <span className="ml-3 shrink-0 rounded-[8px] bg-mute-bg px-[11px] py-[3px] text-[11.5px] font-semibold text-mute-tx">
-                  待办
+                  {t.stageLabel}
                 </span>
               </Link>
             ))}

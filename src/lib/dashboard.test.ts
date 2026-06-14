@@ -26,7 +26,7 @@ const TODAY = new Date(2026, 0, 15)
 const mkCase = (o: Partial<Case>): Case => ({ id: 'c1', case_number: '00000001', customer_id: 'cu1', visa_subclass: '482', visa_stream: null, case_category: null, case_details: null, current_stage: 'visa_lodged', currency: 'AUD', sync_tracking: true, trt_reminder_enabled: false, trt_reminder_dismissed: false, cohab_reminder_enabled: false, cohab_reminder_last: null, parent_case_id: null, parent_sync_progress: false, destination_country: 'Australia', sponsor_position: null, sponsor_employer_id: null, immi_account_id: null, assigned_to: null, created_by: null, is_archived: false, created_at: '', updated_at: '', ...o })
 const mkCustomer = (o: Partial<Customer>): Customer => ({ id: 'cu1', full_name: '张三', is_starred: false, client_source: null, primary_applicant_id: null, relationship_to_primary: null, birth_date: null, gender: null, passport_no: null, nationality: null, phone: null, email: null, wechat: null, address: null, chinese_name: null, english_name: null, sponsor_employer_id: null, sponsor_position: null, referrer_id: null, owner_referrer_id: null, notes: null, assigned_to: null, created_by: null, is_archived: false, created_at: '', updated_at: '', ...o })
 
-describe('selectTodoCases（待办案件：current_stage=todo、未归档，按 created_at 倒序；含在册参与人）', () => {
+describe('selectTodoCases（待办/已草拟案件：current_stage∈{todo,drafted}、未归档，按 created_at 倒序；含在册参与人）', () => {
   const customers = { cu1: mkCustomer({ id: 'cu1', full_name: '孙佳琪' }), cu2: mkCustomer({ id: 'cu2', full_name: '李娜' }) }
 
   it('单条待办案件 → 客户名 · 签证类型，参与人 = 案件客户', () => {
@@ -39,6 +39,8 @@ describe('selectTodoCases（待办案件：current_stage=todo、未归档，按 
       customerName: '孙佳琪',
       participants: [{ id: 'cu1', name: '孙佳琪' }],
       visaLabel: '482/Core Skills',
+      stage: 'todo',
+      stageLabel: '待办',
     })
   })
 
@@ -70,23 +72,47 @@ describe('selectTodoCases（待办案件：current_stage=todo、未归档，按 
     ]
     expect(selectTodoCases(cases, customers).map((t) => t.caseId)).toEqual(['new', 'old'])
   })
-  it('只取 todo：非待办阶段不列入', () => {
+  it('只取 todo + drafted：其它阶段不列入', () => {
     const cases = [
       mkCase({ id: 'a', current_stage: 'todo' }),
+      mkCase({ id: 'd', current_stage: 'drafted' }),
       mkCase({ id: 'b', current_stage: 'visa_lodged' }),
       mkCase({ id: 'c', current_stage: 'granted' }),
     ]
-    expect(selectTodoCases(cases, customers).map((t) => t.caseId)).toEqual(['a'])
+    expect(selectTodoCases(cases, customers).map((t) => t.caseId).sort()).toEqual(['a', 'd'])
   })
-  it('排除已归档案件', () => {
+  it('每行带阶段标签：todo→「待办」、drafted→「已草拟」', () => {
+    const cases = [
+      mkCase({ id: 'a', current_stage: 'todo', created_at: '2026-01-02T00:00:00Z' }),
+      mkCase({ id: 'd', current_stage: 'drafted', created_at: '2026-01-01T00:00:00Z' }),
+    ]
+    const r = selectTodoCases(cases, customers)
+    expect(r.map((t) => [t.caseId, t.stage, t.stageLabel])).toEqual([
+      ['a', 'todo', '待办'],
+      ['d', 'drafted', '已草拟'],
+    ])
+  })
+  it('纯待办 / 纯已草拟 / 两者都有 各显示正确（数量与阶段）', () => {
+    const onlyTodo = [mkCase({ id: 't1', current_stage: 'todo' })]
+    const onlyDraft = [mkCase({ id: 'g1', current_stage: 'drafted' })]
+    const both = [
+      mkCase({ id: 't1', current_stage: 'todo' }),
+      mkCase({ id: 'g1', current_stage: 'drafted' }),
+    ]
+    expect(selectTodoCases(onlyTodo, customers).map((t) => t.stage)).toEqual(['todo'])
+    expect(selectTodoCases(onlyDraft, customers).map((t) => t.stage)).toEqual(['drafted'])
+    expect(selectTodoCases(both, customers).map((t) => t.stage).sort()).toEqual(['drafted', 'todo'])
+  })
+  it('排除已归档案件（todo 与 drafted 同样滤掉归档）', () => {
     const cases = [
       mkCase({ id: 'a', current_stage: 'todo', is_archived: false }),
       mkCase({ id: 'b', current_stage: 'todo', is_archived: true }),
+      mkCase({ id: 'd', current_stage: 'drafted', is_archived: true }),
     ]
     expect(selectTodoCases(cases, customers).map((t) => t.caseId)).toEqual(['a'])
   })
-  it('无待办案件 → 空数组', () => {
-    expect(selectTodoCases([mkCase({ current_stage: 'drafted' })], customers)).toEqual([])
+  it('无待办/已草拟案件 → 空数组', () => {
+    expect(selectTodoCases([mkCase({ current_stage: 'granted' })], customers)).toEqual([])
   })
   it('多客户多案件：各占一行，不合并', () => {
     const cases = [

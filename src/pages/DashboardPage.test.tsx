@@ -39,11 +39,11 @@ function setDash(over: Record<string, unknown> = {}) {
     ],
     grantedCount: 10,
     todoCases: [
-      { caseId: 'k1', customerId: 'cu1', customerName: '测试2222222', participants: [{ id: 'cu1', name: '测试2222222' }], visaLabel: '494' },
-      { caseId: 'k2', customerId: 'cu2', customerName: '测试1111111', participants: [{ id: 'cu2', name: '测试1111111' }], visaLabel: '186' },
-      { caseId: 'k3', customerId: 'cu3', customerName: '王璞', participants: [{ id: 'cu3', name: '王璞' }, { id: 'cu5', name: '孙佳琪' }], visaLabel: '482' },
-      { caseId: 'k4', customerId: 'cu4', customerName: '邓韬（Dylan）', participants: [{ id: 'cu4', name: '邓韬（Dylan）' }], visaLabel: '482 · Subsequent Entrant' },
-      { caseId: 'k5', customerId: 'cu5', customerName: '孙佳琪', participants: [{ id: 'cu5', name: '孙佳琪' }], visaLabel: '186 · Direct Entry' },
+      { caseId: 'k1', customerId: 'cu1', customerName: '测试2222222', participants: [{ id: 'cu1', name: '测试2222222' }], visaLabel: '494', stage: 'todo', stageLabel: '待办' },
+      { caseId: 'k2', customerId: 'cu2', customerName: '测试1111111', participants: [{ id: 'cu2', name: '测试1111111' }], visaLabel: '186', stage: 'drafted', stageLabel: '已草拟' },
+      { caseId: 'k3', customerId: 'cu3', customerName: '王璞', participants: [{ id: 'cu3', name: '王璞' }, { id: 'cu5', name: '孙佳琪' }], visaLabel: '482', stage: 'todo', stageLabel: '待办' },
+      { caseId: 'k4', customerId: 'cu4', customerName: '邓韬（Dylan）', participants: [{ id: 'cu4', name: '邓韬（Dylan）' }], visaLabel: '482 · Subsequent Entrant', stage: 'drafted', stageLabel: '已草拟' },
+      { caseId: 'k5', customerId: 'cu5', customerName: '孙佳琪', participants: [{ id: 'cu5', name: '孙佳琪' }], visaLabel: '186 · Direct Entry', stage: 'todo', stageLabel: '待办' },
     ],
     thisMonthReceipts: 114,
     debtTotals: { clientOwesTotal: 196601.09, companyOwesTotal: 0 },
@@ -138,13 +138,15 @@ describe('DashboardPage · 概览精简 5 块（mockup 重做）', () => {
     expect(screen.getByRole('link', { name: /全部案件/ })).toHaveAttribute('href', '/cases')
   })
 
-  it('③ 待办阶段案件：5 行（参与人 + 类别小字 + 待办 pill）；多参与人逐个列出且各自可点', () => {
+  it('⑥ 待办 / 已草拟 案件：5 行（参与人 + 类别小字 + 阶段 pill）；阶段标签随各案（待办/已草拟）', () => {
     renderPage()
-    expect(screen.getByText('待办阶段案件')).toBeInTheDocument()
+    expect(screen.getByText('待办 / 已草拟 案件')).toBeInTheDocument()
     expect(screen.getByText('测试2222222')).toBeInTheDocument()
     expect(screen.getByText('邓韬（Dylan）')).toBeInTheDocument()
     expect(screen.getByText('482 · Subsequent Entrant')).toBeInTheDocument()
-    expect(screen.getAllByText('待办').length).toBeGreaterThanOrEqual(5) // 行内 pill（+图例「待办」）
+    // 行内阶段 pill 随各案：3 条 todo →「待办」、2 条 drafted →「已草拟」
+    expect(screen.getAllByText('待办').length).toBe(3)
+    expect(screen.getAllByText('已草拟').length).toBe(2)
     // k3 行的两名参与人都显示，且各自是可点的链接（role=link，点击跳各自客户页）
     expect(screen.getAllByRole('link', { name: '王璞' }).length + screen.getAllByText('王璞').length).toBeGreaterThan(0)
     const participantLinks = screen.getAllByText('孙佳琪') // k3 参与人 + k5 自己的行
@@ -192,11 +194,12 @@ describe('DashboardPage · 概览精简 5 块（mockup 重做）', () => {
     expect(a.getAttribute('href')).toContain('immi.homeaffairs.gov.au')
   })
 
-  it('C：待办阶段案件去掉条数上限——超过 5 条也全部列出（不再 slice 截断）', () => {
+  it('C：待办 / 已草拟 案件去掉条数上限——超过 5 条也全部列出（不再 slice 截断）', () => {
     setDash({
       todoCases: Array.from({ length: 8 }, (_, i) => ({
         caseId: `k${i}`, customerId: `cu${i}`, customerName: `待办客户${i}`,
         participants: [{ id: `cu${i}`, name: `待办客户${i}` }], visaLabel: '482',
+        stage: i % 2 === 0 ? 'todo' : 'drafted', stageLabel: i % 2 === 0 ? '待办' : '已草拟',
       })),
     })
     renderPage()
@@ -206,9 +209,9 @@ describe('DashboardPage · 概览精简 5 块（mockup 重做）', () => {
     expect(screen.getByText('待办客户7')).toBeInTheDocument()
   })
 
-  it('C：待办阶段案件区块移到概览页面底部（在「官方签证处理时间」之后）', () => {
+  it('C：待办 / 已草拟 案件区块移到概览页面底部（在「官方签证处理时间」之后）', () => {
     renderPage()
-    const todo = screen.getByText('待办阶段案件')
+    const todo = screen.getByText('待办 / 已草拟 案件')
     const official = screen.getByRole('link', { name: /官方签证处理时间/ })
     // todo 标题在 official 链接之后 → DOCUMENT_POSITION_FOLLOWING(4)
     expect(official.compareDocumentPosition(todo) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
@@ -259,7 +262,7 @@ describe('DashboardPage · 概览精简 5 块（mockup 重做）', () => {
     setChecklist({ items: [], openCount: 0 })
     const { container } = renderPage()
     expect(screen.getByText('暂无在办案件')).toBeInTheDocument()
-    expect(screen.getByText('暂无待办阶段案件')).toBeInTheDocument()
+    expect(screen.getByText('暂无待办 / 已草拟 案件')).toBeInTheDocument()
     expect(screen.getByText('无未结欠款')).toBeInTheDocument()
     expect(screen.getByText(/近 30 天无临近到期/)).toBeInTheDocument()
     expect(container.textContent).toContain('逾期未付分期：无')

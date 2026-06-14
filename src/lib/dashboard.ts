@@ -8,7 +8,7 @@ import { utcDayDiff } from './dateDiff'
 import { computeExpiryStatus } from './expiry'
 import { STATUS_CATEGORY_META, stageCategory } from './statusColor'
 import type { StatusCategory } from './statusColor'
-import { DOC_TYPE_LABELS } from '../types/domain'
+import { CASE_STAGE_LABELS, DOC_TYPE_LABELS } from '../types/domain'
 import type { CaseStage } from '../types/domain'
 import type {
   Case,
@@ -128,7 +128,10 @@ export function selectExpiringDocs(
   return items.sort((a, b) => a.daysRemaining - b.daysRemaining)
 }
 
-// ── 待办案件：current_stage = 'todo' 且未归档，按 created_at 倒序 ──────────
+// ── 待办/已草拟案件：current_stage ∈ {todo, drafted} 且未归档，按 created_at 倒序 ──
+/** 本区纳入的「待处理」阶段：待办 + 已草拟（两种都需要继续推进）。 */
+const TODO_STAGES: ReadonlySet<CaseStage> = new Set<CaseStage>(['todo', 'drafted'])
+
 export interface TodoCaseParticipant {
   id: string
   name: string
@@ -143,6 +146,10 @@ export interface TodoCaseItem {
   participants: TodoCaseParticipant[]
   /** 签证类型（含子类别，如 482/Core Skills） */
   visaLabel: string
+  /** 该案当前阶段（todo / drafted），用于行内阶段标签 */
+  stage: CaseStage
+  /** 阶段中文标签（「待办」/「已草拟」），行内 pill 显示用 */
+  stageLabel: string
 }
 
 export function selectTodoCases(
@@ -157,7 +164,7 @@ export function selectTodoCases(
     subsByCase.set(a.case_id, list)
   }
   return cases
-    .filter((c) => c.current_stage === 'todo' && !c.is_archived)
+    .filter((c) => TODO_STAGES.has(c.current_stage) && !c.is_archived)
     .sort((a, b) => b.created_at.localeCompare(a.created_at) || a.id.localeCompare(b.id))
     .map((c) => {
       const ids = [...new Set([c.customer_id, ...(subsByCase.get(c.id) ?? [])])]
@@ -172,6 +179,8 @@ export function selectTodoCases(
         customerName: first?.name ?? '',
         participants,
         visaLabel: formatVisaType(c.visa_subclass, c.visa_stream),
+        stage: c.current_stage,
+        stageLabel: CASE_STAGE_LABELS[c.current_stage],
       }
     })
 }
