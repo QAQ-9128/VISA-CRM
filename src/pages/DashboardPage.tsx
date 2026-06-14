@@ -19,9 +19,10 @@ import { countOwingCustomers, displayCustomerName, pickGreetingName } from '../l
 import { formatAmount, formatMoney } from '../lib/money'
 
 /*
- * 概览（mockup「精简案件优先」1:1）：精简到 5 块——
- * ① Header（衬线问候 + 摘要 + 搜索/铃/新建客户）② KPI 四卡 ③ 案件进度区（阶段环图 + 待办阶段案件）
- * ④ 待办清单（含临近到期浅绿条）+ 欠款总览（逾期分期折进底行）⑤ 官方签证处理时间。
+ * 概览（mockup「精简案件优先」1:1）：
+ * ① Header（衬线问候 + 摘要 + 新建客户）② KPI 四卡 ③ 案件阶段分布（整宽环图）
+ * ④ 待办清单（含临近到期浅绿条）+ 欠款总览（逾期分期折进底行）⑤ 官方签证处理时间
+ * ⑥ 待办阶段案件（置底 · 全部列出 · 长则本区内滚动）。
  * 纯展示页：全部数字来自 useDashboard / useChecklistView 现有派生，本页零聚合。
  * mockup 色对应：green-d=emerald-700 · green-deep=brand-700 · green-bg=emerald-50 · coral-d=#c25a52
  *               coral-bg=rose-50 · line2=surface-2 · blue/blue-bg=#3f7cb5/#e6edf7（无令牌，按图取值）
@@ -248,98 +249,37 @@ export function DashboardPage() {
         />
       </div>
 
-      {/* ── ③ 案件进度区：阶段环图（左宽）+ 待办阶段案件（右窄）────── */}
-      <div className="grid grid-cols-1 gap-[15px] lg:grid-cols-[1.25fr_1fr]">
-        <section className={CARD}>
-          <Ch
-            title="案件阶段分布"
-            small={`在办 ${d.activeCaseCount} · 已下签 ${grantedN}`}
-            more={{ to: '/cases', label: '全部案件' }}
-          />
-          {ringStages.length === 0 ? (
-            <p className="px-[22px] pt-2 pb-[22px] text-sm text-faint">暂无在办案件</p>
-          ) : (
-            <div className="flex flex-wrap items-center gap-[26px] px-[22px] pt-2 pb-[22px]">
-              <Donut
-                data={ringStages.map((s) => ({ value: s.count, color: s.color }))}
-                center={d.activeCaseCount}
-                centerSub="在办案件"
-              />
-              <div className="min-w-[170px] flex-1">
-                {ringStages.map((s) => (
-                  <div
-                    key={s.category}
-                    className="flex items-center gap-[9px] border-b border-surface-2 py-1.5 text-[13.5px] text-muted last:border-b-0"
-                  >
-                    <span className="size-[9px] shrink-0 rounded-[3px]" style={{ background: s.color }} />
-                    <span className="flex-1">{s.label}</span>
-                    <span className="text-sm font-bold tabular-nums text-ink">{s.count}</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-        </section>
-
-        <section className={`pb-2 ${CARD}`}>
-          <Ch title="待办阶段案件" count={d.todoCases.length} more={{ to: '/cases', label: '全部' }} />
-          {d.todoCases.length === 0 ? (
-            <p className="px-[22px] py-2.5 text-sm text-faint">暂无待办阶段案件</p>
-          ) : (
-            <div className="pt-1">
-              {d.todoCases.slice(0, 5).map((t) => (
-                <Link
-                  key={t.caseId}
-                  to={`/customers/${t.customerId}?case=${t.caseId}`}
-                  state={source}
-                  className="flex items-center justify-between border-t border-surface-2 px-[22px] py-2.5 first:border-t-0 hover:opacity-70"
+      {/* ── ③ 案件阶段分布（整宽）──────────────────────────────────── */}
+      <section className={CARD}>
+        <Ch
+          title="案件阶段分布"
+          small={`在办 ${d.activeCaseCount} · 已下签 ${grantedN}`}
+          more={{ to: '/cases', label: '全部案件' }}
+        />
+        {ringStages.length === 0 ? (
+          <p className="px-[22px] pt-2 pb-[22px] text-sm text-faint">暂无在办案件</p>
+        ) : (
+          <div className="flex flex-wrap items-center gap-[26px] px-[22px] pt-2 pb-[22px]">
+            <Donut
+              data={ringStages.map((s) => ({ value: s.count, color: s.color }))}
+              center={d.activeCaseCount}
+              centerSub="在办案件"
+            />
+            <div className="min-w-[170px] flex-1">
+              {ringStages.map((s) => (
+                <div
+                  key={s.category}
+                  className="flex items-center gap-[9px] border-b border-surface-2 py-1.5 text-[13.5px] text-muted last:border-b-0"
                 >
-                  <span className="flex min-w-0 items-center gap-[11px]">
-                    <Avatar name={displayCustomerName(t.customerName, t.visaLabel)} seed={t.customerId} size={34} radius={10} />
-                    <span className="min-w-0">
-                      {/* 在册参与人逐个可点 → 各自客户页（外层是案件 <a>，内层用 navigate + stopPropagation） */}
-                      <span className="flex flex-wrap items-center gap-x-1 text-sm font-semibold text-ink">
-                        {t.participants.length === 0 ? (
-                          <span className="truncate">{displayCustomerName('', `${t.visaLabel} · 案件`)}</span>
-                        ) : (
-                          t.participants.map((p, i) => (
-                            <span key={p.id} className="flex items-center gap-x-1">
-                              {i > 0 && <span className="text-faint" aria-hidden>、</span>}
-                              <span
-                                role="link"
-                                tabIndex={0}
-                                onClick={(e) => {
-                                  e.preventDefault()
-                                  e.stopPropagation()
-                                  navigate(`/customers/${p.id}`, { state: source })
-                                }}
-                                onKeyDown={(e) => {
-                                  if (e.key === 'Enter') {
-                                    e.preventDefault()
-                                    e.stopPropagation()
-                                    navigate(`/customers/${p.id}`, { state: source })
-                                  }
-                                }}
-                                className="truncate hover:text-brand hover:underline"
-                              >
-                                {displayCustomerName(p.name)}
-                              </span>
-                            </span>
-                          ))
-                        )}
-                      </span>
-                      <span className="mt-px block truncate text-xs text-faint">{t.visaLabel}</span>
-                    </span>
-                  </span>
-                  <span className="ml-3 shrink-0 rounded-[8px] bg-mute-bg px-[11px] py-[3px] text-[11.5px] font-semibold text-mute-tx">
-                    待办
-                  </span>
-                </Link>
+                  <span className="size-[9px] shrink-0 rounded-[3px]" style={{ background: s.color }} />
+                  <span className="flex-1">{s.label}</span>
+                  <span className="text-sm font-bold tabular-nums text-ink">{s.count}</span>
+                </div>
               ))}
             </div>
-          )}
-        </section>
-      </div>
+          </div>
+        )}
+      </section>
 
       {/* ── ④ 待办清单 + 欠款总览 ────────────────────────────────── */}
       <div className="grid grid-cols-1 items-start gap-[15px] md:grid-cols-2">
@@ -424,6 +364,67 @@ export function DashboardPage() {
           ↗
         </span>
       </a>
+
+      {/* ── ⑥ 待办阶段案件（置底·全部列出·长则滚动）──────────────────
+          条数不设上限：列出全部待办阶段案件；列表过长时本区内纵向滚动，不撑长整页。 */}
+      <section className={`pb-2 ${CARD}`}>
+        <Ch title="待办阶段案件" count={d.todoCases.length} more={{ to: '/cases', label: '全部' }} />
+        {d.todoCases.length === 0 ? (
+          <p className="px-[22px] py-2.5 text-sm text-faint">暂无待办阶段案件</p>
+        ) : (
+          <div className="max-h-[480px] overflow-y-auto pt-1">
+            {d.todoCases.map((t) => (
+              <Link
+                key={t.caseId}
+                to={`/customers/${t.customerId}?case=${t.caseId}`}
+                state={source}
+                className="flex items-center justify-between border-t border-surface-2 px-[22px] py-2.5 first:border-t-0 hover:opacity-70"
+              >
+                <span className="flex min-w-0 items-center gap-[11px]">
+                  <Avatar name={displayCustomerName(t.customerName, t.visaLabel)} seed={t.customerId} size={34} radius={10} />
+                  <span className="min-w-0">
+                    {/* 在册参与人逐个可点 → 各自客户页（外层是案件 <a>，内层用 navigate + stopPropagation） */}
+                    <span className="flex flex-wrap items-center gap-x-1 text-sm font-semibold text-ink">
+                      {t.participants.length === 0 ? (
+                        <span className="truncate">{displayCustomerName('', `${t.visaLabel} · 案件`)}</span>
+                      ) : (
+                        t.participants.map((p, i) => (
+                          <span key={p.id} className="flex items-center gap-x-1">
+                            {i > 0 && <span className="text-faint" aria-hidden>、</span>}
+                            <span
+                              role="link"
+                              tabIndex={0}
+                              onClick={(e) => {
+                                e.preventDefault()
+                                e.stopPropagation()
+                                navigate(`/customers/${p.id}`, { state: source })
+                              }}
+                              onKeyDown={(e) => {
+                                if (e.key === 'Enter') {
+                                  e.preventDefault()
+                                  e.stopPropagation()
+                                  navigate(`/customers/${p.id}`, { state: source })
+                                }
+                              }}
+                              className="truncate hover:text-brand hover:underline"
+                            >
+                              {displayCustomerName(p.name)}
+                            </span>
+                          </span>
+                        ))
+                      )}
+                    </span>
+                    <span className="mt-px block truncate text-xs text-faint">{t.visaLabel}</span>
+                  </span>
+                </span>
+                <span className="ml-3 shrink-0 rounded-[8px] bg-mute-bg px-[11px] py-[3px] text-[11.5px] font-semibold text-mute-tx">
+                  待办
+                </span>
+              </Link>
+            ))}
+          </div>
+        )}
+      </section>
     </div>
   )
 }

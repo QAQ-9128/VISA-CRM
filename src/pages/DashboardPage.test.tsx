@@ -192,6 +192,28 @@ describe('DashboardPage · 概览精简 5 块（mockup 重做）', () => {
     expect(a.getAttribute('href')).toContain('immi.homeaffairs.gov.au')
   })
 
+  it('C：待办阶段案件去掉条数上限——超过 5 条也全部列出（不再 slice 截断）', () => {
+    setDash({
+      todoCases: Array.from({ length: 8 }, (_, i) => ({
+        caseId: `k${i}`, customerId: `cu${i}`, customerName: `待办客户${i}`,
+        participants: [{ id: `cu${i}`, name: `待办客户${i}` }], visaLabel: '482',
+      })),
+    })
+    renderPage()
+    // 第 6、7、8 条（旧 slice(0,5) 会截掉）都应出现
+    expect(screen.getByText('待办客户5')).toBeInTheDocument()
+    expect(screen.getByText('待办客户6')).toBeInTheDocument()
+    expect(screen.getByText('待办客户7')).toBeInTheDocument()
+  })
+
+  it('C：待办阶段案件区块移到概览页面底部（在「官方签证处理时间」之后）', () => {
+    renderPage()
+    const todo = screen.getByText('待办阶段案件')
+    const official = screen.getByRole('link', { name: /官方签证处理时间/ })
+    // todo 标题在 official 链接之后 → DOCUMENT_POSITION_FOLLOWING(4)
+    expect(official.compareDocumentPosition(todo) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+  })
+
   it('临近到期有数据：摘要计数含 TRT + 同居材料，条内显示客户名', () => {
     setDash({
       expiringDocItems: [

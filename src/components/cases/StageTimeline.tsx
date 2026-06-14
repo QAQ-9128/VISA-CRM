@@ -5,7 +5,7 @@ import {
   useUpdateStageHistory,
 } from '../../hooks/queries/useCases'
 import { replaceDateKeepTime } from '../../lib/stageHistory'
-import { todayYmd, isFutureYmd } from '../../lib/dateRules'
+import { todayYmd, localYmd, isFutureYmd } from '../../lib/dateRules'
 import { toastError } from '../../store/ui'
 import { StageBadge } from './StageBadge'
 import { TrashIcon } from '../ui/icons'
@@ -74,7 +74,7 @@ function HistoryRow({
             title="点击修改实际发生日期"
             className="mt-0.5 text-xs text-slate-400 hover:text-brand"
           >
-            📅 {new Date(h.effective_at).toLocaleString('zh-CN')}
+            📅 {localYmd(new Date(h.effective_at))}
           </button>
         )}
       </div>

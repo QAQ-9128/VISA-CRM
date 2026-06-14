@@ -13,6 +13,11 @@ export function todayYmd(today: Date = new Date()): string {
   return `${y}-${m}-${d}`
 }
 
+/** 任意时刻的本地日历日 YYYY-MM-DD（与 todayYmd 同实现，语义别名：用于展示历史时间戳的日期部分）。 */
+export function localYmd(date: Date): string {
+  return todayYmd(date)
+}
+
 /** 是否晚于今天（未来）；空值不算。 */
 export function isFutureYmd(ymd: string | null | undefined, today: string = todayYmd()): boolean {
   return !!ymd && ymd > today

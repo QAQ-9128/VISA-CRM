@@ -5,6 +5,7 @@ import {
   selectFinanceReceipts,
   selectFinancePayouts,
   selectCustomerFinance,
+  customerNetTotal,
   filterPaymentsByMonth,
   filterPaymentsByRange,
   selectRecentCases,
@@ -15,7 +16,7 @@ import {
   filterLedgerRows,
   ledgerCounts,
 } from './finance'
-import type { ReceivableRow, FinanceReceipts, FinancePayouts, ReceiptItem, PayoutItem } from './finance'
+import type { ReceivableRow, ReceivableTotals, FinanceReceipts, FinancePayouts, ReceiptItem, PayoutItem } from './finance'
 import { shiftMonth } from './month'
 import type { Case, Customer, Payment, PaymentPlan, PaymentPlanItem, Referrer } from '../types/models'
 
@@ -525,6 +526,47 @@ describe('selectCustomerFinance', () => {
     expect(r.receivables[0].stages.map((s) => [s.name, s.unpaid])).toEqual([['意向金', 0], ['递交签证', 80000]])
     // 合计行
     expect(r.receivableTotals).toMatchObject({ receivable: 85000, paid: 5000, unpaid: 80000 })
+  })
+})
+
+describe('customerNetTotal（客户级双流净额 = Σ各案 收−支，复用既有聚合）', () => {
+  it('净额 = 已收(receivableTotals.paid) − 支出(付主代理+付介绍人+垫付杂项)，与本案净额同口径', () => {
+    const cases = [
+      mkCase({ id: 'c1', customer_id: 'cu1' }),
+      mkCase({ id: 'c2', customer_id: 'cu1', case_number: '00000002' }),
+    ]
+    const customerById = { cu1: mkCustomer({ id: 'cu1' }) }
+    const plans = [
+      mkPlan({ id: 'p1', case_id: 'c1' }),
+      mkPlan({ id: 'p2', case_id: 'c2' }),
+    ]
+    const items = [
+      mkItem({ id: 'i1', plan_id: 'p1', amount_due: 1000 }),
+      mkItem({ id: 'i2', plan_id: 'p2', amount_due: 2000 }),
+    ]
+    const payments = [
+      // 案 c1：收款 600（绑款项）、付主代理 100、垫付杂项 50 → 净 450
+      mkPayment({ id: 'a', case_id: 'c1', direction: 'from_client', amount: 600, plan_item_id: 'i1' }),
+      mkPayment({ id: 'b', case_id: 'c1', direction: 'to_company', amount: 100 }),
+      mkPayment({ id: 'c', case_id: 'c1', direction: 'misc_expense', amount: 50 }),
+      // 案 c2：收款 800（绑款项）、付介绍人 200 → 净 600
+      mkPayment({ id: 'd', case_id: 'c2', direction: 'from_client', amount: 800, plan_item_id: 'i2' }),
+      mkPayment({ id: 'e', case_id: 'c2', direction: 'to_referrer', amount: 200 }),
+    ]
+    const f = selectCustomerFinance('cu1', cases, [], plans, payments, customerById, {}, items)
+    const net = customerNetTotal(f)
+    // 收款 = 600 + 800 = 1400；支出 = 100 + 50 + 200 = 350；净额 = 1050 = Σ各案(450 + 600)
+    expect(net).toEqual({ received: 1400, expense: 350, net: 1050 })
+  })
+
+  it('净额恒等：received − expense === net（含负净额时不夹 0）', () => {
+    const f = {
+      receivableTotals: { receivable: 0, paid: 100, unpaid: 0 } as ReceivableTotals,
+      payouts: { items: [], toCompanyTotal: 300, toReferrerTotal: 0, miscTotal: 50 } as FinancePayouts,
+    }
+    const net = customerNetTotal(f)
+    expect(net.received - net.expense).toBe(net.net)
+    expect(net.net).toBe(-250) // 收 100 − 支 350，净额可为负
   })
 })
 

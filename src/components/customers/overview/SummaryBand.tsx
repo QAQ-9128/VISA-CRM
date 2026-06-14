@@ -10,6 +10,7 @@ import { useCustomerFinance } from '../../../hooks/queries/useCustomerFinance'
 import { selectProcessingRows } from '../../../lib/processingTime'
 import { flowStatusBadgeClass } from '../../../lib/statusColor'
 import { customerDisplayName } from '../../../lib/customerName'
+import { customerNetTotal } from '../../../lib/finance'
 import { formatMoney } from '../../../lib/money'
 import { GENDER_LABELS } from '../../../types/domain'
 import type { Case, Customer } from '../../../types/models'
@@ -27,10 +28,11 @@ function Cell({ label, children, sub, subTone }: { label: ReactNode; children: R
 
 /**
  * ① 概要带：左=头像+姓名；中（发丝分隔）=参与案件 / 审理时长（随选中案件：提名/签证已递交各占一行
- * 「{流程}审理 N 天 + 审理中/已批小标」，已批定格仍显示）/ 性别·生日 / 已收 / 未收（客户级全部案件合计）；
+ * 「{流程}审理 N 天 + 审理中/已批小标」，已批定格仍显示）/ 性别·生日 / 净额 / 未收（客户级全部案件合计）；
  * 右=收藏+编辑客户。
  * 性别·生日读 customer.gender / birth_date，空则留空不编造。
- * 已收/未收为客户级跨全部案件合计，不随选中案件切换。
+ * 净额/未收为客户级跨全部案件合计，不随选中案件切换。
+ * 净额（全部案件）= Σ各案(收款 − 支出)（customerNetTotal，复用双流聚合，与费用卡「本案净额」同口径）。
  */
 export function SummaryBand({
   customer,
@@ -52,6 +54,8 @@ export function SummaryBand({
   // 客户级财务合计（全部案件，不随案件切换）
   const t = finance.receivableTotals
   const unpaidCount = finance.receivables.filter((r) => r.unpaid > 0).length
+  // 净额（全部案件）= Σ各案(收款 − 支出)；复用既有双流聚合，与费用卡「本案净额」同口径
+  const net = customerNetTotal(finance)
 
   // 「审理时长」格：选中案件的阶段历史派生递交日，按在审阶段一行（提名或签证）或两行（都递交了），
   // 口径 = flowProcessing 单一来源（审理中=今天−递交实时；已批=获批日−递交定格仍显示；本地日期）
@@ -132,10 +136,12 @@ export function SummaryBand({
           )}
         </Cell>
         <Cell
-          label="已收（客户）· 全部案件"
-          sub={finance.isPending ? null : `应收合计 ${formatMoney(t.receivable)}`}
+          label="净额（全部案件）"
+          sub={finance.isPending ? null : `收款 ${formatMoney(net.received)} − 支出 ${formatMoney(net.expense)}`}
         >
-          <span className="text-emerald-600">{finance.isPending ? '…' : formatMoney(t.paid)}</span>
+          <span className={net.net >= 0 ? 'text-emerald-600' : 'text-rose-600'}>
+            {finance.isPending ? '…' : formatMoney(net.net)}
+          </span>
         </Cell>
         <Cell
           label="未收（差额）· 全部案件"

@@ -451,6 +451,21 @@ export function selectCustomerFinance(
   }
 }
 
+/**
+ * 客户级双流净额（全部案件）= 已收(收款) − 支出(付主代理 + 付介绍人 + 垫付杂项)。
+ * 纯展示派生：复用既有聚合 receivableTotals.paid 与 payouts 三类合计跨案求和，
+ * 即 Σ各案(收−支)，与费用卡「本案净额」同口径——不改账目算法、不动归账口径。
+ * 净额可为负（支出 > 收款），不夹 0。
+ */
+export function customerNetTotal(f: {
+  receivableTotals: ReceivableTotals
+  payouts: Pick<FinancePayouts, 'toCompanyTotal' | 'toReferrerTotal' | 'miscTotal'>
+}): { received: number; expense: number; net: number } {
+  const received = round2(f.receivableTotals.paid)
+  const expense = round2(f.payouts.toCompanyTotal + f.payouts.toReferrerTotal + f.payouts.miscTotal)
+  return { received, expense, net: round2(received - expense) }
+}
+
 // ── 月度账目「合并流水」：收入(收款) + 支出(付主代理/付介绍人) 合并成一张按日期排序的表 ──
 // 纯展示派生：不改双流记账，只把现有 receipts/payouts 合并、排序、按视图筛选。
 export type LedgerView = 'all' | 'income' | 'expense'

@@ -181,6 +181,19 @@ describe('CustomerDetailPage（案件中心单页 · 无 tab）', () => {
     }
   })
 
+  it('概要带第一张财务卡 = 「净额（全部案件）」（含收款−支出小字）；旧「已收/应收合计」已去除；未收卡保留', async () => {
+    renderPage()
+    await screen.findAllByText('测试客户')
+    const band = within(document.getElementById('summary') as HTMLElement)
+    // A：净额卡取代已收卡（净额数值口径见 lib/finance customerNetTotal 单测）
+    expect(band.getByText('净额（全部案件）')).toBeInTheDocument()
+    // 旧「已收」数字与「应收合计」行不再出现
+    expect(band.queryByText('已收（客户）· 全部案件')).toBeNull()
+    expect(band.queryByText(/应收合计/)).toBeNull()
+    // 未收（差额）卡保持不变
+    expect(band.getByText('未收（差额）· 全部案件')).toBeInTheDocument()
+  })
+
   it('概要带「审理时长」格：只提名递交 → 一行「提名审理 N天 审理中」；无签证行', async () => {
     vi.mocked(listCases).mockResolvedValue([mkCase({ id: 'ca1', current_stage: 'nomination_lodged' })])
     vi.mocked(getCaseStageHistory).mockResolvedValue([
