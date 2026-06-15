@@ -3,7 +3,7 @@ import { selectLinkedMembers, selectLinkedInto, selectLinkCandidates } from './f
 import type { Customer, FamilyMemberLink } from '../types/models'
 
 const mk = (o: Partial<Customer>): Customer => ({
-  id: 'cu', full_name: '客户', is_starred: false, client_source: null, tag: null, primary_applicant_id: null,
+  id: 'cu', full_name: '客户', is_starred: false, client_source: null, primary_applicant_id: null,
   relationship_to_primary: null, birth_date: null, gender: null, passport_no: null, nationality: null, phone: null,
   chinese_name: null, english_name: null,
   email: null, wechat: null, address: null, sponsor_employer_id: null, sponsor_position: null, referrer_id: null, owner_referrer_id: null, notes: null,

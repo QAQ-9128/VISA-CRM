@@ -12,8 +12,7 @@ import { flowStatusBadgeClass } from '../../../lib/statusColor'
 import { customerDisplayName } from '../../../lib/customerName'
 import { customerNetTotal } from '../../../lib/finance'
 import { formatMoney } from '../../../lib/money'
-import { CUSTOMER_TAG_BADGE, GENDER_LABELS } from '../../../types/domain'
-import type { CustomerTag } from '../../../types/domain'
+import { GENDER_LABELS } from '../../../types/domain'
 import type { Case, Customer } from '../../../types/models'
 
 /** 概要带的一格（发丝分隔）：标题 + 主值 + 副说明。字号/字重略升，强化可读性。 */
@@ -72,14 +71,7 @@ export function SummaryBand({
         <Avatar name={customerDisplayName(customer)} seed={customer.id} size={48} />
         <div className="min-w-0">
           <div className="truncate font-serif text-[22px] font-bold tracking-[-0.01em] text-ink">{customerDisplayName(customer)}</div>
-          <div className="mt-0.5 flex items-center gap-2">
-            <span className="text-[12px] text-faint">客户</span>
-            {customer.tag && (
-              <span className={`rounded-full px-2 py-0.5 text-[11px] font-semibold ${CUSTOMER_TAG_BADGE[customer.tag as CustomerTag] ?? 'bg-[var(--color-mute-bg)] text-[var(--color-mute-tx)]'}`}>
-                {customer.tag}
-              </span>
-            )}
-          </div>
+          <div className="text-[12px] text-faint">客户</div>
         </div>
       </div>
 

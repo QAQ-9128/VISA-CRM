@@ -12,7 +12,7 @@ import { OwnerSelect } from './OwnerSelect'
 import { CaseJoinPicker } from './CaseJoinPicker'
 import { QuickPersonCreate } from './QuickPersonCreate'
 import { useJoinableCases } from '../../hooks/queries/useJoinableCases'
-import { CLIENT_SOURCES, CLIENT_SOURCE_OPTION_LABELS, CUSTOMER_TAGS, GENDERS, GENDER_LABELS } from '../../types/domain'
+import { CLIENT_SOURCES, CLIENT_SOURCE_OPTION_LABELS, GENDERS, GENDER_LABELS } from '../../types/domain'
 import { initialFormState, toPayload } from '../../lib/customerForm'
 import type { CustomerFormState, CustomerFormValues } from '../../lib/customerForm'
 import type { Customer } from '../../types/models'
@@ -156,15 +156,6 @@ export function CustomerForm({ initial, submitting, error, onSubmit, onCancel }:
             onChange={(e) => set('birth_date')(e.target.value)}
           />
         </div>
-
-        {/* 客户标签（可空 = 未打标）：傻逼 / 大傻逼 / 正常人 / 聪明人 */}
-        <Select
-          label="标签"
-          placeholder="未打标"
-          options={CUSTOMER_TAGS.map((t) => ({ value: t, label: t }))}
-          value={state.tag}
-          onChange={(e) => set('tag')(e.target.value)}
-        />
       </Section>
 
       {/* 担保信息（担保雇主/担保职位已移到案件级，由案件表单录入）：客户表单不再录入 */}

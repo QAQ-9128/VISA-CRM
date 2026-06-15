@@ -6,7 +6,7 @@ const link = (primary: string, member: string): FamilyMemberLink =>
   ({ id: `${primary}-${member}`, primary_customer_id: primary, member_customer_id: member, relationship: null, created_at: '', updated_at: '' }) as FamilyMemberLink
 
 const mkCustomer = (o: Partial<Customer>): Customer => ({
-  id: 'cu1', full_name: '主申', is_starred: false, client_source: null, tag: null, primary_applicant_id: null,
+  id: 'cu1', full_name: '主申', is_starred: false, client_source: null, primary_applicant_id: null,
   relationship_to_primary: null, birth_date: null, gender: null, passport_no: null, nationality: null, phone: null,
   chinese_name: null, english_name: null,
   email: null, wechat: null, address: null, sponsor_employer_id: null, sponsor_position: null, referrer_id: null, owner_referrer_id: null, notes: null,
