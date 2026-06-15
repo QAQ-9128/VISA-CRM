@@ -409,6 +409,8 @@ export interface Database {
           amount_due: number
           periods: number
           note: string | null
+          /** 款项方向：null/'receivable'=应收（默认），'payable'=应付（付主代理/付介绍人）。 */
+          kind: string | null
           created_at: Timestamp
           updated_at: Timestamp
         }
@@ -419,6 +421,7 @@ export interface Database {
           amount_due?: number
           periods?: number
           note?: string | null
+          kind?: string | null
           created_at?: Timestamp
           updated_at?: Timestamp
         }

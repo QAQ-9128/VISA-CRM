@@ -1,7 +1,7 @@
 import { computeAccounting } from './accounting'
 import { customerDisplayName } from './customerName'
 import { formatVisaType } from './visa'
-import { getCaseTotals } from './planItems'
+import { getCaseTotals, isPayableItem } from './planItems'
 import { getCustomerPaymentColor } from './finance'
 import type { CustomerPaymentColor } from './finance'
 import { utcDayDiff } from './dateDiff'
@@ -233,14 +233,14 @@ export interface DebtTotals {
 export function computeDebtTotals(
   plans: PaymentPlan[],
   payments: Pick<Payment, 'case_id' | 'direction' | 'amount' | 'plan_item_id'>[],
-  planItems: Pick<PaymentPlanItem, 'id' | 'plan_id' | 'amount_due'>[] = [],
+  planItems: Pick<PaymentPlanItem, 'id' | 'plan_id' | 'amount_due' | 'kind'>[] = [],
 ): DebtTotals {
   let clientOwesTotal = 0
   let companyOwesTotal = 0
   for (const plan of plans) {
     const casePayments = payments.filter((p) => p.case_id === plan.case_id)
-    // 客户欠款从款项明细派生；付主代理仍走 computeAccounting（company_total 不变）
-    const items = planItems.filter((i) => i.plan_id === plan.id)
+    // 客户欠款从款项明细派生；付主代理仍走 computeAccounting（company_total 不变）；应付款项排除
+    const items = planItems.filter((i) => i.plan_id === plan.id && !isPayableItem(i))
     clientOwesTotal += Math.max(0, getCaseTotals(items, casePayments).totalUnpaid)
     companyOwesTotal += Math.max(0, computeAccounting(plan, casePayments).companyOwes)
   }
@@ -288,7 +288,7 @@ export function selectCustomerDebts(
   payments: Pick<Payment, 'case_id' | 'direction' | 'amount' | 'plan_item_id'>[],
   caseById: CaseMap,
   customerById: CustomerMap,
-  planItems: Pick<PaymentPlanItem, 'id' | 'plan_id' | 'amount_due'>[] = [],
+  planItems: Pick<PaymentPlanItem, 'id' | 'plan_id' | 'amount_due' | 'kind'>[] = [],
 ): CustomerDebtItem[] {
   const byCustomer = new Map<string, DebtAcc>()
   for (const plan of plans) {
@@ -297,8 +297,8 @@ export function selectCustomerDebts(
     const customerId = planBilledToCustomerId(plan, caseById)
     if (!customerId) continue
     const casePayments = payments.filter((p) => p.case_id === plan.case_id)
-    // 客户侧应收/已付/未付从款项明细派生；付主代理仍走 computeAccounting
-    const totals = getCaseTotals(planItems.filter((i) => i.plan_id === plan.id), casePayments)
+    // 客户侧应收/已付/未付从款项明细派生；付主代理仍走 computeAccounting；应付款项排除
+    const totals = getCaseTotals(planItems.filter((i) => i.plan_id === plan.id && !isPayableItem(i)), casePayments)
     const companyOwes = computeAccounting(plan, casePayments).companyOwes
     const entry = byCustomer.get(customerId) ?? {
       customerId,
@@ -342,7 +342,7 @@ export function selectCustomerDebtSummary(
   plans: PaymentPlan[],
   payments: Pick<Payment, 'case_id' | 'direction' | 'amount' | 'plan_item_id'>[],
   caseById: CaseMap,
-  planItems: Pick<PaymentPlanItem, 'id' | 'plan_id' | 'amount_due'>[] = [],
+  planItems: Pick<PaymentPlanItem, 'id' | 'plan_id' | 'amount_due' | 'kind'>[] = [],
 ): CustomerDebtSummary {
   let clientOwes = 0
   let companyOwes = 0
@@ -351,7 +351,7 @@ export function selectCustomerDebtSummary(
   for (const plan of plans) {
     if (planBilledToCustomerId(plan, caseById) !== customerId) continue
     const casePayments = payments.filter((p) => p.case_id === plan.case_id)
-    const totals = getCaseTotals(planItems.filter((i) => i.plan_id === plan.id), casePayments)
+    const totals = getCaseTotals(planItems.filter((i) => i.plan_id === plan.id && !isPayableItem(i)), casePayments)
     clientOwes += Math.max(0, totals.totalUnpaid)
     companyOwes += Math.max(0, computeAccounting(plan, casePayments).companyOwes)
     clientReceivable += totals.totalDue

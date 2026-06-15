@@ -107,3 +107,14 @@ export const RECEIVABLE_STATUS_LABELS: Record<ReceivableStatusKind, string> = {
 export function receivableStatusBadgeClass(kind: ReceivableStatusKind): string {
   return STATUS_CATEGORY_META[RECEIVABLE_STATUS_CATEGORY[kind]].badge
 }
+
+/**
+ * 费用卡 · **应付款项行**状态文案（与应收同一套 6 类配色，仅文案不同）：
+ *   已付 settled → 完成（绿）；待付款 owing → 等待付款（蓝）；未设应付 unset → 进行中（灰）。
+ * 颜色复用 receivableStatusBadgeClass（同 kind → 同色），保证收/支状态徽章视觉一致。
+ */
+export const PAYABLE_STATUS_LABELS: Record<ReceivableStatusKind, string> = {
+  unset: '未设应付',
+  settled: '已付',
+  owing: '待付款',
+}

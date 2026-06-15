@@ -3,7 +3,7 @@ import { stageUnitAmount, buildStagePayload, validateStage, stageUnitLine, stage
 import type { Payment, PaymentPlanItem } from '../types/models'
 
 const mkItem = (o: Partial<PaymentPlanItem>): PaymentPlanItem => ({
-  id: 'it1', plan_id: 'p1', fee_category: '阶段', amount_due: 0, periods: 1, note: null, created_at: '', updated_at: '', ...o,
+  id: 'it1', plan_id: 'p1', fee_category: '阶段', amount_due: 0, periods: 1, note: null, kind: null, created_at: '', updated_at: '', ...o,
 })
 const mkPay = (o: Partial<Payment>): Payment => ({
   id: 'pay1', case_id: 'c1', applicant_id: null, direction: 'from_client', installment_id: null, plan_item_id: 'it1',

@@ -1,4 +1,4 @@
-import { getItemPaid } from './planItems'
+import { getItemPaid, isPayableItem } from './planItems'
 import { PAYMENT_METHOD_LABELS } from '../types/domain'
 import type { PaymentMethod } from '../types/domain'
 import type { Installment, Payment, PaymentPlanItem } from '../types/models'
@@ -39,10 +39,11 @@ export interface PaymentItemRow {
 
 /** 每个 payment_plan_item 一行：应收(amount_due)/已收(归属它的 from_client 收款)/未收/状态。 */
 export function selectPaymentItemRows(
-  items: Pick<PaymentPlanItem, 'id' | 'fee_category' | 'amount_due' | 'periods'>[],
+  items: Pick<PaymentPlanItem, 'id' | 'fee_category' | 'amount_due' | 'periods' | 'kind'>[],
   payments: Pick<Payment, 'plan_item_id' | 'direction' | 'amount'>[],
 ): PaymentItemRow[] {
-  return items.map((it) => {
+  // 应收收费项目表：排除应付款项(payable)——它们走支出区两步流程，不属应收
+  return items.filter((it) => !isPayableItem(it)).map((it) => {
     const due = round2(num(it.amount_due))
     const paid = getItemPaid(it.id, payments)
     return {

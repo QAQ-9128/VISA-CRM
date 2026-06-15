@@ -15,12 +15,31 @@ const round2 = (n: number): number => Math.round(n * 100) / 100
 type PaymentLike = Pick<Payment, 'plan_item_id' | 'direction' | 'amount'>
 type ItemLike = Pick<PaymentPlanItem, 'id' | 'amount_due'>
 
+/** 应付款项（kind='payable'）：付主代理/付介绍人的欠付义务。应收聚合一律排除它。 */
+export function isPayableItem(item: { kind?: string | null }): boolean {
+  return item.kind === 'payable'
+}
+
 /** 该款项名下已付：归属它的 from_client 收款求和。 */
 export function getItemPaid(itemId: string, payments: PaymentLike[]): number {
   let sum = 0
   for (const p of payments) {
     if (p.plan_item_id !== itemId) continue
     if (p.direction !== 'from_client') continue
+    sum += num(p.amount)
+  }
+  return round2(sum)
+}
+
+/**
+ * 应付款项名下「已付」：归属它的实付支出之和——付主代理 + 付介绍人（不含垫付杂项）。
+ * 与 getItemPaid 镜像，只是方向集换成应付两类。净额仍按 payments.direction 重算，本函数只供「待付款/已付」状态派生。
+ */
+export function getPayableItemPaid(itemId: string, payments: PaymentLike[]): number {
+  let sum = 0
+  for (const p of payments) {
+    if (p.plan_item_id !== itemId) continue
+    if (p.direction !== 'to_company' && p.direction !== 'to_referrer') continue
     sum += num(p.amount)
   }
   return round2(sum)

@@ -1,5 +1,5 @@
 import { customerDisplayName } from './customerName'
-import { getCaseTotals, getItemPaid } from './planItems'
+import { getCaseTotals, getItemPaid, isPayableItem } from './planItems'
 import { stageUnitAmount } from './staged'
 import { formatMoney } from './money'
 import type {
@@ -121,7 +121,7 @@ export function selectFinanceReceivables(
   plans: PaymentPlan[],
   payments: Pick<Payment, 'case_id' | 'applicant_id' | 'direction' | 'amount' | 'plan_item_id'>[],
   customerById: CustomerMap,
-  planItems: Pick<PaymentPlanItem, 'id' | 'plan_id' | 'amount_due' | 'fee_category' | 'created_at' | 'periods'>[] = [],
+  planItems: Pick<PaymentPlanItem, 'id' | 'plan_id' | 'amount_due' | 'fee_category' | 'created_at' | 'periods' | 'kind'>[] = [],
 ): ReceivableRow[] {
   const subsByCase = new Map<string, string[]>()
   for (const a of caseApplicants) {
@@ -140,8 +140,8 @@ export function selectFinanceReceivables(
     unitPayments: Pick<Payment, 'direction' | 'amount' | 'plan_item_id'>[],
   ): ReceivableRow => {
     const plan = planFor(c.id, applicantId)
-    // 应收/已付/未付一律从款项明细(items)派生（client_total 列保留但不再读）
-    const items = plan ? planItems.filter((i) => i.plan_id === plan.id) : []
+    // 应收/已付/未付一律从款项明细(items)派生（client_total 列保留但不再读）；应付款项(payable)排除
+    const items = plan ? planItems.filter((i) => i.plan_id === plan.id && !isPayableItem(i)) : []
     const totals = getCaseTotals(items, unitPayments)
     const linkId = applicantId ?? c.customer_id
     // 各阶段只读汇总（行级 = Σ stages，口径不变）；created_at 升序，缺失退到 id 稳定排序

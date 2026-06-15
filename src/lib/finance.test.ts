@@ -39,7 +39,7 @@ const mkPlan = (o: Partial<PaymentPlan>): PaymentPlan => ({
 })
 // 应收已改为款项明细派生：每个 plan 一条默认款项(amount_due = 该 plan 的应收)
 const mkItem = (o: Partial<PaymentPlanItem>): PaymentPlanItem => ({
-  id: 'i1', plan_id: 'p1', fee_category: '律师费', amount_due: 0, periods: 1, note: null, created_at: '', updated_at: '', ...o,
+  id: 'i1', plan_id: 'p1', fee_category: '律师费', amount_due: 0, periods: 1, note: null, kind: null, created_at: '', updated_at: '', ...o,
 })
 const mkPayment = (o: Partial<Payment>): Payment => ({
   id: 'pay1', case_id: 'c1', applicant_id: null, direction: 'from_client', installment_id: null, plan_item_id: null, amount: 0,
@@ -174,6 +174,20 @@ describe('显示名统一解析（账目页行 customerName 走 lib/customerName
 })
 
 describe('selectFinanceReceivables', () => {
+  it('应付款项(kind=payable)不计入应收：同案混入应付款项，应收行不变', () => {
+    const cases = [mkCase({ id: 'c1', customer_id: 'cu1', visa_subclass: '482' })]
+    const customerById = { cu1: mkCustomer({ id: 'cu1', full_name: '张三' }) }
+    const plans = [mkPlan({ id: 'p1', case_id: 'c1', client_total: 1000 })]
+    const items = [
+      mkItem({ id: 'i1', plan_id: 'p1', amount_due: 1000, kind: null }),
+      mkItem({ id: 'pay', plan_id: 'p1', amount_due: 5000, kind: 'payable' }), // 应付 → 不进应收
+    ]
+    const payments = [mkPayment({ id: 'a', case_id: 'c1', direction: 'from_client', amount: 300, plan_item_id: 'i1' })]
+    const row = selectFinanceReceivables(cases, [], plans, payments, customerById, items)[0]
+    expect(row).toMatchObject({ receivable: 1000, paid: 300, unpaid: 700 })
+    expect(row.stages.map((s) => s.stageId)).toEqual(['i1']) // 应付款项不成阶段行
+  })
+
   it('按案件一行：应收/已付/未付；to_company/to_referrer 不计入已付', () => {
     const cases = [
       mkCase({ id: 'c1', customer_id: 'cu1', visa_subclass: '482' }),

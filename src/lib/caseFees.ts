@@ -7,7 +7,7 @@ import type {
 } from '../types/models'
 import { customerDisplayName } from './customerName'
 import { receivableStatus } from './finance'
-import { getItemPaid, getCaseTotals } from './planItems'
+import { getItemPaid, getCaseTotals, isPayableItem } from './planItems'
 import type { ReceivableRole } from './finance'
 
 /**
@@ -88,7 +88,8 @@ export function selectCaseFeeGroups(
   const casePlans = plans.filter((p) => p.case_id === caseId)
   const casePayments = payments.filter((p) => p.case_id === caseId)
   const planIds = new Set(casePlans.map((p) => p.id))
-  const caseItems = planItems.filter((i) => planIds.has(i.plan_id))
+  // 仅应收款项：应付款项(kind='payable')由支出区两步流程处理，绝不进应收分账（数字与改前一致）
+  const caseItems = planItems.filter((i) => planIds.has(i.plan_id) && !isPayableItem(i))
 
   /**
    * 构造一个单元。covered = 该单元覆盖的 applicant_id 集合（owner 含 null：合并/遗留款显示在他名下）；

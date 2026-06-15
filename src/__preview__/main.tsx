@@ -66,7 +66,7 @@ const plan = (o: Partial<PaymentPlan>): PaymentPlan => ({
 })
 const item = (o: Partial<PaymentPlanItem>): PaymentPlanItem => ({
   id: 'IT', plan_id: 'PL', fee_category: '律师费', amount_due: 100, periods: 1, note: null,
-  created_at: '2026-01-01', updated_at: '', ...o,
+  kind: null, created_at: '2026-01-01', updated_at: '', ...o,
 })
 const pay = (o: Partial<Payment>): Payment => ({
   id: 'PAY', case_id: 'C482', applicant_id: null, direction: 'from_client', installment_id: null,
