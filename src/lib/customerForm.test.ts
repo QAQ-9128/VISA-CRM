@@ -3,7 +3,7 @@ import { initialFormState, toPayload } from './customerForm'
 import type { Customer } from '../types/models'
 
 const mkCustomer = (o: Partial<Customer>): Customer => ({
-  id: 'cu1', full_name: '某人', is_starred: false, client_source: null, primary_applicant_id: null,
+  id: 'cu1', full_name: '某人', is_starred: false, client_source: null, tag: null, primary_applicant_id: null,
   relationship_to_primary: null, birth_date: null, gender: null, passport_no: null, nationality: null, phone: null,
   chinese_name: null, english_name: null,
   email: null, wechat: null, address: null, sponsor_employer_id: null, sponsor_position: null, referrer_id: null, owner_referrer_id: null, notes: null,
@@ -27,6 +27,20 @@ describe('initialFormState（新建客户时用 ?primary= 预选主申请人，�
     const existing = mkCustomer({ id: 'sub', primary_applicant_id: 'realHead' })
     const s = initialFormState(existing, 'someoneElse')
     expect(s.primary_applicant_id).toBe('realHead')
+  })
+})
+
+describe('客户标签（tag：傻逼 / 大傻逼 / 正常人 / 聪明人）', () => {
+  it('编辑回填标签；toPayload 透传中文值', () => {
+    const s = initialFormState(mkCustomer({ tag: '聪明人' }))
+    expect(s.tag).toBe('聪明人')
+    expect(toPayload(s).tag).toBe('聪明人')
+  })
+
+  it('未打标 → 空串 → toPayload 为 null', () => {
+    const s = initialFormState(undefined)
+    expect(s.tag).toBe('')
+    expect(toPayload(s).tag).toBeNull()
   })
 })
 

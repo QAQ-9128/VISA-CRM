@@ -17,6 +17,8 @@ export interface CustomerFormState {
   primary_applicant_id: string
   relationship_to_primary: string
   client_source: string
+  /** 客户标签（傻逼 / 大傻逼 / 正常人 / 聪明人；'' = 未打标） */
+  tag: string
   is_starred: boolean
   sponsor_employer_id: string
   sponsor_position: string
@@ -42,6 +44,7 @@ export function initialFormState(c?: Customer, initialPrimaryId?: string): Custo
     primary_applicant_id: c?.primary_applicant_id ?? initialPrimaryId ?? '',
     relationship_to_primary: c?.relationship_to_primary ?? '',
     client_source: c?.client_source ?? '',
+    tag: c?.tag ?? '',
     is_starred: c?.is_starred ?? false,
     sponsor_employer_id: c?.sponsor_employer_id ?? '',
     sponsor_position: c?.sponsor_position ?? '',
@@ -67,6 +70,7 @@ export function toPayload(s: CustomerFormState): CustomerFormValues {
     primary_applicant_id: isSub ? s.primary_applicant_id : null,
     relationship_to_primary: isSub ? trimOrNull(s.relationship_to_primary) : null,
     client_source: s.client_source || null,
+    tag: s.tag || null,
     is_starred: s.is_starred,
     sponsor_employer_id: s.sponsor_employer_id || null,
     sponsor_position: trimOrNull(s.sponsor_position),

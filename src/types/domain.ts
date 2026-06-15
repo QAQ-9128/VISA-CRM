@@ -186,6 +186,19 @@ export const CLIENT_SOURCE_DOT: Record<ClientSource, string> = {
   yellow: 'bg-yellow-500',
 }
 
+// ── 客户标签（可空 = 未打标；DB 为 text，直接存中文值显示）──────────
+// 给客户打一个主观标签，下拉四选一。
+export const CUSTOMER_TAGS = ['傻逼', '大傻逼', '正常人', '聪明人'] as const
+export type CustomerTag = (typeof CUSTOMER_TAGS)[number]
+
+/** 标签徽章配色（浅底 + 深字 Tailwind 类）。 */
+export const CUSTOMER_TAG_BADGE: Record<CustomerTag, string> = {
+  傻逼: 'bg-amber-50 text-amber-700',
+  大傻逼: 'bg-rose-50 text-rose-700',
+  正常人: 'bg-[var(--color-mute-bg)] text-[var(--color-mute-tx)]',
+  聪明人: 'bg-emerald-50 text-emerald-700',
+}
+
 // ── 人员类型（referrers 一表两用：介绍人 / 归属人，介绍人页开关切换）──────
 export const REFERRER_KINDS = ['referrer', 'owner'] as const
 export type ReferrerKind = (typeof REFERRER_KINDS)[number]

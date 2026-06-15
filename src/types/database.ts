@@ -161,6 +161,8 @@ export interface Database {
           primary_applicant_id: string | null
           relationship_to_primary: string | null
           client_source: string | null
+          /** 客户标签（0040，可空）：傻逼 / 大傻逼 / 正常人 / 聪明人，存中文值直显 */
+          tag: string | null
           is_starred: boolean
           notes: string | null
           assigned_to: string | null
@@ -189,6 +191,7 @@ export interface Database {
           primary_applicant_id?: string | null
           relationship_to_primary?: string | null
           client_source?: string | null
+          tag?: string | null
           is_starred?: boolean
           notes?: string | null
           assigned_to?: string | null

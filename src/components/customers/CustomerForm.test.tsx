@@ -93,6 +93,24 @@ describe('CustomerForm（改进版 UI 行为）', () => {
     expect(save).not.toBeDisabled()
   })
 
+  it('标签下拉：四选一（傻逼/大傻逼/正常人/聪明人）；选中后保存 → onSubmit 带 tag', () => {
+    const { onSubmit } = renderForm()
+    const tagSelect = screen.getByLabelText('标签') as HTMLSelectElement
+    const opts = within(tagSelect).getAllByRole('option').map((o) => o.textContent)
+    expect(opts).toEqual(['未打标', '傻逼', '大傻逼', '正常人', '聪明人'])
+    fireEvent.change(screen.getByLabelText('中文名'), { target: { value: '王明' } })
+    fireEvent.change(tagSelect, { target: { value: '聪明人' } })
+    fireEvent.click(screen.getByRole('button', { name: '保存' }))
+    expect(onSubmit.mock.calls[0][0]).toMatchObject({ tag: '聪明人' })
+  })
+
+  it('未选标签保存 → tag 为 null', () => {
+    const { onSubmit } = renderForm()
+    fireEvent.change(screen.getByLabelText('中文名'), { target: { value: '王明' } })
+    fireEvent.click(screen.getByRole('button', { name: '保存' }))
+    expect(onSubmit.mock.calls[0][0].tag).toBeNull()
+  })
+
   it('填中文名 + 保存 → onSubmit 收到 chinese_name + 派生 full_name + joinCaseId=null + next=detail', () => {
     const { onSubmit } = renderForm()
     fireEvent.change(screen.getByLabelText('中文名'), { target: { value: '李雷' } })
