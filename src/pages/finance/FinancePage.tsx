@@ -5,18 +5,19 @@ import { LoadingBlock, ErrorBlock } from '../../components/ui/states'
 import { useBackSource } from '../../hooks/useBackSource'
 import { avatarInitial } from '../../lib/avatar'
 import { formatAmount, formatMoney } from '../../lib/money'
-import { currentMonth, shiftMonth } from '../../lib/month'
+import { currentMonth, shiftMonth, monthPickerBounds, isMonthInBounds } from '../../lib/month'
 import { auFinancialYear, fyOfEndYear, fyOfMonth, clampMonthToFy } from '../../lib/dateRules'
 import {
   selectMonthlyOverview,
   groupPayouts,
-  monthTitle,
   formatMonthDay,
   formatYearMonth,
   receiptSubtitle,
   payoutSubtitle,
   payoutDisplayName,
 } from '../../lib/monthlyOverview'
+import { MonthPicker } from '../../components/finance/MonthPicker'
+import { FyYearPicker } from '../../components/finance/FyYearPicker'
 import type { ReceiptItem, PayoutItem } from '../../lib/finance'
 import type { FinancePeriod } from '../../hooks/queries/useFinance'
 
@@ -162,10 +163,17 @@ export function FinancePage() {
   const [fyEnd, setFyEnd] = useState<number>(() => auFinancialYear().endYear)
   const isFy = mode === 'fy'
   const financePeriod: FinancePeriod = isFy ? { kind: 'fy', endYear: fyEnd } : { kind: 'month', month }
-  const { isPending, isError, receipts, payouts, prevReceipts, prevPayouts, visaByCaseId } = useFinance(financePeriod)
+  const { isPending, isError, receipts, payouts, prevReceipts, prevPayouts, visaByCaseId, earliestRecordMonth } =
+    useFinance(financePeriod)
 
   const fy = fyOfEndYear(fyEnd)
-  const isCurrent = isFy ? fyEnd === auFinancialYear().endYear : month === currentMonth()
+  const todayMonth = currentMonth()
+  const currentFyEnd = auFinancialYear().endYear
+  const isCurrent = isFy ? fyEnd === currentFyEnd : month === todayMonth
+  // 月份可选范围的单一来源：箭头与 Popover 月网格共用，绝不各写一套
+  const monthBounds = useMemo(() => monthPickerBounds(earliestRecordMonth, todayMonth), [earliestRecordMonth, todayMonth])
+  const canPrevMonth = isMonthInBounds(shiftMonth(month, -1), monthBounds)
+  const canNextMonth = isMonthInBounds(shiftMonth(month, 1), monthBounds)
   const period = isFy ? (isCurrent ? '本财年' : '该财年') : isCurrent ? '本月' : '当月'
   const prevLabel = isFy ? '较上财年' : '较上月'
 
@@ -242,19 +250,13 @@ export function FinancePage() {
               >
                 ‹
               </button>
-              <div className="text-center">
-                <div className="text-[15px] font-semibold leading-tight text-ink">
-                  {fy.label}
-                  {isCurrent && (
-                    <span className="ml-[6px] rounded-[6px] bg-emerald-50 px-[6px] py-px align-middle text-[10.5px] font-semibold text-emerald-700">
-                      本财年
-                    </span>
-                  )}
-                </div>
-                <div className="mt-px text-[11px] tabular-nums text-faint">
-                  {fy.startYmd} ~ {fy.endYmd}
-                </div>
-              </div>
+              {/* 财年标签可点击直选；‹ › 箭头行为不变 */}
+              <FyYearPicker
+                endYear={fyEnd}
+                currentEndYear={currentFyEnd}
+                earliestMonth={earliestRecordMonth}
+                onSelect={setFyEnd}
+              />
               <button
                 type="button"
                 aria-label="下一财年"
@@ -269,20 +271,20 @@ export function FinancePage() {
               <button
                 type="button"
                 aria-label="上个月"
-                onClick={() => setMonth((m) => shiftMonth(m, -1))}
-                className="grid size-[26px] place-items-center rounded-[8px] bg-emerald-50 text-[14px] font-bold text-emerald-700 hover:bg-emerald-100"
+                disabled={!canPrevMonth}
+                onClick={() => canPrevMonth && setMonth((m) => shiftMonth(m, -1))}
+                className="grid size-[26px] place-items-center rounded-[8px] bg-emerald-50 text-[14px] font-bold text-emerald-700 hover:bg-emerald-100 disabled:cursor-not-allowed disabled:opacity-40"
               >
                 ‹
               </button>
-              <div className="text-[16px] font-semibold text-ink">
-                {monthTitle(month)}
-                {isCurrent && <span className="ml-[6px] text-[11px] font-normal text-faint">本月</span>}
-              </div>
+              {/* 月份标签可点击直选（带 ▾）；箭头与 picker 共用 monthBounds 单一来源 */}
+              <MonthPicker month={month} todayMonth={todayMonth} bounds={monthBounds} onSelect={setMonth} />
               <button
                 type="button"
                 aria-label="下个月"
-                onClick={() => setMonth((m) => shiftMonth(m, 1))}
-                className="grid size-[26px] place-items-center rounded-[8px] bg-emerald-50 text-[14px] font-bold text-emerald-700 hover:bg-emerald-100"
+                disabled={!canNextMonth}
+                onClick={() => canNextMonth && setMonth((m) => shiftMonth(m, 1))}
+                className="grid size-[26px] place-items-center rounded-[8px] bg-emerald-50 text-[14px] font-bold text-emerald-700 hover:bg-emerald-100 disabled:cursor-not-allowed disabled:opacity-40"
               >
                 ›
               </button>

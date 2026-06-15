@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { todayYmd, isFutureYmd, isPastYmd, auFinancialYear, fyOfEndYear, fyOfMonth, clampMonthToFy } from './dateRules'
+import { todayYmd, isFutureYmd, isPastYmd, auFinancialYear, fyOfEndYear, fyOfMonth, clampMonthToFy, fyPickerBounds } from './dateRules'
 
 describe('dateRules（阶段日期禁未来 / 待办截止禁过去）', () => {
   it('todayYmd：本地日历日补零', () => {
@@ -88,5 +88,17 @@ describe('fyOfEndYear（‹ › 切上一/下一财年）', () => {
     expect(fyOfEndYear(2027).startYmd).toBe('2026-07-01')
     expect(fyOfEndYear(2027).endYmd).toBe('2027-06-30')
     expect(fyOfEndYear(2027).label).toBe('2026–27 财年')
+  })
+})
+
+describe('fyPickerBounds（财年直选范围：最早记录财年 → 当前财年）', () => {
+  it('有记录：min = 最早记录月所属财年结束年（2025-03 → 2025），max = 当前财年', () => {
+    expect(fyPickerBounds('2025-03', 2026)).toEqual({ minEndYear: 2025, maxEndYear: 2026 })
+  })
+  it('最早记录在 7 月后 → 归下一结束年（2025-08 → 2026）', () => {
+    expect(fyPickerBounds('2025-08', 2026)).toEqual({ minEndYear: 2026, maxEndYear: 2026 })
+  })
+  it('无记录：仅当前财年', () => {
+    expect(fyPickerBounds(null, 2026)).toEqual({ minEndYear: 2026, maxEndYear: 2026 })
   })
 })

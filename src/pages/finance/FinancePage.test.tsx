@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen, fireEvent } from '@testing-library/react'
+import { render, screen, fireEvent, within } from '@testing-library/react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { MemoryRouter } from 'react-router-dom'
 
@@ -63,6 +63,8 @@ function setData(over: Record<string, unknown> = {}) {
     prevReceipts: { total: 17000, items: [receipt({ paymentId: 'pp', amount: 17000, paidAt: '2026-05-02' })] },
     prevPayouts: { toCompanyTotal: 2000, toReferrerTotal: 1000, miscTotal: 0, items: [payout({ paymentId: 'xp', amount: 2000, paidAt: '2026-05-03' })] },
     visaByCaseId: { c1: '482', c2: '600' },
+    // 最早记录月：2025-03（→ 月选择器范围下界、财年选择器最早财年 2024–25）
+    earliestRecordMonth: '2025-03',
     ...over,
   }
 }
@@ -283,12 +285,16 @@ describe('FinancePage · 月度 ↔ 财年 跟随联动', () => {
   const toFy = () => fireEvent.click(screen.getByRole('button', { name: '财年' }))
   const toMonth = () => fireEvent.click(screen.getByRole('button', { name: '月度' }))
 
-  it('月→财：财年自动跳到包含所选月份的财年（2026年7月 → 2026–27 财年）', () => {
+  it('月→财：财年自动跳到包含所选月份的财年（picker 选 2025年6月 → 2024–25 财年）', () => {
     renderPage()
-    fireEvent.click(screen.getByRole('button', { name: '下个月' })) // 2026-07，已属下一财年
+    // 未来月已不可达，改选一个可达的过去月（2025-06 属 2024–25 财年）
+    fireEvent.click(screen.getByRole('button', { name: '选择月份' }))
+    fireEvent.click(screen.getByRole('button', { name: '上一年' })) // 2025 年
+    fireEvent.click(screen.getByRole('button', { name: '6 月' })) // 2025-06
+    expect(screen.getByText('2025年6月')).toBeInTheDocument()
     toFy()
-    expect(screen.getByText('2026–27 财年')).toBeInTheDocument()
-    expect(state.lastPeriod).toEqual({ kind: 'fy', endYear: 2027 })
+    expect(screen.getByText('2024–25 财年')).toBeInTheDocument()
+    expect(state.lastPeriod).toEqual({ kind: 'fy', endYear: 2025 })
   })
 
   it('财→月：原月份不在所选财年内 → 过去财年跳到该财年末月 6 月', () => {
@@ -317,5 +323,166 @@ describe('FinancePage · 月度 ↔ 财年 跟随联动', () => {
     toMonth()
     expect(screen.getByText('2026年7月')).toBeInTheDocument()
     expect(state.lastPeriod).toEqual({ kind: 'month', month: '2026-07' })
+  })
+})
+
+describe('FinancePage · 月份直选 Popover（点标签选月）', () => {
+  const openPicker = () => fireEvent.click(screen.getByRole('button', { name: '选择月份' }))
+
+  it('选某月 == 用箭头切到同月：表头文案 + 传给聚合的月份参数完全一致', () => {
+    renderPage()
+    // 箭头基准：‹ 切到 2026-05，记录其传参
+    fireEvent.click(screen.getByRole('button', { name: '上个月' }))
+    const viaArrow = state.lastPeriod
+    expect(viaArrow).toEqual({ kind: 'month', month: '2026-05' })
+    expect(screen.getByText('当月收入 · 客户已收')).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: '下个月' })) // 回当前月
+    // Popover：点标签展开 → 选 5 月
+    openPicker()
+    fireEvent.click(screen.getByRole('button', { name: '5 月' }))
+    expect(screen.queryByRole('dialog')).toBeNull() // 选完即关
+    expect(screen.getByText('2026年5月')).toBeInTheDocument()
+    expect(screen.getByText('当月收入 · 客户已收')).toBeInTheDocument()
+    expect(state.lastPeriod).toEqual(viaArrow) // 与箭头路径逐字一致
+  })
+
+  it('年份 ‹ › 调年后，月网格对应到该年（2025 年的 5 月 → 2025-05）', () => {
+    renderPage()
+    openPicker()
+    expect(screen.getByText('2026 年')).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: '上一年' }))
+    expect(screen.getByText('2025 年')).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: '5 月' }))
+    expect(screen.getByText('2025年5月')).toBeInTheDocument()
+    expect(state.lastPeriod).toEqual({ kind: 'month', month: '2025-05' })
+  })
+
+  it('过去年份（2025）12 个月全部可点、无禁用', () => {
+    renderPage()
+    openPicker()
+    fireEvent.click(screen.getByRole('button', { name: '上一年' })) // 2025 年（整年都是过去）
+    expect(screen.getByText('2025 年')).toBeInTheDocument()
+    for (let m = 1; m <= 12; m++) {
+      expect(screen.getByRole('button', { name: `${m} 月` })).not.toBeDisabled()
+    }
+  })
+
+  it('当前年 2026：1–6 月启用、7–12 月（未来）禁用；点 1 月正常跳（过去月可选）', () => {
+    renderPage()
+    openPicker()
+    for (let m = 1; m <= 6; m++) {
+      expect(screen.getByRole('button', { name: `${m} 月` })).not.toBeDisabled()
+    }
+    for (let m = 7; m <= 12; m++) {
+      expect(screen.getByRole('button', { name: `${m} 月` })).toBeDisabled()
+    }
+    fireEvent.click(screen.getByRole('button', { name: '1 月' }))
+    expect(screen.getByText('2026年1月')).toBeInTheDocument()
+    expect(state.lastPeriod).toEqual({ kind: 'month', month: '2026-01' })
+  })
+
+  it('箭头与 Popover 一致：› 在今天所在月 2026-06 禁用（翻不到 7 月），‹ 可达过去', () => {
+    renderPage()
+    expect(screen.getByText('2026年6月')).toBeInTheDocument()
+    // › 在上限禁用
+    const next = screen.getByRole('button', { name: '下个月' })
+    expect(next).toBeDisabled()
+    fireEvent.click(next) // 点禁用按钮无效
+    expect(screen.getByText('2026年6月')).toBeInTheDocument()
+    expect(state.lastPeriod).toEqual({ kind: 'month', month: '2026-06' })
+    // ‹ 可往回
+    expect(screen.getByRole('button', { name: '上个月' })).not.toBeDisabled()
+    fireEvent.click(screen.getByRole('button', { name: '上个月' }))
+    expect(screen.getByText('2026年5月')).toBeInTheDocument()
+    // 回到 5 月后 › 重新可用（5 月的下一月 6 月在范围内）
+    expect(screen.getByRole('button', { name: '下个月' })).not.toBeDisabled()
+  })
+
+  it('年份导航能回翻到至少「当前年 − 5」（2021），到下限年时 ‹ 年 禁用、1 月可点', () => {
+    renderPage()
+    openPicker()
+    for (let i = 0; i < 5; i++) fireEvent.click(screen.getByRole('button', { name: '上一年' }))
+    expect(screen.getByText('2021 年')).toBeInTheDocument() // 当前年 2026 − 5
+    expect(screen.getByRole('button', { name: '上一年' })).toBeDisabled() // 到下限年
+    expect(screen.getByRole('button', { name: '1 月' })).not.toBeDisabled()
+  })
+
+  it('本地日期 2026-06：当前月绿底高亮、今天所在月描边标记落在正确月份（与选中月分离）', () => {
+    renderPage()
+    fireEvent.click(screen.getByRole('button', { name: '上个月' })) // 选中 2026-05，今天仍 2026-06
+    openPicker()
+    const may = screen.getByRole('button', { name: '5 月' })
+    const jun = screen.getByRole('button', { name: '6 月' })
+    expect(may).toHaveAttribute('aria-pressed', 'true')
+    expect(may.className).toContain('bg-emerald-600') // 选中绿底
+    expect(jun).toHaveAttribute('aria-pressed', 'false')
+    expect(jun.className).toContain('ring-emerald-300') // 今天所在月描边
+  })
+
+  it('用箭头翻页后再开 Popover，高亮月与表头一致（双向同步）', () => {
+    renderPage()
+    fireEvent.click(screen.getByRole('button', { name: '上个月' }))
+    fireEvent.click(screen.getByRole('button', { name: '上个月' })) // 2026-04
+    expect(screen.getByText('2026年4月')).toBeInTheDocument()
+    openPicker()
+    expect(screen.getByText('2026 年')).toBeInTheDocument() // 年份视图跟随选中月
+    expect(screen.getByRole('button', { name: '4 月' })).toHaveAttribute('aria-pressed', 'true')
+    expect(screen.getByRole('button', { name: '5 月' })).toHaveAttribute('aria-pressed', 'false')
+  })
+
+  it('Esc 关闭 Popover', () => {
+    renderPage()
+    openPicker()
+    expect(screen.getByRole('dialog')).toBeInTheDocument()
+    fireEvent.keyDown(document, { key: 'Escape' })
+    expect(screen.queryByRole('dialog')).toBeNull()
+  })
+
+  it('选一个无记录的过去月（2025年3月）：表头切换正常、聚合 0.00、不报错/不回弹', () => {
+    setData({
+      receipts: empty,
+      payouts: emptyPayouts,
+      prevReceipts: empty,
+      prevPayouts: emptyPayouts,
+      earliestRecordMonth: null, // 全无记录
+    })
+    expect(() => {
+      renderPage()
+      openPicker()
+      fireEvent.click(screen.getByRole('button', { name: '上一年' })) // 2025
+      fireEvent.click(screen.getByRole('button', { name: '3 月' })) // 2025-03（无记录）
+    }).not.toThrow()
+    expect(screen.queryByRole('dialog')).toBeNull() // 选完即关，不回弹
+    expect(screen.getByText('2025年3月')).toBeInTheDocument()
+    expect(screen.getByText('当月收入 · 客户已收')).toBeInTheDocument()
+    expect(state.lastPeriod).toEqual({ kind: 'month', month: '2025-03' })
+    expect(screen.getAllByText('0.00').length).toBeGreaterThan(0)
+    expect(screen.getByText('当月暂无收入')).toBeInTheDocument()
+  })
+})
+
+describe('FinancePage · 财年直选 Popover（点标签选财年）', () => {
+  const toFy = () => fireEvent.click(screen.getByRole('button', { name: '财年' }))
+  const openPicker = () => fireEvent.click(screen.getByRole('button', { name: '选择财年' }))
+
+  it('选某财年 == 用箭头切到同财年（传给聚合的 endYear 一致）', () => {
+    renderPage()
+    toFy()
+    openPicker()
+    const dialog = screen.getByRole('dialog')
+    fireEvent.click(within(dialog).getByText('2024–25 财年')) // 列表项
+    expect(screen.queryByRole('dialog')).toBeNull()
+    expect(screen.getByText('2024–25 财年')).toBeInTheDocument() // 标签同步
+    expect(state.lastPeriod).toEqual({ kind: 'fy', endYear: 2025 })
+  })
+
+  it('财年列表范围 = 最早记录财年（2024–25）→ 当前财年（2025–26），更早不出现', () => {
+    renderPage()
+    toFy()
+    openPicker()
+    const dialog = screen.getByRole('dialog')
+    expect(within(dialog).getByText('2025–26 财年')).toBeInTheDocument()
+    expect(within(dialog).getByText('2024–25 财年')).toBeInTheDocument()
+    expect(within(dialog).queryByText('2023–24 财年')).toBeNull()
   })
 })

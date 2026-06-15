@@ -71,3 +71,19 @@ export function clampMonthToFy(ym: string, fy: FinancialYear): string {
   const end = fy.endYmd.slice(0, 7)
   return ym < start ? start : ym > end ? end : ym
 }
+
+/** 财年直选器的可选结束年范围（含两端）。 */
+export interface FyBounds {
+  minEndYear: number
+  maxEndYear: number
+}
+
+/**
+ * 财年直选器范围：从「最早记录月所属财年」→「当前财年」（按结束年）。
+ * 无记录（earliest 空）→ 仅当前财年。earliest 异常（晚于当前）按无记录处理。
+ */
+export function fyPickerBounds(earliest: string | null | undefined, currentEndYear: number): FyBounds {
+  const earliestEndYear = earliest ? fyOfMonth(earliest).endYear : currentEndYear
+  const minEndYear = Math.min(earliestEndYear, currentEndYear)
+  return { minEndYear, maxEndYear: currentEndYear }
+}

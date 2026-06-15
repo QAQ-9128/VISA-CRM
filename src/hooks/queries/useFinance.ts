@@ -175,6 +175,17 @@ export function useFinance(period: FinancePeriod) {
     return m
   }, [visibleCases])
 
+  // 月份/财年直选器范围下界用：有 paid_at 的付款里最早的年月（全部时间，不受 period 影响）。
+  const earliestRecordMonth = useMemo(() => {
+    let min: string | null = null
+    for (const p of visiblePayments) {
+      if (!p.paid_at) continue
+      const ym = p.paid_at.slice(0, 7)
+      if (min === null || ym < min) min = ym
+    }
+    return min
+  }, [visiblePayments])
+
   return {
     isPending,
     isError,
@@ -190,5 +201,6 @@ export function useFinance(period: FinancePeriod) {
     instByPlan,
     caseNumberByCaseId,
     visaByCaseId,
+    earliestRecordMonth,
   }
 }
