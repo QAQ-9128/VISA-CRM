@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { Link, useNavigate, useSearchParams } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { useCustomers, useUpdateCustomer } from '../../hooks/queries/useCustomers'
 import { useCases } from '../../hooks/queries/useCases'
 import { useAllCaseApplicants } from '../../hooks/queries/useCaseApplicants'
@@ -20,8 +20,6 @@ import { useCustomerDebts } from '../../hooks/queries/useCustomerDebts'
 import { selectCustomerCases } from '../../lib/family'
 import { customerDisplayName } from '../../lib/customerName'
 import { selectCustomerCaseLines } from '../../lib/customerList'
-import { selectSourceBoardColumns } from '../../lib/customerSourceBoard'
-import type { SourceColumn } from '../../lib/customerSourceBoard'
 import {
   matchesCustomerFilter,
   matchesVisaFilter,
@@ -34,7 +32,7 @@ import {
 import { ownerFacetOptions } from '../../lib/ownerFilter'
 import { CUSTOMER_PAYMENT_TEXT_CLASS } from '../../lib/finance'
 import type { CustomerPaymentColor } from '../../lib/finance'
-import { CLIENT_SOURCES, CLIENT_SOURCE_DOT, CLIENT_SOURCE_LABELS } from '../../types/domain'
+import { CLIENT_SOURCES, CLIENT_SOURCE_LABELS } from '../../types/domain'
 import type { Case, Customer } from '../../types/models'
 
 /** 来源筛选项：三色 + 未分类。 */
@@ -153,19 +151,6 @@ function CustomerRow({
 }
 
 export function CustomerListPage() {
-  // 视图存进 URL（?view=board）：刷新/返回保持同一视图（与案件页同模式）
-  const [searchParams, setSearchParams] = useSearchParams()
-  const view: 'list' | 'board' = searchParams.get('view') === 'board' ? 'board' : 'list'
-  const setView = (v: 'list' | 'board') =>
-    setSearchParams(
-      (prev) => {
-        const next = new URLSearchParams(prev)
-        if (v === 'board') next.set('view', 'board')
-        else next.delete('view')
-        return next
-      },
-      { replace: true },
-    )
   const [search, setSearch] = useState('')
   const [showFilters, setShowFilters] = useState(false)
   const [filter, setFilter] = useState<CustomerFilter>(EMPTY_CUSTOMER_FILTER)
@@ -209,9 +194,6 @@ export function CustomerListPage() {
     const list = searchedCustomers.filter((c) => customerMatches(c, filter, subclassesByCustomerId))
     return [...list].sort((a, b) => Number(b.is_starred) - Number(a.is_starred))
   }, [searchedCustomers, filter, subclassesByCustomerId])
-  // 看板：按来源分列（黑=公司派 / 绿=自己 / 黄=擦屁股 + 未分类兜底），沿用同一份筛选结果
-  const boardColumns = useMemo(() => selectSourceBoardColumns(visibleCustomers), [visibleCustomers])
-
   // 签证类别筛选项：只列已有案件出现过的签证子类
   const visaOptions = useMemo(
     () => [...new Set((cases.data ?? []).map((c) => c.visa_subclass).filter(Boolean))].sort((a, b) => a.localeCompare(b)),
@@ -257,22 +239,6 @@ export function CustomerListPage() {
       </div>
 
       <div className="flex flex-wrap items-center gap-3">
-        {/* 列表 / 看板（按来源三色分列）段控 */}
-        <div className="inline-flex gap-1 rounded-full bg-surface-2 p-1">
-          {(['list', 'board'] as const).map((v) => (
-            <button
-              key={v}
-              type="button"
-              onClick={() => setView(v)}
-              className={`inline-flex min-h-11 items-center rounded-full px-4 text-[13.5px] font-semibold transition-colors ${
-                view === v ? 'bg-white text-brand shadow-xs' : 'text-muted hover:text-body'
-              }`}
-            >
-              {v === 'list' ? '列表' : '看板'}
-            </button>
-          ))}
-        </div>
-
         <div className="flex h-11 min-w-[220px] flex-1 items-center gap-2.5 rounded-full border border-line-2 bg-white px-4 text-faint shadow-xs focus-within:border-brand focus-within:ring-2 focus-within:ring-brand-100">
           <SearchIcon className="size-[18px] shrink-0" />
           <input
@@ -372,9 +338,6 @@ export function CustomerListPage() {
               ) : undefined
             }
           />
-        ) : view === 'board' ? (
-          // 看板：黑(公司派) / 绿(自己) / 黄(擦屁股) 三列按来源分；与列表共用同一份筛选/搜索结果
-          <SourceBoard columns={boardColumns} casesOf={displayCasesOf} employerNameOf={employerNameOf} />
         ) : (
           // 平铺客户（一案一组：组随案件走，客户列表不再按组出卡）；每行=客户名 + TA 参与的案件
           // 注意：容器不能 overflow-hidden——行尾「⋯」菜单（归档/彻底删除）是 absolute 弹层，会被裁掉看不见
@@ -395,88 +358,5 @@ export function CustomerListPage() {
         )}
       </div>
     </section>
-  )
-}
-
-// 看板列顶部色条：黑(公司派 'red' 显示为柔和黑) / 绿 / 黄 / 灰(未分类)
-const COLUMN_ACCENT: Record<string, string> = {
-  red: 'border-t-slate-900',
-  green: 'border-t-green-600',
-  yellow: 'border-t-yellow-500',
-  none: 'border-t-slate-300',
-}
-
-/**
- * 客户来源看板：固定三列 黑(公司派)/绿(自己)/黄(帮别人擦屁股)（+未分类灰列兜底）。
- * 卡片 = 客户名(星标在前) + TA 参与的案件行（签证 | 职位 | 雇主 | 阶段），点击进客户档案。
- */
-function SourceBoard({
-  columns,
-  casesOf,
-  employerNameOf,
-}: {
-  columns: SourceColumn[]
-  casesOf: (c: Customer) => Case[]
-  employerNameOf: (c: Customer) => string | null
-}) {
-  const source = useBackSource()
-  return (
-    <div className="grid grid-cols-1 items-start gap-4 md:grid-cols-3">
-      {columns.map((col) => {
-        const key = col.source ?? 'none'
-        return (
-          <div key={key} className={`rounded-card border-t-4 bg-white p-3.5 shadow-soft ${COLUMN_ACCENT[key]}`}>
-            <div className="mb-2.5 flex items-center gap-2 border-b border-line pb-2.5">
-              <span
-                aria-hidden
-                className={`size-2.5 shrink-0 rounded-full ${col.source ? CLIENT_SOURCE_DOT[col.source] : 'bg-slate-300'}`}
-              />
-              <h2 className="text-[14px] font-bold text-ink">
-                {col.source ? CLIENT_SOURCE_LABELS[col.source] : '未分类'}
-              </h2>
-              <span className="ml-auto text-[12px] text-faint">{col.customers.length} 人</span>
-            </div>
-
-            {col.customers.length === 0 ? (
-              <p className="py-5 text-center text-sm text-faint">暂无客户</p>
-            ) : (
-              <ul className="space-y-2">
-                {col.customers.map((m) => {
-                  const lines = selectCustomerCaseLines(m, casesOf(m), employerNameOf(m))
-                  return (
-                    <li key={m.id} className="relative">
-                      {/* 卡级操作：归档 / 彻底删除（admin）——浮在卡片右上角，不挡整卡点击 */}
-                      <div className="absolute top-1.5 right-1.5 z-10">
-                        <CustomerActionsMenu customer={m} />
-                      </div>
-                      <Link
-                        to={`/customers/${m.id}`}
-                        state={source}
-                        className="block rounded-[12px] border border-line px-3 py-2.5 pr-10 transition-colors hover:border-brand-100 hover:bg-brand-50/40"
-                      >
-                        <div className="flex items-center gap-1.5">
-                          {m.is_starred && <span aria-hidden className="text-[13px] text-amber-500">★</span>}
-                          <span className="truncate text-sm font-semibold text-ink">{customerDisplayName(m)}</span>
-                        </div>
-                        {lines.length === 0 ? (
-                          <p className="mt-0.5 text-xs text-faint">暂无案件</p>
-                        ) : (
-                          <div className="mt-1 space-y-1">
-                            {/* 点签证行 → 客户详情并选中该案（卡片其余区域仍进客户档案） */}
-                            {lines.map((line) => (
-                              <CaseLine key={line.caseId} line={line} customerId={m.id} />
-                            ))}
-                          </div>
-                        )}
-                      </Link>
-                    </li>
-                  )
-                })}
-              </ul>
-            )}
-          </div>
-        )
-      })}
-    </div>
   )
 }

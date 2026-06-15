@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { useAllLodgements } from '../../hooks/queries/useLodgements'
 import { useCases, useAllStageHistory } from '../../hooks/queries/useCases'
 import { useCustomers } from '../../hooks/queries/useCustomers'
@@ -16,7 +17,10 @@ import {
 import { visibleCaseIds } from '../../lib/visibility'
 import { CASE_STAGE_LABELS } from '../../types/domain'
 import type { CaseStage } from '../../types/domain'
+import type { Customer } from '../../types/models'
+import { selectCaseCards } from '../../lib/caseBoard'
 import { LodgementProgressTable } from '../../components/cases/LodgementProgressTable'
+import { CaseBoard } from '../../components/cases/CaseBoard'
 import { Card } from '../../components/ui/Card'
 import { Chip, FilterButton, FilterGroup } from '../../components/ui/filters'
 import { SearchIcon } from '../../components/ui/icons'
@@ -51,23 +55,57 @@ export function CasesPage() {
     activeOnly: false,
   })
 
+  // 视图：进度表(默认) / 看板；存进 URL（?view=board）→ 刷新/返回保持。进入页面默认进度表，行为不变
+  const [searchParams, setSearchParams] = useSearchParams()
+  const view: 'table' | 'board' = searchParams.get('view') === 'board' ? 'board' : 'table'
+  const setView = (v: 'table' | 'board') =>
+    setSearchParams(
+      (prev) => {
+        const next = new URLSearchParams(prev)
+        if (v === 'board') next.set('view', 'board')
+        else next.delete('view')
+        return next
+      },
+      { replace: true },
+    )
+
   const today = useMemo(() => new Date(), [])
 
-  // 递交进度行（两个 tab 共用）；全员归档的案件才隐藏（任一参与人在册即可见）
-  const caseRows = useMemo(() => {
-    const customerById: Record<string, unknown> = {}
-    for (const c of customers.data ?? []) customerById[c.id] = c
+  // 在册客户 map + 可见案件（全员归档才隐藏）——进度表与看板共用同一套案件
+  const customerById = useMemo(() => {
+    const m: Record<string, Customer> = {}
+    for (const c of customers.data ?? []) m[c.id] = c
+    return m
+  }, [customers.data])
+  const visibleCases = useMemo(() => {
     const visible = visibleCaseIds(cases.data ?? [], customerById, applicants.data ?? [])
-    const visibleCases = (cases.data ?? []).filter((c) => visible.has(c.id))
-    return selectCaseRows(
-      visibleCases,
-      lodgements.data ?? [],
-      applicants.data ?? [],
-      customers.data ?? [],
-      today,
-      stageHistory.data ?? [],
-    )
-  }, [cases.data, lodgements.data, applicants.data, customers.data, today, stageHistory.data])
+    return (cases.data ?? []).filter((c) => visible.has(c.id))
+  }, [cases.data, customerById, applicants.data])
+
+  // 递交进度行（进度表用）
+  const caseRows = useMemo(
+    () =>
+      selectCaseRows(
+        visibleCases,
+        lodgements.data ?? [],
+        applicants.data ?? [],
+        customers.data ?? [],
+        today,
+        stageHistory.data ?? [],
+      ),
+    [visibleCases, lodgements.data, applicants.data, customers.data, today, stageHistory.data],
+  )
+
+  // 案件卡 VM（看板用），与进度表读同一批可见案件
+  const employerNameById = useMemo(() => {
+    const m: Record<string, string> = {}
+    for (const e of employers.data ?? []) m[e.id] = e.name
+    return m
+  }, [employers.data])
+  const caseCards = useMemo(
+    () => selectCaseCards(visibleCases, customerById, applicants.data ?? [], employerNameById),
+    [visibleCases, customerById, applicants.data, employerNameById],
+  )
 
   // 案件列表行（补雇主 / 大类 / 紧急）
   const listRows = useMemo(
@@ -90,6 +128,15 @@ export function CasesPage() {
     () => caseRows.filter((r) => allowedIds.has(r.caseId)),
     [caseRows, allowedIds],
   )
+  // 看板呈现「同一筛选结果」：与进度表共用 allowedIds（避免两套筛选并存）
+  const boardVms = useMemo(() => caseCards.filter((vm) => allowedIds.has(vm.caseId)), [caseCards, allowedIds])
+
+  // 卡片「查看进度 →」：切到进度表并把搜索定位到该案件（复用现有搜索，不动表格本身）
+  const jumpToCase = (caseId: string) => {
+    const caseNumber = caseCards.find((c) => c.caseId === caseId)?.caseNumber ?? ''
+    setFilter((f) => ({ ...f, search: caseNumber }))
+    setView('table')
+  }
 
   const activeCount =
     filter.stages.size +
@@ -123,11 +170,31 @@ export function CasesPage() {
     <section className="space-y-4">
       <div>
         <h1 className="font-serif text-[26px] font-bold tracking-[-0.01em] text-ink">递交进度</h1>
-        <p className="mt-0.5 text-sm font-medium text-muted">全部案件审理跟踪 · 共 {listRows.length} 件 · 点行进客户档案</p>
+        <p className="mt-0.5 text-sm font-medium text-muted">
+          {view === 'board'
+            ? `案件卡一览 · 共 ${boardVms.length} 件 · 点卡片「查看进度」回进度表定位`
+            : `全部案件审理跟踪 · 共 ${listRows.length} 件 · 点行进客户档案`}
+        </p>
       </div>
 
-      {/* 搜索 + 筛选 */}
+      {/* 视图段控 + 搜索 + 筛选（搜索/筛选两视图共用） */}
       <div className="flex flex-wrap items-center gap-3">
+        {/* 进度表 / 看板 段控 */}
+        <div className="inline-flex gap-1 rounded-full bg-surface-2 p-1">
+          {(['table', 'board'] as const).map((v) => (
+            <button
+              key={v}
+              type="button"
+              onClick={() => setView(v)}
+              className={`inline-flex min-h-11 items-center rounded-full px-4 text-[13.5px] font-semibold transition-colors ${
+                view === v ? 'bg-white text-brand shadow-xs' : 'text-muted hover:text-body'
+              }`}
+            >
+              {v === 'table' ? '进度表' : '看板'}
+            </button>
+          ))}
+        </div>
+
         <div className="flex h-11 min-w-[220px] flex-1 items-center gap-2.5 rounded-full border border-line-2 bg-white px-4 text-faint shadow-xs focus-within:border-brand focus-within:ring-2 focus-within:ring-brand-100">
           <SearchIcon className="size-[18px] shrink-0" />
           <input
@@ -230,8 +297,12 @@ export function CasesPage() {
         </Card>
       )}
 
-      {/* 内容：递交进度表（行点击 → 客户详情并选中该案） */}
-      <LodgementProgressTable rows={filteredCaseRows} tasks={tasks.data ?? []} />
+      {/* 内容：进度表（不动）/ 案件 card 看板（读同一筛选结果） */}
+      {view === 'board' ? (
+        <CaseBoard vms={boardVms} onViewProgress={jumpToCase} />
+      ) : (
+        <LodgementProgressTable rows={filteredCaseRows} tasks={tasks.data ?? []} />
+      )}
     </section>
   )
 }
