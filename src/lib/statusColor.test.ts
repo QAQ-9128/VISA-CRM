@@ -3,9 +3,12 @@ import { CASE_STAGES, LEGACY_CASE_STAGES } from '../types/domain'
 import {
   FLOW_STATUS_CATEGORY,
   FLOW_STATUS_LABELS,
+  RECEIVABLE_STATUS_CATEGORY,
+  RECEIVABLE_STATUS_LABELS,
   STAGE_CATEGORY,
   STATUS_CATEGORY_META,
   flowStatusBadgeClass,
+  receivableStatusBadgeClass,
   stageBadgeClass,
   stageCategory,
   stageSolidColor,
@@ -53,6 +56,17 @@ describe('statusColor · 状态 6 类配色单一来源（全站状态徽章统�
     expect(FLOW_STATUS_LABELS).toEqual({ pending: '审理中', approved: '获批', refused: '已拒' })
     expect(flowStatusBadgeClass('pending')).toBe(STATUS_CATEGORY_META.inProgress.badge)
     expect(flowStatusBadgeClass('approved')).toBe(STATUS_CATEGORY_META.done.badge)
+  })
+
+  it('费用卡应收行状态：已收款=绿(done)、待付款=蓝(waiting，非灰)、未设=灰；徽章类同源', () => {
+    expect(RECEIVABLE_STATUS_CATEGORY.settled).toBe('done')
+    expect(RECEIVABLE_STATUS_CATEGORY.owing).toBe('waiting')
+    expect(RECEIVABLE_STATUS_CATEGORY.unset).toBe('inProgress')
+    expect(RECEIVABLE_STATUS_LABELS).toEqual({ unset: '未设应收', settled: '已收款', owing: '待付款' })
+    // 单一来源：徽章类 = STATUS_CATEGORY_META 对应类别（已收款绿、待付款蓝 #3f7cb5）
+    expect(receivableStatusBadgeClass('settled')).toBe(STATUS_CATEGORY_META.done.badge)
+    expect(receivableStatusBadgeClass('owing')).toBe(STATUS_CATEGORY_META.waiting.badge)
+    expect(receivableStatusBadgeClass('owing')).toContain('#3f7cb5') // 蓝，不是灰
   })
 
   it('未知状态兜底 → 灰（进行中）', () => {

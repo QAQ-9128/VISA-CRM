@@ -87,3 +87,23 @@ export function stageBadgeClass(stage: CaseStage | (string & {})): string {
 export function stageSolidColor(stage: CaseStage | (string & {})): string {
   return STATUS_CATEGORY_META[stageCategory(stage)].solid
 }
+
+/**
+ * 费用记录卡 · 应收行状态 → 6 类色（单一来源，禁止组件内硬编码）：
+ *   已收款 settled → 完成/获批（绿）；待付款 owing → 等待付款（蓝，非灰）；未设应收 unset → 进行中（中性灰）。
+ */
+export type ReceivableStatusKind = 'unset' | 'settled' | 'owing'
+export const RECEIVABLE_STATUS_CATEGORY: Record<ReceivableStatusKind, StatusCategory> = {
+  unset: 'inProgress',
+  settled: 'done',
+  owing: 'waiting',
+}
+export const RECEIVABLE_STATUS_LABELS: Record<ReceivableStatusKind, string> = {
+  unset: '未设应收',
+  settled: '已收款',
+  owing: '待付款',
+}
+/** 应收行状态徽章配色类（已收款=绿 / 待付款=蓝 / 未设=灰）。 */
+export function receivableStatusBadgeClass(kind: ReceivableStatusKind): string {
+  return STATUS_CATEGORY_META[RECEIVABLE_STATUS_CATEGORY[kind]].badge
+}
