@@ -31,20 +31,6 @@ export function getItemPaid(itemId: string, payments: PaymentLike[]): number {
   return round2(sum)
 }
 
-/**
- * 应付款项名下「已付」：归属它的实付支出之和——付主代理 + 付介绍人（不含垫付杂项）。
- * 与 getItemPaid 镜像，只是方向集换成应付两类。净额仍按 payments.direction 重算，本函数只供「待付款/已付」状态派生。
- */
-export function getPayableItemPaid(itemId: string, payments: PaymentLike[]): number {
-  let sum = 0
-  for (const p of payments) {
-    if (p.plan_item_id !== itemId) continue
-    if (p.direction !== 'to_company' && p.direction !== 'to_referrer') continue
-    sum += num(p.amount)
-  }
-  return round2(sum)
-}
-
 /** 该款项未付 = 应收 − 已付（可为负，超付时；不夹 0，由展示层决定）。 */
 export function getItemUnpaid(item: ItemLike, payments: PaymentLike[]): number {
   return round2(num(item.amount_due) - getItemPaid(item.id, payments))

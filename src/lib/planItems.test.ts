@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { getItemPaid, getItemUnpaid, getCaseTotals, itemHasPayments, isPayableItem, getPayableItemPaid } from './planItems'
+import { getItemPaid, getItemUnpaid, getCaseTotals, itemHasPayments, isPayableItem } from './planItems'
 import type { Payment, PaymentPlanItem } from '../types/models'
 
 const mkItem = (o: Partial<PaymentPlanItem>): PaymentPlanItem => ({
@@ -67,22 +67,6 @@ describe('isPayableItem（应付款项鉴别）', () => {
     expect(isPayableItem(mkItem({ kind: null }))).toBe(false)
     expect(isPayableItem(mkItem({ kind: 'receivable' }))).toBe(false)
     expect(isPayableItem({})).toBe(false)
-  })
-})
-
-describe('getPayableItemPaid（应付款项已付 = 付主代理 + 付介绍人，不含垫付/收款）', () => {
-  it('只汇总归属该 item 的 to_company / to_referrer；from_client / misc_expense / 别的 item 不计', () => {
-    const payments = [
-      mkPay({ id: 'a', plan_item_id: 'it1', direction: 'to_company', amount: 3000 }),
-      mkPay({ id: 'b', plan_item_id: 'it1', direction: 'to_referrer', amount: 500 }),
-      mkPay({ id: 'c', plan_item_id: 'it1', direction: 'misc_expense', amount: 200 }), // 垫付 → 不计
-      mkPay({ id: 'd', plan_item_id: 'it1', direction: 'from_client', amount: 999 }), // 收款 → 不计
-      mkPay({ id: 'e', plan_item_id: 'it2', direction: 'to_company', amount: 700 }), // 别的 item → 不计
-    ]
-    expect(getPayableItemPaid('it1', payments)).toBe(3500)
-  })
-  it('无关联支出 → 0', () => {
-    expect(getPayableItemPaid('itX', [mkPay({ plan_item_id: 'it1', direction: 'to_company', amount: 100 })])).toBe(0)
   })
 })
 
