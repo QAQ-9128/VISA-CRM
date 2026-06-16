@@ -25,6 +25,9 @@ export type Task = Tables<'tasks'>
 export type RecordRow = Tables<'records'>
 /** 概览独立待办清单项（不关联客户/案件）。 */
 export type ChecklistItem = Tables<'checklist_items'>
+/** 案件自定义提醒（挂在已有案件上，日历紫点）。 */
+export type CaseReminder = Tables<'case_reminders'>
+export type CaseReminderInsert = TablesInsert<'case_reminders'>
 
 /** 家庭成员关联（把已有独立客户关联为某主申的副申；与 primary_applicant_id 并存）。 */
 export type FamilyMemberLink = Tables<'family_member_links'>

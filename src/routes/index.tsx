@@ -12,6 +12,7 @@ import { GroupManagementPage } from '../pages/customers/GroupManagementPage'
 import { CustomerFormPage } from '../pages/customers/CustomerFormPage'
 import { CasesPage } from '../pages/cases/CasesPage'
 import { CaseFormPage } from '../pages/cases/CaseFormPage'
+import { CalendarPage } from '../pages/calendar/CalendarPage'
 import { EmployerListPage } from '../pages/employers/EmployerListPage'
 import { EmployerFormPage } from '../pages/employers/EmployerFormPage'
 import { ReferrerListPage } from '../pages/referrers/ReferrerListPage'
@@ -43,6 +44,7 @@ export const appRoutes: RouteObject[] = [
           { path: 'customers/:id/group', element: <GroupManagementPage /> },
           // 案件详情页已删（案件功能全部在客户详情页 ?case= 选中）；保留 递交进度 + 新建/编辑表单
           { path: 'cases', element: <CasesPage /> },
+          { path: 'calendar', element: <CalendarPage /> },
           { path: 'cases/new', element: <CaseFormPage /> },
           { path: 'cases/:id/edit', element: <CaseFormPage /> },
           { path: 'employers', element: <EmployerListPage /> },

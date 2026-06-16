@@ -630,6 +630,37 @@ export interface Database {
         Update: Partial<Database['public']['Tables']['tasks']['Insert']>
         Relationships: []
       }
+      case_reminders: {
+        Row: {
+          id: string
+          case_id: string
+          content: string
+          /** 基准日（点「+」的日期格，本地日期）；到期 = base_date + offset */
+          base_date: DateStr
+          offset_value: number
+          /** 'day' | 'month' | 'year' */
+          offset_unit: string
+          /** never/hourly/daily/weekdays/weekends/weekly/biweekly/monthly/every3months/every6months/yearly/custom */
+          repeat_rule: string
+          enabled: boolean
+          created_by: string | null
+          created_at: Timestamp
+        }
+        Insert: {
+          id?: string
+          case_id: string
+          content: string
+          base_date: DateStr
+          offset_value?: number
+          offset_unit?: string
+          repeat_rule?: string
+          enabled?: boolean
+          created_by?: string | null
+          created_at?: Timestamp
+        }
+        Update: Partial<Database['public']['Tables']['case_reminders']['Insert']>
+        Relationships: []
+      }
     }
     Views: { [_ in never]: never }
     Functions: { [_ in never]: never }

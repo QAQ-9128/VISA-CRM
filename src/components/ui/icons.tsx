@@ -194,6 +194,15 @@ export function ClockIcon(props: SVGProps<SVGSVGElement>) {
   )
 }
 
+export function CalendarIcon(props: SVGProps<SVGSVGElement>) {
+  return (
+    <svg {...base} {...props}>
+      <rect x="3.5" y="5" width="17" height="15.5" rx="2.5" />
+      <path d="M3.5 9.5h17M8 3.5V6M16 3.5V6" />
+    </svg>
+  )
+}
+
 export function PassportIcon(props: SVGProps<SVGSVGElement>) {
   return (
     <svg {...base} {...props}>

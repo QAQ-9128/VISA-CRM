@@ -92,6 +92,9 @@ export const queryKeys = {
   checklist: {
     all: ['checklist'] as const,
   },
+  reminders: {
+    all: ['case_reminders'] as const,
+  },
   familyLinks: {
     all: ['family_member_links'] as const,
   },
