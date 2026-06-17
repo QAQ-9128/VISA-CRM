@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import * as casesApi from './cases'
 import { wireFrom } from '../test/sbMock'
+import type { CaseStageHistory } from '../types/models'
 
 const { fromMock } = vi.hoisted(() => ({ fromMock: vi.fn() }))
 vi.mock('../lib/supabase', () => ({ supabase: { from: fromMock }, setRememberMe: vi.fn() }))
@@ -147,6 +148,45 @@ describe('deleteStageHistory', () => {
     expect(b.case_stage_history.delete).toHaveBeenCalled()
     expect(b.case_stage_history.eq).toHaveBeenCalledWith('id', 'h1')
     expect(b.case_stage_history.insert).not.toHaveBeenCalled()
+  })
+})
+
+describe('deleteLatestStageHistory（删一条 + 重算回退当前阶段，单一来源）', () => {
+  it('删最新一条 → 删该行、重取剩余、把 cases.current_stage 写回剩余里最新一条的 to_stage', async () => {
+    const deleted = {
+      id: 'h3', case_id: 'c1', from_stage: 'nomination_approved', to_stage: 'visa_lodged',
+      note: null, changed_by: null,
+      effective_at: '2026-04-15T00:00:00Z', changed_at: '2026-04-15T00:00:00Z',
+    } as CaseStageHistory
+    // 删后剩余两条：最新是「提名获批」
+    const remaining = [
+      { id: 'h2', case_id: 'c1', from_stage: 'nomination_lodged', to_stage: 'nomination_approved', effective_at: '2026-03-01T00:00:00Z', changed_at: '2026-03-01T00:00:00Z' },
+      { id: 'h1', case_id: 'c1', from_stage: 'todo', to_stage: 'nomination_lodged', effective_at: '2026-01-10T00:00:00Z', changed_at: '2026-01-10T00:00:00Z' },
+    ]
+    const b = wireFrom(fromMock, { case_stage_history: { data: remaining }, cases: {} })
+
+    const newStage = await casesApi.deleteLatestStageHistory(deleted)
+
+    expect(b.case_stage_history.delete).toHaveBeenCalled()
+    expect(b.case_stage_history.eq).toHaveBeenCalledWith('id', 'h3')
+    expect(b.case_stage_history.eq).toHaveBeenCalledWith('case_id', 'c1')
+    expect(b.cases.update).toHaveBeenCalledWith({ current_stage: 'nomination_approved' })
+    expect(b.cases.eq).toHaveBeenCalledWith('id', 'c1')
+    expect(newStage).toBe('nomination_approved')
+  })
+
+  it('删到空 → current_stage 回到被删那条的来源阶段 from_stage（初始）', async () => {
+    const deleted = {
+      id: 'only', case_id: 'c1', from_stage: 'todo', to_stage: 'nomination_lodged',
+      note: null, changed_by: null,
+      effective_at: '2026-01-10T00:00:00Z', changed_at: '2026-01-10T00:00:00Z',
+    } as CaseStageHistory
+    const b = wireFrom(fromMock, { case_stage_history: { data: [] }, cases: {} })
+
+    const newStage = await casesApi.deleteLatestStageHistory(deleted)
+
+    expect(b.cases.update).toHaveBeenCalledWith({ current_stage: 'todo' })
+    expect(newStage).toBe('todo')
   })
 })
 

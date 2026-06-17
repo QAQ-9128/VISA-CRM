@@ -1,4 +1,5 @@
 import { supabase } from '../lib/supabase'
+import { recomputeStageAfterDelete } from '../lib/stageHistory'
 import type { Case, CaseInsert, CaseStageHistory, CaseUpdate } from '../types/models'
 import type { TablesUpdate } from '../types/database'
 import type { CaseStage } from '../types/domain'
@@ -107,10 +108,36 @@ export async function updateStageHistory(
   return data
 }
 
-/** 删除某条阶段历史（不影响 cases.current_stage）。 */
+/** 底层删除某条阶段历史（不联动当前阶段）。当前阶段联动请用 deleteLatestStageHistory。 */
 export async function deleteStageHistory(id: string): Promise<void> {
   const { error } = await supabase.from('case_stage_history').delete().eq('id', id)
   if (error) throw error
+}
+
+/**
+ * 删除某条阶段流转，并把 cases.current_stage **重算回退**——当前阶段是从流转记录派生的单一来源：
+ * 删最新一条 → 当前阶段回到上一个；删到空 → 回到被删那条的来源阶段（初始）。
+ * 删后从库重取剩余记录（不信任客户端缓存）再重算写回，保证当前阶段与历史一致、绝不脱钩。
+ * 纯逻辑 + 既有表，无结构变更/无 migration。返回重算后的当前阶段。
+ */
+export async function deleteLatestStageHistory(row: CaseStageHistory): Promise<CaseStage> {
+  const { error } = await supabase.from('case_stage_history').delete().eq('id', row.id)
+  if (error) throw error
+
+  const { data: remaining, error: selError } = await supabase
+    .from('case_stage_history')
+    .select('*')
+    .eq('case_id', row.case_id)
+  if (selError) throw selError
+
+  const newStage = recomputeStageAfterDelete(remaining ?? [], row)
+  const { error: upError } = await supabase
+    .from('cases')
+    .update({ current_stage: newStage })
+    .eq('id', row.case_id)
+  if (upError) throw upError
+
+  return newStage
 }
 
 /** 全部案件的阶段历史（递交进度表算「决定日期」冻结距今用）。 */

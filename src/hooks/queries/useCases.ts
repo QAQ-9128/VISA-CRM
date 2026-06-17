@@ -3,7 +3,7 @@ import {
   archiveCase,
   createCase,
   deleteCase,
-  deleteStageHistory,
+  deleteLatestStageHistory,
   getCase,
   getCaseStageHistory,
   listAllStageHistory,
@@ -16,7 +16,7 @@ import {
 import type { CaseStageHistoryUpdate, UpdateCaseStageParams } from '../../api/cases'
 import { ensureLodgement } from '../../api/lodgements'
 import { todayYmd } from '../../lib/dateRules'
-import type { CaseInsert, CaseUpdate } from '../../types/models'
+import type { CaseInsert, CaseStageHistory, CaseUpdate } from '../../types/models'
 import type { CaseStage, LodgementType } from '../../types/domain'
 import { useAuth } from '../useAuth'
 import { queryKeys } from './keys'
@@ -156,16 +156,22 @@ export function useUpdateStageHistory(caseId: string) {
   })
 }
 
-/** 删除某条阶段历史（不影响当前阶段）。失效该案件时间线 + 全部案件键。 */
+/**
+ * 删除最新一条阶段流转 = 回退一步：删后重算 cases.current_stage（单一来源，见 deleteLatestStageHistory）。
+ * 当前阶段变化牵连面广，需联动失效：该案件时间线 + 案件实体键/概览（invalidateCases）+ 该案递交区/递交进度表
+ * ——「更新至」标签、提名/签证状态徽章、审理时长、相关待办随重算后的当前阶段一并刷新。
+ */
 export function useDeleteStageHistory(caseId: string) {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: (id: string) => deleteStageHistory(id),
+    mutationFn: (row: CaseStageHistory) => deleteLatestStageHistory(row),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: queryKeys.cases.stageHistory(caseId) })
-      qc.invalidateQueries({ queryKey: queryKeys.cases.all })
+      invalidateCases(qc)
+      qc.invalidateQueries({ queryKey: queryKeys.lodgements.byCase(caseId) })
+      qc.invalidateQueries({ queryKey: queryKeys.lodgements.lodged })
     },
-    meta: { success: '流转记录已删除', errorPrefix: '删除失败' },
+    meta: { success: '已删除最新流转记录，当前阶段回退一步', errorPrefix: '删除失败' },
   })
 }
 
