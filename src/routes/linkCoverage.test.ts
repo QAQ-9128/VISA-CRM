@@ -18,6 +18,7 @@ const APP_LINKS = [
   '/cases',
   '/cases/new', // 含 ?customer= / ?with= / ?prefill=186trt
   '/cases/abc/edit',
+  '/calendar', // 案件日历（导航项 + 日历页内跳客户）
   '/employers',
   '/employers/new',
   '/employers/abc/edit',

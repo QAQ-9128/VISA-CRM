@@ -62,14 +62,12 @@ export function StageControl({
           value={stage}
           onChange={(e) => setStage(e.target.value as CaseStage)}
         />
-        {changed && (
-          <TextField
-            label="备注（可选，记入时间线）"
-            value={note}
-            onChange={(e) => setNote(e.target.value)}
-            placeholder="如 已补充 PTE 成绩"
-          />
-        )}
+        {/* 备注常驻：推进到任意阶段都可填备注（可选，记入时间线）。不放示例占位文案，留空即可。 */}
+        <TextField
+          label="备注（可选，记入时间线）"
+          value={note}
+          onChange={(e) => setNote(e.target.value)}
+        />
         <TextField
           label="实际发生日期（默认今天，可补录过去，不能选未来）"
           type="date"
