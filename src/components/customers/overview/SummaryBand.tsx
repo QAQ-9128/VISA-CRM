@@ -8,7 +8,7 @@ import { useReferrer } from '../../../hooks/queries/useReferrers'
 import { useCaseStageHistory } from '../../../hooks/queries/useCases'
 import { useCustomerFinance } from '../../../hooks/queries/useCustomerFinance'
 import { selectProcessingRows } from '../../../lib/processingTime'
-import { flowStatusBadgeClass } from '../../../lib/statusColor'
+import { ProcessingDurationRows } from './ProcessingDurationRows'
 import { customerDisplayName } from '../../../lib/customerName'
 import { customerNetTotal } from '../../../lib/finance'
 import { formatMoney } from '../../../lib/money'
@@ -18,7 +18,9 @@ import type { Case, Customer } from '../../../types/models'
 /** 概要带的一格（发丝分隔）：标题 + 主值 + 副说明。字号/字重略升，强化可读性。 */
 function Cell({ label, children, sub, subTone }: { label: ReactNode; children: ReactNode; sub?: ReactNode; subTone?: string }) {
   return (
-    <div className="min-w-[8.5rem] flex-1 px-5 py-1">
+    // 宽度按内容自适应：`grow basis-44`（约 176px 首选宽，可增长填满整行）+ 默认 min-width:auto，
+    // 即整格永不被压到比其 nowrap 内容更窄——放不下就由外层 flex-wrap 整块掉到下一行，绝不内折/溢出。
+    <div className="grow basis-44 px-4 py-1">
       <div className="text-[12px] font-semibold tracking-[0.02em] text-muted">{label}</div>
       <div className="mt-1 text-[15.5px] font-bold text-ink">{children}</div>
       {sub != null && <div className={`mt-0.5 text-[12px] font-medium ${subTone ?? 'text-faint'}`}>{sub}</div>}
@@ -75,9 +77,10 @@ export function SummaryBand({
         </div>
       </div>
 
-      {/* 中：概要格。窄屏按断点降列堆叠（1 → 2 → 3 列，保留上下分隔线与间距）；
-          ≥xl 恢复原版单行 flex + 发丝竖分隔（宽屏外观不变） */}
-      <div className="grid flex-1 grid-cols-1 gap-y-3 border-y border-line py-2 sm:grid-cols-2 md:grid-cols-3 xl:flex xl:flex-wrap xl:gap-y-0 xl:border-y-0 xl:py-0 xl:divide-x xl:divide-line">
+      {/* 中：概要格。一律 flex-wrap——每格首选 ~176px，放得下就并排、放不下整格换行（4→2→1），
+          靠内容真实宽度决定，不再硬塞一行、也不写死字体宽度的窄列。去掉脆弱的 divide-x 竖分隔
+          （wrap 后会错位、并疑似制造「未收」旁那条多余竖线），改用 gap + 上下发丝线作band 分隔。 */}
+      <div className="flex flex-1 flex-wrap gap-x-5 gap-y-3 border-y border-line py-2 xl:border-y-0 xl:py-0">
         <Cell label="参与案件" sub="一案一组 · 点击管理参与">
           <Link
             to={`/customers/${customer.id}/group`}
@@ -96,24 +99,7 @@ export function SummaryBand({
           {!selectedCase ? (
             <span className="text-faint">暂无案件</span>
           ) : processingRows.length > 0 ? (
-            <span className="flex flex-col gap-0.5">
-              {processingRows.map((row) => (
-                <span key={row.flow} className="flex items-baseline gap-1.5" title={row.text}>
-                  <span className="text-[13px] font-semibold">
-                    <span className="text-emerald-700">{row.flowLabel}</span>审理
-                  </span>
-                  <span className="text-[20px] leading-tight font-extrabold tabular-nums text-emerald-700">
-                    {row.days}
-                  </span>
-                  <span className="text-[12px] font-semibold text-muted">天</span>
-                  <span
-                    className={`inline-flex items-center self-center rounded-full px-2 py-px text-[11px] font-bold ${flowStatusBadgeClass(row.status)}`}
-                  >
-                    {row.tag}
-                  </span>
-                </span>
-              ))}
-            </span>
+            <ProcessingDurationRows rows={processingRows} />
           ) : (
             <span className="text-faint">—</span>
           )}
@@ -139,7 +125,7 @@ export function SummaryBand({
           label="净额（全部案件）"
           sub={finance.isPending ? null : `收款 ${formatMoney(net.received)} − 支出 ${formatMoney(net.expense)}`}
         >
-          <span className={net.net >= 0 ? 'text-emerald-600' : 'text-rose-600'}>
+          <span className={`whitespace-nowrap tabular-nums ${net.net >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
             {finance.isPending ? '…' : formatMoney(net.net)}
           </span>
         </Cell>
@@ -148,7 +134,7 @@ export function SummaryBand({
           sub={finance.isPending ? null : unpaidCount > 0 ? `待付款 ${unpaidCount} 项` : '已全部结清'}
           subTone={unpaidCount > 0 ? 'text-rose-500' : 'text-faint'}
         >
-          <span className="text-rose-600">{finance.isPending ? '…' : formatMoney(t.unpaid)}</span>
+          <span className="whitespace-nowrap tabular-nums text-rose-600">{finance.isPending ? '…' : formatMoney(t.unpaid)}</span>
         </Cell>
       </div>
 
