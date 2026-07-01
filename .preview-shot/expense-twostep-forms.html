@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="stylesheet" href="../dist/assets/index-qyh7CriC.css">
+</head>
+<body class="text-body antialiased" style="background:#e8f0ea">
+<main class="px-8 pt-6 pb-8">
+<div class="mx-auto max-w-[560px] rounded-[20px] bg-white p-5 [box-shadow:0_14px_34px_-20px_rgba(40,90,60,.22)]">
+  <h3 class="font-serif text-[14px] font-bold text-ink"><span class="mr-1">💸</span>本案支出 · 两步录入</h3>
+
+  <!-- 第一步：添加应付款项 -->
+  <p class="mt-3 mb-1 text-[11.5px] font-semibold text-faint">① 添加应付款项（仅登记应付义务 → 待付款）</p>
+  <form class="space-y-2.5 rounded-[14px] border border-rose-100 bg-rose-50/40 p-3">
+    <div class="grid grid-cols-1 gap-2.5 sm:grid-cols-2">
+      <div class="space-y-1.5">
+        <label class="block text-[13.5px] font-semibold text-body">款项类型<span class="ml-0.5 text-rose-500">*</span></label>
+        <select class="block h-12 w-full appearance-none rounded-[14px] border border-line-2 bg-white px-3.5 pr-10 text-[15px] text-ink"><option>提名代理费</option></select>
+      </div>
+      <div class="space-y-1.5">
+        <label class="block text-[13.5px] font-semibold text-body">应付金额<span class="ml-0.5 text-rose-500">*</span></label>
+        <input class="block h-12 w-full rounded-[14px] border border-line-2 bg-white px-3.5 text-[15px] text-ink" value="3000">
+      </div>
+    </div>
+    <div class="space-y-1.5">
+      <label class="block text-[13.5px] font-semibold text-body">备注（选填）</label>
+      <input class="block h-12 w-full rounded-[14px] border border-line-2 bg-white px-3.5 text-[15px] text-ink" value="">
+    </div>
+    <div class="flex gap-2">
+      <button class="inline-flex h-11 items-center justify-center rounded-[14px] bg-brand-700 px-4 text-[15px] font-semibold text-white">保存应付款项</button>
+      <button class="inline-flex h-11 items-center justify-center rounded-[14px] px-4 text-[15px] font-semibold text-muted">取消</button>
+    </div>
+  </form>
+
+  <!-- 第二步：记一笔实际支出（付款对象在此） -->
+  <p class="mt-4 mb-1 text-[11.5px] font-semibold text-faint">② 记一笔实际支出（付款对象在此选，状态翻「已付」）</p>
+  <form class="space-y-2.5 rounded-[14px] border border-rose-100 bg-rose-50/40 p-3">
+    <p class="text-[13px] font-semibold text-ink">记支出 · 提名代理费</p>
+    <div class="grid grid-cols-1 gap-2.5 sm:grid-cols-3">
+      <div class="space-y-1.5">
+        <label class="block text-[13.5px] font-semibold text-body">付款对象<span class="ml-0.5 text-rose-500">*</span></label>
+        <select class="block h-12 w-full appearance-none rounded-[14px] border border-line-2 bg-white px-3.5 pr-10 text-[15px] text-ink"><option>付主代理</option><option>付介绍人</option></select>
+      </div>
+      <div class="space-y-1.5">
+        <label class="block text-[13.5px] font-semibold text-body">金额（AUD）<span class="ml-0.5 text-rose-500">*</span></label>
+        <input class="block h-12 w-full rounded-[14px] border border-line-2 bg-white px-3.5 text-[15px] text-ink" value="3000">
+      </div>
+      <div class="space-y-1.5">
+        <label class="block text-[13.5px] font-semibold text-body">实际日期<span class="ml-0.5 text-rose-500">*</span></label>
+        <input class="block h-12 w-full rounded-[14px] border border-line-2 bg-white px-3.5 text-[15px] text-ink" value="2026-06-15">
+      </div>
+    </div>
+    <div class="grid grid-cols-1 gap-2.5 sm:grid-cols-2">
+      <div class="space-y-1.5">
+        <label class="block text-[13.5px] font-semibold text-body">方式<span class="ml-0.5 text-rose-500">*</span></label>
+        <select class="block h-12 w-full appearance-none rounded-[14px] border border-line-2 bg-white px-3.5 pr-10 text-[15px] text-ink"><option>转账</option></select>
+      </div>
+      <div class="space-y-1.5">
+        <label class="block text-[13.5px] font-semibold text-body">备注（选填）</label>
+        <input class="block h-12 w-full rounded-[14px] border border-line-2 bg-white px-3.5 text-[15px] text-ink" value="">
+      </div>
+    </div>
+    <div class="flex gap-2">
+      <button class="inline-flex h-11 items-center justify-center rounded-[14px] bg-brand-700 px-4 text-[15px] font-semibold text-white">确认支出</button>
+      <button class="inline-flex h-11 items-center justify-center rounded-[14px] px-4 text-[15px] font-semibold text-muted">取消</button>
+    </div>
+  </form>
+</div>
+</main>
+</body>
+</html>

@@ -134,6 +134,34 @@ describe('selectAutoReminderEvents（现有 TRT / 同居材料统一紫点）', 
   })
 })
 
+describe('selectAutoReminderEvents · De Facto「Submitted + 28 天」派生提醒（§6 数据预留，无表落点）', () => {
+  const dfCase = (o: Partial<Case> = {}) =>
+    mkCase({ id: 'ca1', customer_id: 'P', visa_subclass: 'De Facto', visa_stream: null, case_category: 'De Facto 关系认定', current_stage: 'df_submitted', ...o })
+  const submittedHist = (date: string) => [mkHist({ id: 'df', to_stage: 'df_submitted', effective_at: date })]
+
+  it('当前停在 df_submitted → Submitted 实际发生日 + 28 天，单点紫（never）', () => {
+    const evs = selectAutoReminderEvents([dfCase()], customers, submittedHist('2026-06-01'), '2026-06')
+    expect(evs).toHaveLength(1)
+    expect(evs[0]).toMatchObject({ date: '2026-06-29', kind: 'reminder', typeLabel: 'De Facto 提醒', detail: 'Submitted 满 28 天' })
+  })
+
+  it('离开 Submitted（已推进到 df_rfe）→ 不再派生（自动一致，无需 reconcile）', () => {
+    const evs = selectAutoReminderEvents([dfCase({ current_stage: 'df_rfe' })], customers, submittedHist('2026-06-01'), '2026-06')
+    expect(evs).toHaveLength(0)
+  })
+
+  it('改 Submitted 实际发生日 → 落点随之重算（+28 天）', () => {
+    // 6/05 提交 → 7/03 到期：查 7 月得该点，查 6 月为空
+    expect(selectAutoReminderEvents([dfCase()], customers, submittedHist('2026-06-05'), '2026-07')[0]).toMatchObject({ date: '2026-07-03' })
+    expect(selectAutoReminderEvents([dfCase()], customers, submittedHist('2026-06-05'), '2026-06')).toHaveLength(0)
+  })
+
+  it('仅 De Facto 大类：非 DF 案（大类空）即便 current=df_submitted 也不派生', () => {
+    const evs = selectAutoReminderEvents([dfCase({ case_category: null })], customers, submittedHist('2026-06-01'), '2026-06')
+    expect(evs).toHaveLength(0)
+  })
+})
+
 describe('matchesEventSearch（客户名 / 案件号 / 事件类型）', () => {
   const ev = { customerName: '谢华', caseNumber: '99710250', typeLabel: '提名递交' }
   it('空 → 全命中；命中名/号/类型；不相关不命中', () => {

@@ -39,12 +39,12 @@ const mkPlan = (o: Partial<PaymentPlan>): PaymentPlan => ({
 })
 // 应收已改为款项明细派生：每个 plan 一条默认款项(amount_due = 该 plan 的应收)
 const mkItem = (o: Partial<PaymentPlanItem>): PaymentPlanItem => ({
-  id: 'i1', plan_id: 'p1', fee_category: '律师费', amount_due: 0, periods: 1, note: null, kind: null, created_at: '', updated_at: '', ...o,
+  id: 'i1', plan_id: 'p1', fee_category: '律师费', amount_due: 0, periods: 1, note: null, kind: null, expense_direction: null, is_shared: false, created_at: '', updated_at: '', ...o,
 })
 const mkPayment = (o: Partial<Payment>): Payment => ({
   id: 'pay1', case_id: 'c1', applicant_id: null, direction: 'from_client', installment_id: null, plan_item_id: null, amount: 0,
   currency: 'AUD', method: 'transfer', paid_at: null, note: null, fee_category: null, invoice_path: null, invoice_name: null,
-  from_client_customer_id: null, recorded_by: null, created_at: '', ...o,
+  from_client_customer_id: null, is_shared: false, recorded_by: null, created_at: '', ...o,
 })
 const mkReferrer = (o: Partial<Referrer>): Referrer => ({
   id: 'r1', name: '王介绍', kind: 'referrer', contact_phone: null, contact_email: null, notes: null,

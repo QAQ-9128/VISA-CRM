@@ -22,7 +22,7 @@ export function StageProgressCard({ caseRow }: { caseRow: Case }) {
       <div className="mt-4">
         {advancing ? (
           <div>
-            <StageControl caseId={caseRow.id} currentStage={caseRow.current_stage} />
+            <StageControl caseId={caseRow.id} currentStage={caseRow.current_stage} caseCategory={caseRow.case_category} />
             <button type="button" onClick={() => setAdvancing(false)} className="mt-2 text-[12.5px] font-semibold text-muted hover:text-ink">
               收起
             </button>

@@ -1,0 +1,91 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="stylesheet" href="../dist/assets/index-rdIAwnkY.css">
+</head>
+<body class="text-body antialiased" style="background:#e8f0ea">
+<main class="px-8 pt-6 pb-10">
+<div class="mx-auto max-w-[560px] rounded-[20px] bg-white p-5 [box-shadow:0_14px_34px_-20px_rgba(40,90,60,.22)]">
+  <div class="mb-1 flex items-center gap-2">
+    <h2 class="font-serif text-[18px] font-bold tracking-[-0.01em] text-ink"><span class="mr-1.5">💳</span>费用记录</h2>
+    <span class="rounded-full bg-[var(--color-lime-soft)] px-2.5 py-0.5 text-[12px] font-semibold text-[var(--color-lime-ink)]">482</span>
+  </div>
+  <p class="mb-3 text-[12px] text-faint">本案 · 按人拆分 · 与财务同源</p>
+
+  <!-- 收款侧（不变）：一条已收款项 -->
+  <div>
+    <div class="flex w-full items-center gap-2.5 rounded-[12px] bg-brand-50 px-3 py-2">
+      <span class="grid size-[30px] place-items-center rounded-full bg-emerald-100 text-[12px] font-bold text-emerald-700">陈</span>
+      <span class="font-serif text-[15px] font-bold text-ink">陈伟</span>
+    </div>
+    <div class="border-b border-line">
+      <div class="flex items-center gap-2 py-2.5">
+        <span class="grid size-5 place-items-center text-faint">›</span>
+        <span class="min-w-0 flex-1 truncate text-sm text-ink">律师费</span>
+        <span class="min-w-[92px] text-right text-sm font-semibold tabular-nums text-emerald-700">AUD 6,500.00</span>
+        <span class="flex w-[60px] justify-center"><span class="rounded-full bg-emerald-50 px-2 py-0.5 text-[11px] font-semibold text-emerald-700">已收款</span></span>
+        <span class="grid size-7 place-items-center rounded-full text-muted">⋯</span>
+      </div>
+    </div>
+    <div class="mt-1.5 flex flex-wrap items-center justify-end gap-x-4 gap-y-1 rounded-[12px] bg-surface-2 px-3 py-2 text-[12px]">
+      <span class="mr-auto font-semibold text-ink">陈伟 小计</span>
+      <span class="text-muted">应收 <b class="font-semibold tabular-nums text-ink">AUD 6,500.00</b></span>
+      <span class="text-muted">已收 <b class="font-semibold tabular-nums text-brand">AUD 6,500.00</b></span>
+      <span class="text-muted">未收 <b class="font-semibold tabular-nums text-faint">AUD 0.00</b></span>
+    </div>
+  </div>
+
+  <!-- 💸 本案支出（单步直记） -->
+  <div class="mt-4 border-t border-line pt-3">
+    <h3 class="font-serif text-[14px] font-bold text-ink"><span class="mr-1">💸</span>本案支出</h3>
+    <p class="mt-0.5 text-[11.5px] text-faint">单步直记一笔（付主代理 / 付介绍人）· 与财务账目联动同源</p>
+
+    <ul class="mt-2 space-y-1.5">
+      <li class="border-b border-line pb-1.5">
+        <div class="flex items-center gap-2 py-1 text-[12.5px]">
+          <span class="shrink-0 rounded-full bg-[var(--color-coral-bg)] px-2 py-0.5 text-[11px] font-semibold text-[#c25a52]">付主代理</span>
+          <span class="min-w-0 flex-1 truncate"><span class="text-ink">提名代理费</span><span class="text-faint"> · 转账 · 2026-06-01</span></span>
+          <span class="min-w-[92px] text-right font-semibold tabular-nums text-[#c25a52]">AUD 3,000.00</span>
+          <span class="grid size-7 place-items-center rounded-full text-muted">⋯</span>
+        </div>
+      </li>
+      <li class="border-b border-line pb-1.5">
+        <div class="flex items-center gap-2 py-1 text-[12.5px]">
+          <span class="shrink-0 rounded-full bg-[var(--color-coral-bg)] px-2 py-0.5 text-[11px] font-semibold text-[#c25a52]">付介绍人</span>
+          <span class="min-w-0 flex-1 truncate"><span class="text-ink">介绍佣金</span><span class="text-faint"> · 转账 · 2026-06-03</span></span>
+          <span class="min-w-[92px] text-right font-semibold tabular-nums text-[#c25a52]">AUD 800.00</span>
+          <span class="grid size-7 place-items-center rounded-full text-muted">⋯</span>
+        </div>
+      </li>
+    </ul>
+
+    <!-- 单步「记一笔支出」表单（展开态）：付款对象 主代理/介绍人 + 金额 + 方式(转账/现金/垫付) + 备注（无实际日期） -->
+    <form class="mt-2 space-y-2.5 rounded-[14px] border border-rose-100 bg-rose-50/40 p-3">
+      <div class="grid grid-cols-1 gap-2.5 sm:grid-cols-3">
+        <div class="space-y-1.5"><label class="block text-[13.5px] font-semibold text-body">付款对象<span class="ml-0.5 text-rose-500">*</span></label>
+          <select class="block h-12 w-full appearance-none rounded-[14px] border border-line-2 bg-white px-3.5 pr-10 text-[15px] text-ink"><option>付主代理</option><option>付介绍人</option></select></div>
+        <div class="space-y-1.5"><label class="block text-[13.5px] font-semibold text-body">金额（AUD）<span class="ml-0.5 text-rose-500">*</span></label>
+          <input class="block h-12 w-full rounded-[14px] border border-line-2 bg-white px-3.5 text-[15px] text-ink" value="3000"></div>
+        <div class="space-y-1.5"><label class="block text-[13.5px] font-semibold text-body">方式<span class="ml-0.5 text-rose-500">*</span></label>
+          <select class="block h-12 w-full appearance-none rounded-[14px] border border-line-2 bg-white px-3.5 pr-10 text-[15px] text-ink"><option>转账</option><option>现金</option><option>垫付</option></select></div>
+      </div>
+      <div class="space-y-1.5"><label class="block text-[13.5px] font-semibold text-body">备注（选填）</label>
+        <input class="block h-12 w-full rounded-[14px] border border-line-2 bg-white px-3.5 text-[15px] text-ink" placeholder="如：体检费垫付"></div>
+      <div class="flex gap-2">
+        <button class="inline-flex h-11 items-center rounded-[14px] bg-brand-700 px-4 text-[15px] font-semibold text-white">保存支出</button>
+        <button class="inline-flex h-11 items-center rounded-[14px] px-4 text-[15px] font-semibold text-muted">取消</button>
+      </div>
+    </form>
+
+    <!-- 支出合计 strip -->
+    <div class="mt-3 flex flex-wrap items-end justify-between gap-2 rounded-[12px] bg-surface-2 px-3 py-2">
+      <div><div class="text-[11.5px] text-muted">支出合计</div><div class="font-serif text-[17px] font-bold tabular-nums text-[#c25a52]">AUD 3,800.00</div></div>
+      <div class="text-[11.5px] tabular-nums text-faint">付主代理 3,000.00 · 付介绍人 800.00</div>
+    </div>
+  </div>
+</div>
+</main>
+</body>
+</html>

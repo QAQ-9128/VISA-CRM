@@ -22,7 +22,13 @@ import { useLodgements } from '../../../hooks/queries/useLodgements'
 import { getLodgementStatus } from '../../../lib/lodgementStatus'
 import { flowProcessing } from '../../../lib/casesTable'
 import { useDetailsAutoClose } from '../../../hooks/useDetailsAutoClose'
-import { MilestoneCard } from './MilestoneCard'
+import { MilestoneCard, OccupationalDurationCard } from './MilestoneCard'
+import { isOccupationalCategory, isDeFactoCategory, isUnsetOccupationalStage } from '../../../lib/caseStages'
+import { selectOccupationalDurations } from '../../../lib/occupationalDuration'
+import { useFamilyMembers } from '../../../hooks/queries/useFamilyMembers'
+import { selectFamilyByCustomer } from '../../../lib/familyMembers'
+import { FamilyChip } from '../../family/FamilyChip'
+import { CASE_STAGE_LABELS } from '../../../types/domain'
 import { TrtReminderCard } from '../../cases/TrtReminderCard'
 import { CohabReminderCard } from '../../cases/CohabReminderCard'
 import { shouldShowTrtReminder, monthsSinceGrant } from '../../../lib/trt'
@@ -68,6 +74,9 @@ function ParticipantManager({
   const [adding, setAdding] = useState(false)
   const [query, setQuery] = useState('')
   const [confirmingLeave, setConfirmingLeave] = useState(false)
+  // 客户级 family：与正式参与人并列显示一颗 family 标签（取本页客户的成员，与案件无关）
+  const allFamily = useFamilyMembers()
+  const family = useMemo(() => selectFamilyByCustomer(allFamily.data ?? [], pageCustomerId), [allFamily.data, pageCustomerId])
 
   const q = query.trim().toLowerCase()
   const list = candidates.filter((c) => !q || customerDisplayName(c).toLowerCase().includes(q)).slice(0, 8)
@@ -105,6 +114,8 @@ function ParticipantManager({
             </span>
           )
         })}
+        {/* 客户级 family 标签（与参与人并列；hover 气泡见 FamilyChip）——属于客户、与案件无关 */}
+        <FamilyChip members={family} />
         <button
           type="button"
           onClick={() => setAdding((v) => !v)}
@@ -265,6 +276,11 @@ export function RelatedCasesCard({
   const nomStatus = nomP.lodged || nomP.approved ? getLodgementStatus(stage, 'nomination', hist) : null
   const visaStatus = visaP.lodged || visaP.approved ? getLodgementStatus(stage, 'visa', hist) : null
   const dhaOf = (t: LodgementType) => (lodgements.data ?? []).find((l) => l.type === t)?.dha_processing_days ?? null
+  // 职业评估：顶部两卡换「审理时长两段」（CHN 资历认证 / 技术评估），从阶段史本地派生（§5）
+  const isOA = isOccupationalCategory(selectedCase?.case_category)
+  // De Facto：关系类无提名/签证流程 → 隐藏「提名/签证递交」里程碑卡（否则两张空「—」卡，无意义）。
+  const isDeFacto = isDeFactoCategory(selectedCase?.case_category)
+  const oaDur = useMemo(() => selectOccupationalDurations(hist), [hist])
   const updatedAt = useMemo(() => {
     let best: string | null = null
     for (const h of hist) {
@@ -313,7 +329,8 @@ export function RelatedCasesCard({
                     activeTab ? 'bg-brand-700 text-white shadow-brand' : 'bg-surface-2 text-body hover:bg-brand-50'
                   }`}
                 >
-                  {formatVisaType(cs.visa_subclass, cs.visa_stream)}
+                  {/* 职业评估标签只显示「职业评估」(不带案件号)；其它类型按现状显类型名 */}
+                  {isOccupationalCategory(cs.case_category) ? '职业评估' : formatVisaType(cs.visa_subclass, cs.visa_stream)}
                 </button>
               )
             })}
@@ -405,47 +422,91 @@ export function RelatedCasesCard({
                       </InfoRow>
                     ),
                 )}
-                <InfoRow label="担保职位">{sponsorPosition}</InfoRow>
-                <InfoRow label="担保雇主">
-                  {sponsorEmployerId ? employer.data?.name ?? '…' : null}
-                </InfoRow>
-                {/* 所属账号 = cases.immi_account_id → immi_accounts.name；未指定退 — */}
-                <InfoRow label="所属账号">
-                  {selectedCase.immi_account_id ? immiAccount.data?.name ?? '…' : null}
-                </InfoRow>
-                <InfoRow label="介绍人" valueClass="text-rose-600">
-                  {customer.referrer_id ? referrer.data?.name ?? '…' : null}
-                </InfoRow>
-                {/* 一案一组：参与客户可直接删减（✕ 移出 / + 添加），不必进编辑案件表单 */}
-                <ParticipantManager
-                  caseId={selectedCase.id}
-                  participants={managerParticipants}
-                  pageCustomerId={customer.id}
-                  pageCustomerName={customerName}
-                  candidates={addCandidates}
-                />
-                <InfoRow label="Group 组码">
-                  <span className="rounded-full bg-[var(--color-lime-soft)] px-2 py-0.5 text-[11px] font-semibold text-[var(--color-lime-ink)]">
-                    {groupCode}
-                  </span>
-                </InfoRow>
+                {/* 职业评估=单人评估：隐藏 担保职位/担保雇主/所属账号/介绍人/参与客户/Group（§4，仅前端条件渲染，
+                    底层归属/账目结构不动）；OA 详情只剩 案件大类/案件类型 + 评估机构/评估职位(case_details 逐键)。 */}
+                {!isOA && (
+                  <>
+                    {/* 担保职位/担保雇主/所属账号/介绍人 = 签证类专属字段：OA 与 De Facto 都不需要（§6 详情与表单一致）→
+                        仅签证/定制等类显示；De Facto 详情只剩 案件大类/案件类型/用途 + 参与客户(组)/组码。 */}
+                    {!isDeFacto && (
+                      <>
+                        <InfoRow label="担保职位">{sponsorPosition}</InfoRow>
+                        <InfoRow label="担保雇主">
+                          {sponsorEmployerId ? employer.data?.name ?? '…' : null}
+                        </InfoRow>
+                        {/* 所属账号 = cases.immi_account_id → immi_accounts.name；未指定退 — */}
+                        <InfoRow label="所属账号">
+                          {selectedCase.immi_account_id ? immiAccount.data?.name ?? '…' : null}
+                        </InfoRow>
+                        <InfoRow label="介绍人" valueClass="text-rose-600">
+                          {customer.referrer_id ? referrer.data?.name ?? '…' : null}
+                        </InfoRow>
+                      </>
+                    )}
+                    {/* 参与客户(组) + Group 组码：有组的类型（签证 + De Facto）都显示；OA 去组已被外层 !isOA 排除。
+                        一案一组：参与客户可直接删减（✕ 移出 / + 添加），不必进编辑案件表单。 */}
+                    <ParticipantManager
+                      caseId={selectedCase.id}
+                      participants={managerParticipants}
+                      pageCustomerId={customer.id}
+                      pageCustomerName={customerName}
+                      candidates={addCandidates}
+                    />
+                    <InfoRow label="Group 组码">
+                      <span className="rounded-full bg-[var(--color-lime-soft)] px-2 py-0.5 text-[11px] font-semibold text-[var(--color-lime-ink)]">
+                        {groupCode}
+                      </span>
+                    </InfoRow>
+                  </>
+                )}
               </div>
 
               {/* 当前状态：更新至 chip + 日期 + 两里程碑卡 */}
               <div>
+                {/* 「更新至」行仅当该案**有阶段流转记录**（至少推进过一次）时显示。判断依据 = 流转记录是否存在，
+                    不看 current_stage 是否有默认值（新建案件默认落 df_prep / todo 不算「更新过」）。
+                    此规则对所有走阶段进展的类型一致（De Facto / 职业评估 / 签证）。 */}
+                {hist.length > 0 && (
                 <div className="mb-2 flex flex-wrap items-center gap-2">
                   <span className="text-[13px] font-semibold text-muted">更新至</span>
-                  <StageBadge stage={selectedCase.current_stage} />
+                  {/* 职业评估未推进 → 显示「无」（无待办阶段）；签证类及已推进 OA 照常显徽章 */}
+                  {isUnsetOccupationalStage(selectedCase.case_category, selectedCase.current_stage) ? (
+                    <span className="text-[13px] font-medium text-faint">无</span>
+                  ) : (
+                    <StageBadge stage={selectedCase.current_stage} />
+                  )}
                   <span className="text-[12.5px] font-medium tabular-nums text-faint">{updatedAt ?? '—'}</span>
                   {participantNames.length > 1 && (
                     <span className="text-[12.5px] font-medium text-faint">· 全员进度一致</span>
                   )}
                 </div>
-                {/* 两里程碑卡（窄屏堆叠，≥sm 并排）：审理时长 + 状态，与进度表同一来源（flowProcessing/statusColor） */}
+                )}
+                {/* 两卡（窄屏堆叠，≥sm 并排）：OA=审理时长两段（CHN/技评，本地派生 + 切阶段联动重算）；
+                    签证类=提名/签证审理时长 + 状态（flowProcessing/statusColor 同一来源）；
+                    De Facto=关系类无提名/签证流程 → 整组隐藏（不显空「—」卡，照 mockup）。 */}
+                {!isDeFacto && (
                 <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                  <MilestoneCard title="提名递交" dhaDays={dhaOf('nomination')} processing={nomP} status={nomStatus} />
-                  <MilestoneCard title="签证递交" dhaDays={dhaOf('visa')} processing={visaP} status={visaStatus} />
+                  {isOA ? (
+                    <>
+                      <OccupationalDurationCard
+                        title={CASE_STAGE_LABELS.oa_chn_verification}
+                        stage="oa_chn_verification"
+                        duration={oaDur.chn}
+                      />
+                      <OccupationalDurationCard
+                        title={CASE_STAGE_LABELS.oa_skill_submitted}
+                        stage="oa_skill_submitted"
+                        duration={oaDur.skill}
+                      />
+                    </>
+                  ) : (
+                    <>
+                      <MilestoneCard title="提名递交" dhaDays={dhaOf('nomination')} processing={nomP} status={nomStatus} />
+                      <MilestoneCard title="签证递交" dhaDays={dhaOf('visa')} processing={visaP} status={visaStatus} />
+                    </>
+                  )}
                 </div>
+                )}
               </div>
 
               {/* 阶段进展（与案件详情页同一组件，UI 完全一致）：真实阶段链 + 推进阶段 + 阶段流转记录 */}

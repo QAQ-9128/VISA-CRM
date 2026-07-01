@@ -52,6 +52,21 @@ export const STAGE_CATEGORY: Record<CaseStage, StatusCategory> = {
   appeal: 'action',
   withdrawn: 'terminated',
   additional_docs: 'action', // 旧「补件」
+  // 职业评估专属阶段（仅 case_category='职业评估'）→ 复用现有 6 类色，不新增颜色：
+  oa_chn_verification: 'waiting', // 中国学历认证·已递交 = 等待外部（蓝）
+  oa_skill_submitted: 'waiting', // 职业评估·已递交 = 等待外部（蓝）
+  oa_rfe: 'action', // 要求补充材料 = 需要行动（黄）
+  oa_responded: 'inProgress', // 已回复 = 进行中（灰）
+  oa_approved: 'done', // 已批准 = 完成（绿）
+  oa_positive: 'done', // 正面结果 = 完成（绿）
+  oa_negative: 'terminated', // 负面结果 = 终止（红）
+  // De Facto 专属阶段（5 个，仅 case_category='De Facto 关系认定'）→ 复用现有 6 类色，零新增颜色。
+  // 28days Reminder 不是阶段（是派生型自动提醒），不在此表。
+  df_prep: 'inProgress', // 同居关系材料准备 = 进行中（灰 #7e887e）
+  df_submitted: 'waiting', // Submitted = 等待外部（蓝 #3f7cb5）
+  df_rfe: 'action', // Request Further evidence = 需要行动（黄 #c08a2e）
+  df_responded: 'inProgress', // Responded = 进行中（灰 #7e887e）
+  df_registered: 'done', // Registered = 完成（绿 #357a52）
 }
 
 /** 提名/签证流程状态（案件进度表两列 + 里程碑卡）：审理中=灰、获批=绿、已拒=红。 */
@@ -90,13 +105,14 @@ export function stageSolidColor(stage: CaseStage | (string & {})): string {
 
 /**
  * 费用记录卡 · 应收行状态 → 6 类色（单一来源，禁止组件内硬编码）：
- *   已收款 settled → 完成/获批（绿）；待付款 owing → 等待付款（蓝，非灰）；未设应收 unset → 进行中（中性灰）。
+ *   已收款 settled → 完成/获批（绿）；待付款 owing → 需要行动（黄，2026-06「列式录入」改版起：收款=绿/待付=黄）；
+ *   未设应收 unset → 进行中（中性灰）。
  */
 export type ReceivableStatusKind = 'unset' | 'settled' | 'owing'
 export const RECEIVABLE_STATUS_CATEGORY: Record<ReceivableStatusKind, StatusCategory> = {
   unset: 'inProgress',
   settled: 'done',
-  owing: 'waiting',
+  owing: 'action',
 }
 export const RECEIVABLE_STATUS_LABELS: Record<ReceivableStatusKind, string> = {
   unset: '未设应收',
@@ -106,4 +122,21 @@ export const RECEIVABLE_STATUS_LABELS: Record<ReceivableStatusKind, string> = {
 /** 应收行状态徽章配色类（已收款=绿 / 待付款=蓝 / 未设=灰）。 */
 export function receivableStatusBadgeClass(kind: ReceivableStatusKind): string {
   return STATUS_CATEGORY_META[RECEIVABLE_STATUS_CATEGORY[kind]].badge
+}
+
+/**
+ * 费用记录卡 · 支出行状态 → 色（单一来源，与收款侧对称）：
+ *   待支出 pending → 需要行动（琥珀 #c08a2e，与「待付款」同源——「待」一律琥珀）；
+ *   已支出 paid    → 支出语义珊瑚（§9 珊瑚只在支出出现，取站内 coral 令牌底 + 珊瑚深字）。
+ * 支出珊瑚不并入 6 类的 terminated（语义不同），故单列；新增支出色一律加这里，别散落组件。
+ */
+export type ExpenseStatusKind = 'pending' | 'paid'
+export const EXPENSE_STATUS_LABELS: Record<ExpenseStatusKind, string> = {
+  pending: '待支出',
+  paid: '已支出',
+}
+/** 已支出珊瑚徽章（浅珊瑚底 + 珊瑚深字，与本卡支出金额同色系）。 */
+export const EXPENSE_PAID_BADGE = 'bg-[var(--color-coral-bg)] text-[#c25a52]'
+export function expenseStatusBadgeClass(kind: ExpenseStatusKind): string {
+  return kind === 'pending' ? STATUS_CATEGORY_META.action.badge : EXPENSE_PAID_BADGE
 }

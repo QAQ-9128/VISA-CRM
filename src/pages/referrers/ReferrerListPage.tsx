@@ -25,6 +25,11 @@ function ReferrerRow({ r, kindLabel }: { r: Referrer; kindLabel: string }) {
         <p className="truncate text-xs text-faint">
           {[r.contact_phone, r.contact_email].filter(Boolean).join(' · ') || '—'}
         </p>
+        {r.notes && (
+          <p data-testid="referrer-notes" className="mt-0.5 truncate text-xs text-muted" title={r.notes}>
+            备注：{r.notes}
+          </p>
+        )}
       </div>
       <Link to={`/referrers/${r.id}/edit`} className="shrink-0">
         <Button variant="secondary">编辑</Button>

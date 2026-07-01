@@ -33,6 +33,11 @@ export type CaseReminderInsert = TablesInsert<'case_reminders'>
 export type FamilyMemberLink = Tables<'family_member_links'>
 export type FamilyMemberLinkInsert = TablesInsert<'family_member_links'>
 
+/** 客户级 family（家庭成员）：自由文本名字+关系，可选关联已有客户档案；不建档、不进账目。 */
+export type CustomerFamilyMember = Tables<'customer_family_members'>
+export type CustomerFamilyMemberInsert = TablesInsert<'customer_family_members'>
+export type CustomerFamilyMemberUpdate = TablesUpdate<'customer_family_members'>
+
 // 写入类型（新建 / 更新）
 export type CustomerInsert = TablesInsert<'customers'>
 export type CustomerUpdate = TablesUpdate<'customers'>

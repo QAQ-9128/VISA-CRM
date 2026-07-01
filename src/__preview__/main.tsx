@@ -27,6 +27,8 @@ import { CustomerFormPage } from '../pages/customers/CustomerFormPage'
 import { GroupManagementPage } from '../pages/customers/GroupManagementPage'
 import { CaseFormPage } from '../pages/cases/CaseFormPage'
 import { CustomerListPage } from '../pages/customers/CustomerListPage'
+import { FancySelect, ComboBox } from '../components/ui/FancySelect'
+import type { FancyOption } from '../components/ui/FancySelect'
 import { AuthContext } from '../providers/auth-context'
 import type { AuthContextValue } from '../providers/auth-context'
 import { queryKeys } from '../hooks/queries/keys'
@@ -66,13 +68,13 @@ const plan = (o: Partial<PaymentPlan>): PaymentPlan => ({
 })
 const item = (o: Partial<PaymentPlanItem>): PaymentPlanItem => ({
   id: 'IT', plan_id: 'PL', fee_category: '律师费', amount_due: 100, periods: 1, note: null,
-  kind: null, created_at: '2026-01-01', updated_at: '', ...o,
+  kind: null, expense_direction: null, is_shared: false, created_at: '2026-01-01', updated_at: '', ...o,
 })
 const pay = (o: Partial<Payment>): Payment => ({
   id: 'PAY', case_id: 'C482', applicant_id: null, direction: 'from_client', installment_id: null,
   plan_item_id: null, amount: 0, currency: 'AUD', method: 'transfer', paid_at: '2026-05-01', note: null,
   fee_category: null, invoice_path: null, invoice_name: null, from_client_customer_id: null,
-  recorded_by: 'u1', created_at: '2026-05-01T00:00:00Z', ...o,
+  is_shared: false, recorded_by: 'u1', created_at: '2026-05-01T00:00:00Z', ...o,
 })
 const hist = (o: Partial<CaseStageHistory>): CaseStageHistory => ({
   id: 'H', case_id: 'C482', from_stage: null, to_stage: 'nomination_lodged', note: null,
@@ -109,7 +111,7 @@ const ben = cust({ id: 'S', full_name: 'Ben', primary_applicant_id: 'P', relatio
 const zoe = cust({ id: 'Z', full_name: 'Zoe（已归档）', is_archived: true }) // 归档客户：任何页面不应露出她的东西
 const employer: Employer = { id: 'E1', name: 'Company ABC', abn: null, contact_name: null, contact_phone: null, contact_email: null, address: null, note: null, is_archived: false, created_by: null, created_at: '', updated_at: '' } as unknown as Employer
 const employerArch: Employer = { ...employer, id: 'EA', name: '旧雇主（已归档）', is_archived: true } as Employer
-const referrer: Referrer = { id: 'R1', name: 'CICI', kind: 'referrer', phone: null, email: null, note: null, is_archived: false, created_by: null, created_at: '', updated_at: '' } as unknown as Referrer
+const referrer: Referrer = { id: 'R1', name: 'CICI', kind: 'referrer', contact_phone: null, contact_email: null, notes: '123124124 老客户介绍，长备注会在列表里截断、悬浮看全', is_archived: false, created_by: null, created_at: '', updated_at: '' } as unknown as Referrer
 const referrerArch: Referrer = { ...referrer, id: 'RA', name: '旧介绍人（已归档）', is_archived: true } as Referrer
 // 归属人（与介绍人同表 kind=owner）：Alice 归属于 刘祎
 const owner: Referrer = { ...referrer, id: 'O1', name: '刘祎', kind: 'owner' } as Referrer
@@ -118,9 +120,21 @@ const profileU1 = { id: 'u1', role: 'admin', full_name: '李顾问', active: tru
 const C482 = kase({ id: 'C482', case_number: '10042X', visa_subclass: '482', visa_stream: 'Core Skill', sync_tracking: false, updated_at: '2026-06-03T00:00:00Z' })
 const C600 = kase({ id: 'C600', case_number: '10043Y', visa_subclass: '600', visa_stream: null, current_stage: 'visa_lodged', updated_at: '2026-05-20T00:00:00Z' })
 const CSKILL = kase({ id: 'CSKILL', case_number: '10044Z', visa_subclass: 'Skill Assessment', visa_stream: null, current_stage: 'todo', sync_tracking: true })
+// 需要行动案件（阶段类别=action，概览主角左栏顶部应高亮）
+const CACT = kase({ id: 'CACT', case_number: '10045A', customer_id: 'S', visa_subclass: '482', visa_stream: '补件材料', current_stage: 'docs_requested' })
 const CARCH = kase({ id: 'CARCH', case_number: '99999A', customer_id: 'Z', visa_subclass: '186', is_archived: true }) // 归档案件
+// 职业评估案件（截图用）：case_category='职业评估'、当前阶段=oa_skill_submitted（专属 7 阶段集合）
+const COA = kase({ id: 'COA', case_number: '70021S', visa_subclass: 'Skill Assessment', visa_stream: null, case_category: '职业评估', current_stage: 'oa_skill_submitted', sync_tracking: true, case_details: { 评估机构: 'VETASSESS', 评估职位: 'Cook' } })
+// 新建（未推进）职业评估案件：current_stage=todo（DB 默认），无阶段史 → 当前阶段显示「无」
+const COANEW = kase({ id: 'COANEW', case_number: '70099S', visa_subclass: 'Skill Assessment', visa_stream: null, case_category: '职业评估', current_stage: 'todo', sync_tracking: true, case_details: { 评估机构: 'VETASSESS', 评估职位: 'Developer Programmer' } })
 
-const activeCases = scenario === 'single' ? [CSKILL, C482, C600] : [C482, C600, CSKILL]
+// De Facto 案件（截图用）：case_category='De Facto 关系认定'、visa_subclass='De Facto'、用途(case_details)、
+// current_stage=df_submitted（专属 6 阶段集合，阶段史 df_prep→df_submitted）。
+const CDF = kase({ id: 'CDF', case_number: '80031D', visa_subclass: 'De Facto', visa_stream: null, case_category: 'De Facto 关系认定', current_stage: 'df_submitted', sync_tracking: false, case_details: { 用途: '独立关系认定' } })
+// 新建（未推进）De Facto 案件：current_stage=df_prep（新建默认落第一阶段），但**无阶段流转记录** →「更新至」行应隐藏
+const CDFNEW = kase({ id: 'CDFNEW', case_number: '80099D', visa_subclass: 'De Facto', visa_stream: null, case_category: 'De Facto 关系认定', current_stage: 'df_prep', sync_tracking: false, case_details: { 用途: '配合签证申请' } })
+
+const activeCases = scenario === 'single' ? [CSKILL, C482, C600, CACT, COA, COANEW, CDF, CDFNEW] : [C482, C600, CSKILL, CACT, COA, COANEW, CDF, CDFNEW]
 const sel = activeCases[0]
 
 // ── 财务（多人 482 分人记账 + 归档案件的钱作为不应出现的探针）────────
@@ -131,26 +145,37 @@ let applicantsAll: CaseApplicant[] = []
 
 if (scenario === 'single') {
   plans = [plan({ id: 'plK', case_id: 'CSKILL', applicant_id: null, referrer_total: 50 })]
-  items = [item({ id: 'kFee', plan_id: 'plK', fee_category: '评估费', amount_due: 100 })]
+  items = [
+    item({ id: 'kFee', plan_id: 'plK', fee_category: '评估费', amount_due: 100 }),
+    // 预支出（payable）：付给公司 服务费分成 200，记支出后转实际
+    item({ id: 'kPre', plan_id: 'plK', fee_category: '服务费分成', amount_due: 200, kind: 'payable', expense_direction: 'to_company', created_at: '2026-06-06' }),
+  ]
   payments = [
     pay({ id: 'k1', case_id: 'CSKILL', plan_item_id: 'kFee', amount: 100 }),
-    pay({ id: 'k2', case_id: 'CSKILL', direction: 'to_referrer', amount: 50 }),
+    pay({ id: 'k2', case_id: 'CSKILL', direction: 'to_referrer', amount: 50, note: '介绍费' }),
+    pay({ id: 'k3', case_id: 'CSKILL', direction: 'to_company', amount: 30, note: '服务费分成', method: 'cash' }),
   ]
 } else {
   applicantsAll = [{ id: 'a1', case_id: 'C482', customer_id: 'S', created_at: '' }]
   plans = [
     plan({ id: 'plP', case_id: 'C482', applicant_id: 'P', referrer_total: 50 }),
     plan({ id: 'plS', case_id: 'C482', applicant_id: 'S', referrer_total: 50 }),
+    plan({ id: 'plSH', case_id: 'C482', applicant_id: null }), // 共享·全案计划（applicant_id=null）
     plan({ id: 'plARCH', case_id: 'CARCH', client_total: 9999 }), // 归档案件的计划：欠款不应计入
   ]
   items = [
+    // 共享·全案款项（is_shared）：政府申请费,不归任何客户,费用卡单列「共享·全案」组、计入本案净额
+    item({ id: 'govFee', plan_id: 'plSH', fee_category: '政府申请费(全案)', amount_due: 500, is_shared: true, created_at: '2026-01-05' }),
     item({ id: 'lawP', plan_id: 'plP', fee_category: '律师费', amount_due: 1000, created_at: '2026-01-01' }),
     item({ id: 'copyP', plan_id: 'plP', fee_category: '文案', amount_due: 500, created_at: '2026-01-02' }),
     item({ id: 'lawS', plan_id: 'plS', fee_category: '律师费', amount_due: 1000, created_at: '2026-01-01' }),
     item({ id: 'copyS', plan_id: 'plS', fee_category: '文案', amount_due: 500, created_at: '2026-01-02' }),
+    // 预支出（payable 款项，挂本案计划 plP）：付给公司 服务费分成 200，记支出后才转实际、计入净额
+    item({ id: 'preCo', plan_id: 'plP', fee_category: '服务费分成', amount_due: 200, kind: 'payable', expense_direction: 'to_company', created_at: '2026-06-06' }),
   ]
   payments = [
     // 本月（2026-06）真实进账：1000 + 500 = 1500；支出 300 + 200 = 500
+    pay({ id: 'shpay', applicant_id: null, plan_item_id: 'govFee', amount: 500, paid_at: '2026-06-05', is_shared: true, fee_category: '政府申请费(全案)' }), // 共享·全案收款
     pay({ id: 'rp1', applicant_id: 'P', plan_item_id: 'lawP', amount: 1000, paid_at: '2026-06-02', fee_category: '律师费' }),
     pay({ id: 'rs1', applicant_id: 'S', plan_item_id: 'lawS', amount: 500, paid_at: '2026-06-03', note: '首期' }),
     pay({ id: 'pc', direction: 'to_company', amount: 300, paid_at: '2026-06-04', note: '提名代理费' }),
@@ -186,6 +211,11 @@ const seed = (key: readonly unknown[], data: unknown) => qc.setQueryData(key, da
 
 // 客户/案件
 seed(queryKeys.customers.detail('P'), alice)
+// 客户级 family（家庭成员）：Alice 名下两位——王璜(配偶,有档案→关联 Ben=S,可点跳) + 小明(子女,无档案)
+seed(queryKeys.familyMembers.all, [
+  { id: 'fm1', customer_id: 'P', name: '王璜', relation: '配偶', linked_customer_id: 'S', created_at: '2026-01-01' },
+  { id: 'fm2', customer_id: 'P', name: '小明', relation: '子女', linked_customer_id: null, created_at: '2026-01-02' },
+])
 seed(queryKeys.customers.list({}), [alice, ben])
 seed(queryKeys.customers.list({ search: '' }), [alice, ben]) // 客户列表页（搜索框为空时的键）
 seed(queryKeys.customers.list({ includeArchived: true }), [alice, ben, zoe])
@@ -227,7 +257,21 @@ seed(queryKeys.lodgements.lodged, [
 ])
 seed(queryKeys.records.open, [rec({ id: 'r1' })])
 // 文件
-seed(queryKeys.dashboard.expiringDocs, [docs.fileOk, docs.fileArch])
+// 概览「临近到期」三档紧急度样本（相对 today；?due=empty 时清空验空态）。fileArch 挂归档案件 → selector 自动剔除。
+const dueEmpty = params.get('due') === 'empty'
+const dueDoc = (id: string, customerId: string, type: CaseDocument['doc_type'], expiry: string) =>
+  doc({ id, customer_id: customerId, doc_type: type, expiry_date: expiry, storage_path: `${customerId}/general/${id}.pdf`, file_name: `${id}.pdf` })
+seed(
+  queryKeys.dashboard.expiringDocs,
+  dueEmpty
+    ? []
+    : [
+        dueDoc('dueRed', 'P', 'passport', '2026-06-26'), // ≤7 天 → 红
+        dueDoc('dueAmber', 'S', 'medical', '2026-07-03'), // 8–14 天 → 黄
+        dueDoc('dueGreen', 'P', 'medical', '2026-07-14'), // 15–30 天 → 绿
+        docs.fileArch, // 探针：归档案件文件，不应出现
+      ],
+)
 seed(queryKeys.documents.allList, [docs.fileOk, docs.fileZoe, docs.fileArch])
 seed([...queryKeys.documents.all, 'archived'], [docs.fileBin])
 // 待办清单（概览）：1 条随手记 + 1 条关联案件（chip 应链到 /customers/P?case=C482）
@@ -251,6 +295,42 @@ seed(queryKeys.lodgements.byCase(sel.id), [
 seed(queryKeys.records.byCase(sel.id), [rec({ id: 'r1', case_id: sel.id })])
 seed(queryKeys.documents.byCase(sel.id), [])
 
+// 职业评估案件 COA（?case=COA 选中）：阶段史 CHN学历认证 → 职业评估递交（流转记录 from→to + 里程碑日期）
+seed(queryKeys.cases.detail('COA'), COA)
+seed(queryKeys.caseApplicants.byCase('COA'), [])
+seed(queryKeys.lodgements.byCase('COA'), []) // 职业评估无 lodgement
+seed(queryKeys.records.byCase('COA'), [])
+seed(queryKeys.documents.byCase('COA'), [])
+seed(queryKeys.cases.stageHistory('COA'), [
+  hist({ id: 'oa1', case_id: 'COA', from_stage: null, to_stage: 'oa_chn_verification', effective_at: '2026-05-12T03:00:00Z', note: '已交中国学历认证' }),
+  hist({ id: 'oa2', case_id: 'COA', from_stage: 'oa_chn_verification', to_stage: 'oa_skill_submitted', effective_at: '2026-06-10T03:00:00Z', note: '技术评估已递交 VETASSESS' }),
+])
+// 新建未推进 OA 案件 COANEW：当前阶段「无」、阶段史空
+seed(queryKeys.cases.detail('COANEW'), COANEW)
+seed(queryKeys.caseApplicants.byCase('COANEW'), [])
+seed(queryKeys.lodgements.byCase('COANEW'), [])
+seed(queryKeys.records.byCase('COANEW'), [])
+seed(queryKeys.documents.byCase('COANEW'), [])
+seed(queryKeys.cases.stageHistory('COANEW'), [])
+
+// De Facto 案件 CDF（?case=CDF 选中）：有组（参与人 Ben）、阶段史 df_prep→df_submitted（6 阶段，更新至=Submitted）
+seed(queryKeys.cases.detail('CDF'), CDF)
+seed(queryKeys.caseApplicants.byCase('CDF'), [{ id: 'dfA', case_id: 'CDF', customer_id: 'S', created_at: '' }])
+seed(queryKeys.lodgements.byCase('CDF'), []) // De Facto 无 lodgement
+seed(queryKeys.records.byCase('CDF'), [])
+seed(queryKeys.documents.byCase('CDF'), [])
+seed(queryKeys.cases.stageHistory('CDF'), [
+  hist({ id: 'df1', case_id: 'CDF', from_stage: null, to_stage: 'df_prep', effective_at: '2026-05-15T03:00:00Z', note: '同居材料收集中' }),
+  hist({ id: 'df2', case_id: 'CDF', from_stage: 'df_prep', to_stage: 'df_submitted', effective_at: '2026-06-01T03:00:00Z', note: '已递交' }),
+])
+// 新建未推进 DF 案件 CDFNEW：current_stage=df_prep 但阶段史空 →「更新至」行隐藏（df_prep 默认不算「更新过」）
+seed(queryKeys.cases.detail('CDFNEW'), CDFNEW)
+seed(queryKeys.caseApplicants.byCase('CDFNEW'), [])
+seed(queryKeys.lodgements.byCase('CDFNEW'), [])
+seed(queryKeys.records.byCase('CDFNEW'), [])
+seed(queryKeys.documents.byCase('CDFNEW'), [])
+seed(queryKeys.cases.stageHistory('CDFNEW'), [])
+
 const authValue = {
   user: { id: 'u1' }, loading: false, session: null,
   profile: { id: 'u1', role: isAdmin ? 'admin' : 'staff', full_name: '李顾问', active: true },
@@ -268,6 +348,12 @@ const ENTRY: Record<string, string> = {
   referrers: '/referrers',
   owners: '/referrers?kind=owner', // 介绍人页·归属人视图
   newowner: '/referrers/new?kind=owner', // 新建归属人表单
+  editreferrer: '/referrers/R1/edit', // 编辑介绍人（回填 CICI 的备注）
+  oacase: '/customers/P?case=COA', // 职业评估案件（阶段进展 OA 7 阶段 + 里程碑 + 流转记录）
+  oacasenew: '/customers/P?case=COANEW', // 新建未推进 OA 案件（当前阶段显示「无」）
+  dfcase: '/customers/P?case=CDF', // De Facto 案件（5 阶段下拉 + 用途 + 参与客户组 + 无里程碑卡）
+  dfcasenew: '/customers/P?case=CDFNEW', // 新建未推进 DF 案（df_prep 但无流转记录 →「更新至」行隐藏）
+  newcasedf: '/cases/new?customer=P', // 新建案件表单（配 ?dfcat=1 预置 De Facto：去账号留组）
   customers: '/customers',
   board: '/customers?view=board',
   quick: '/customers/new', // 新建客户页（单张完整表单，组区含快速建同组人）
@@ -300,6 +386,90 @@ if (clickText) {
     btn?.click()
   }, 600)
 }
+// ?probe=1 → 在页角打印 scrollWidth/clientWidth，验证窄屏有无横向溢出（截图用）
+if (params.get('probe')) {
+  window.setTimeout(() => {
+    // 把费用卡硬约束到 343px（≈ iPhone 375 减页面内边距）后量它自身有无横向溢出
+    const f = document.getElementById('fees')
+    let label = 'no #fees'
+    if (f) {
+      f.style.width = '343px'
+      f.style.maxWidth = '343px'
+      const card = f.querySelector('section') ?? f
+      // 量所有后代里最宽的 scrollWidth（任一子元素溢出都算）
+      let maxSW = card.scrollWidth
+      f.querySelectorAll('*').forEach((n) => { maxSW = Math.max(maxSW, (n as HTMLElement).scrollWidth) })
+      label = `@343 cardCW=${card.clientWidth} maxSW=${maxSW} ${maxSW > card.clientWidth ? 'OVERFLOW' : 'OK'}`
+    }
+    const el = document.scrollingElement ?? document.documentElement
+    const d = document.createElement('div')
+    d.style.cssText = 'position:fixed;top:0;left:0;right:0;z-index:99999;background:#ff0;color:#000;font-size:18px;padding:4px 8px;font-weight:700'
+    d.textContent = `page SW=${el.scrollWidth} CW=${el.clientWidth} ${el.scrollWidth > el.clientWidth ? 'OVERFLOW' : 'OK'} | fees ${label}`
+    document.body.appendChild(d)
+  }, 1200)
+}
+// ?oacat=1 / ?dfcat=1 → 新建案件表单把「案件大类」设为 职业评估 / De Facto（截图条件渲染态；受控 select 走原生 setter）
+const presetCat = params.get('oacat') ? '职业评估' : params.get('dfcat') ? 'De Facto 关系认定' : null
+if (presetCat) {
+  window.setTimeout(() => {
+    const sel = [...document.querySelectorAll('select')].find(
+      (s) => [...s.options].some((o) => o.value === presetCat),
+    )
+    if (!sel) return
+    const setter = Object.getOwnPropertyDescriptor(window.HTMLSelectElement.prototype, 'value')?.set
+    setter?.call(sel, presetCat)
+    sel.dispatchEvent(new Event('change', { bubbles: true }))
+  }, 700)
+}
+// ?openstage=1 → 阶段进展：展开「推进阶段」+ 打开「切换到」FancySelect（截图 OA 7 阶段下拉用）
+if (params.get('openstage')) {
+  window.setTimeout(() => {
+    const adv = [...document.querySelectorAll('button')].find((b) => b.textContent?.includes('推进阶段'))
+    adv?.click()
+  }, 600)
+  window.setTimeout(() => {
+    const trigger = document.querySelector<HTMLButtonElement>('button[aria-label="切换到"]')
+    if (!trigger) return
+    trigger.focus()
+    trigger.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowDown', bubbles: true }))
+  }, 1000)
+}
+// ?fee=static|hover|touch → 费用记录行操作显隐截图态（无头截图模拟不了 :hover）：
+//   static = 桌面静止（操作全隐）；hover = 首行悬停（首行操作淡入 + 浅高亮底）；touch = 触屏常显。
+const feeState = params.get('fee')
+if (feeState) {
+  window.setTimeout(() => {
+    const style = document.createElement('style')
+    if (feeState === 'touch') {
+      // 触屏常显 + 把费用卡顶到首屏（隐藏概要/相关案件，截图只看费用卡窄屏态）
+      style.textContent =
+        '.fee-row-actions{opacity:1!important;transform:none!important;pointer-events:auto!important}#summary,#cases{display:none!important}'
+    } else {
+      // 先全隐（模拟桌面 hover 设备静止态），hover 态再把首行单独点亮
+      style.textContent = '.fee-row-actions{opacity:0!important;transform:translateX(6px)!important;pointer-events:none!important}'
+    }
+    document.head.appendChild(style)
+    if (feeState === 'hover') {
+      const firstRow = document.querySelector<HTMLElement>('.fee-row')
+      if (firstRow) {
+        firstRow.style.setProperty('background', '#f5faf6', 'important')
+        const acts = firstRow.querySelector<HTMLElement>('.fee-row-actions')
+        acts?.style.setProperty('opacity', '1', 'important')
+        acts?.style.setProperty('transform', 'none', 'important')
+        acts?.style.setProperty('pointer-events', 'auto', 'important')
+      }
+    }
+  }, 700)
+}
+// ?opentype=1 → 打开费用卡第一个「类型」FancySelect（截图浮层展开+彩色 tag 用）；走键盘 ArrowDown 路径
+if (params.get('opentype')) {
+  window.setTimeout(() => {
+    const btn = document.querySelector<HTMLButtonElement>('button[aria-label="录入类型"]')
+    if (!btn) return
+    btn.focus()
+    btn.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowDown', bubbles: true }))
+  }, 800)
+}
 // ?type=<文本> → 往归属人下拉里模拟键入（React 受控输入需走原生 setter + input 事件）
 const typeText = params.get('type')
 if (typeText) {
@@ -313,6 +483,67 @@ if (typeText) {
   }, 600)
 }
 
+// 独立 harness：截「类型下拉打开态 + 收款绿/待付黄 tag + 选中勾 / 描述手填 / 一行三控件统一」用
+if (page === 'fancydemo') {
+  const typeOpts: FancyOption[] = [
+    { value: 'received', label: '收款', tag: <span className="rounded-full px-2 py-0.5 text-[11px] font-semibold bg-emerald-50 text-emerald-700">收款</span> },
+    { value: 'owing', label: '待付', tag: <span className="rounded-full px-2 py-0.5 text-[11px] font-semibold bg-[#f9f1df] text-[#c08a2e]">待付</span> },
+  ]
+  const FIELD = 'h-[38px] rounded-[10px] border border-[#eef2ef] bg-[#fbfdfc] text-[13px] text-ink outline-none transition-colors focus:border-brand/60'
+  function Demo() {
+    return (
+      <div className="min-h-screen bg-surface-2 p-8 font-sans">
+        <div className="mx-auto max-w-[560px] space-y-8 rounded-[20px] bg-white p-6 shadow-soft">
+          <div>
+            <p className="mb-2 font-serif text-[15px] font-bold text-ink">① 类型下拉 · 打开态（收款绿 / 待付黄 + 动画勾选）</p>
+            <div className="w-[120px]">
+              <FancySelect ariaLabel="录入类型" value="received" onChange={() => {}} options={typeOpts} placeholder="选择类型" defaultOpen />
+            </div>
+            <div className="h-28" />
+          </div>
+          <div>
+            <p className="mb-2 font-serif text-[15px] font-bold text-ink">② 一行三控件样式统一（类型 / 描述 / 金额）</p>
+            <div className="flex items-center gap-2">
+              <div className="w-[96px] shrink-0">
+                <FancySelect ariaLabel="录入类型" value="owing" onChange={() => {}} options={typeOpts} placeholder="选择类型" />
+              </div>
+              <ComboBox ariaLabel="录入描述" value="律师费（含加急）" onChange={() => {}} options={['律师费', '文案费']} placeholder="选择 / 手填" className="min-w-0 flex-1" />
+              <input aria-label="款额" value="2,000.00" readOnly className={`${FIELD} w-[104px] shrink-0 px-3 text-right tabular-nums`} />
+            </div>
+            <p className="mt-2 text-[12px] text-faint">↑ 三控件同高(38)、同圆角(10)、同边框(#eef2ef)、同底(#fbfdfc)；描述为手填的自定义文字。</p>
+          </div>
+          <div>
+            <p className="mb-2 font-serif text-[15px] font-bold text-ink">③ 支出列式·百分比自动算实付（付款对象/方式/金额/百分比/实付）</p>
+            {/* 列头：已去掉「描述」列，付款对象占满剩余宽度 */}
+            <div className="flex items-center gap-2 pb-1 text-[11px] font-medium text-faint">
+              <span className="min-w-[120px] flex-1">付款对象</span>
+              <span className="w-[96px] shrink-0">方式</span>
+              <span className="w-[88px] shrink-0 text-right">金额</span>
+              <span className="w-[64px] shrink-0 text-right">百分比</span>
+              <span className="w-[96px] shrink-0 text-right">实付（AUD）</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <div className="min-w-[120px] flex-1">
+                <FancySelect ariaLabel="付款对象" value="to_company" onChange={() => {}} options={[{ value: 'to_company', label: '付给公司', tag: <span className="rounded-full bg-[var(--color-coral-bg)] px-2 py-0.5 text-[11px] font-semibold text-[#c25a52]">付给公司</span> }]} placeholder="付款对象" />
+              </div>
+              <div className="w-[96px] shrink-0">
+                <FancySelect ariaLabel="支出方式" value="cash" onChange={() => {}} options={[{ value: 'cash', label: '现金' }]} placeholder="方式" />
+              </div>
+              <input aria-label="支出金额" value="100" readOnly className={`${FIELD} w-[88px] shrink-0 px-2.5 text-right tabular-nums`} />
+              <input aria-label="支出百分比" value="30" readOnly className={`${FIELD} w-[64px] shrink-0 px-2 text-right tabular-nums`} />
+              <div className="w-[96px] shrink-0 text-right">
+                <div className="text-[13px] font-bold tabular-nums text-[#c25a52]">30.00</div>
+                <div className="text-[10.5px] tabular-nums text-faint">100×30%</div>
+              </div>
+            </div>
+            <p className="mt-2 text-[12px] text-faint">↑ 支出录入行已去掉「描述」列；实付 = 金额×百分比（100×30% = 30），留空 = 100%。★入账的是实付 30，不是基数 100★。</p>
+          </div>
+        </div>
+      </div>
+    )
+  }
+  createRoot(document.getElementById('root')!).render(<StrictMode><Demo /></StrictMode>)
+} else
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <QueryClientProvider client={qc}>
@@ -333,6 +564,7 @@ createRoot(document.getElementById('root')!).render(
               <Route path="/storage" element={page === 'recycle' ? <RecycleBin /> : <ArchivePage />} />
               <Route path="/referrers" element={<ReferrerListPage />} />
               <Route path="/referrers/new" element={<ReferrerFormPage />} />
+              <Route path="/referrers/:id/edit" element={<ReferrerFormPage />} />
             </Route>
           </Routes>
         </MemoryRouter>

@@ -48,10 +48,29 @@ function LinkChip({
 }
 
 /**
- * 概览待办清单（mockup「精简案件优先」版）：卡头计数 + 输入框/添加 + notice 插槽（临近到期浅绿条）+ 逐条待办。
+ * 概览待办清单：卡头计数 + 输入框/添加 + notice 插槽 + topSlot 插槽（需要行动案件）+ 逐条待办。
  * 新增默认为随手记；存量关联项照常显示关联 chip。关联对象归档后自动隐藏（取消归档又出现）。
+ *
+ * 嵌入模式（概览「今天要处理」主角左栏用）：
+ *   - bare：去掉外层卡片外壳（section/shadow），由父容器提供卡片；
+ *   - hideTitle：父容器自带标题时隐藏内置「待办清单」标题；
+ *   - inputAtBottom：把「写一句待办」输入框放到列表底部（主角区由上到下：需要行动→待办→输入）；
+ *   - topSlot：列表上方插槽（渲染需要行动案件）。
+ * 默认全 false/省略 → 行为与重构前完全一致（向后兼容）。
  */
-export function ChecklistCard({ notice }: { notice?: ReactNode }) {
+export function ChecklistCard({
+  notice,
+  bare = false,
+  hideTitle = false,
+  inputAtBottom = false,
+  topSlot,
+}: {
+  notice?: ReactNode
+  bare?: boolean
+  hideTitle?: boolean
+  inputAtBottom?: boolean
+  topSlot?: ReactNode
+}) {
   const { items, openCount, isPending, caseById, customerById } = useChecklistView()
   const add = useAddChecklistItem()
   const toggle = useToggleChecklistItem()
@@ -65,71 +84,84 @@ export function ChecklistCard({ notice }: { notice?: ReactNode }) {
     add.mutate({ content: t, customerId: null, caseId: null }, { onSuccess: () => setText('') })
   }
 
-  return (
-    <section className="rounded-card bg-white pb-2 shadow-soft">
-      <div className="flex items-center justify-between px-[22px] pt-[18px] pb-1">
-        <h2 className="text-base font-semibold text-ink">
-          待办清单
-          {openCount > 0 && (
-            <span className="ml-2 inline-flex h-5 min-w-5 items-center justify-center rounded-[7px] bg-emerald-50 px-1.5 align-[2px] text-[11.5px] font-semibold tabular-nums text-emerald-700">
-              {openCount}
-            </span>
-          )}
-        </h2>
-      </div>
-
-      <form onSubmit={submit} className="flex gap-2 px-[22px] pt-2 pb-2.5">
-        <input
-          value={text}
-          onChange={(e) => setText(e.target.value)}
-          placeholder="写一句待办，回车添加…"
-          className="min-h-11 min-w-0 flex-1 rounded-[11px] border border-line bg-white px-3.5 text-[13px] text-ink outline-none placeholder:text-faint focus:border-brand focus:ring-2 focus:ring-brand-100"
-        />
-        <button
-          type="submit"
-          disabled={add.isPending || text.trim() === ''}
-          className="min-h-11 shrink-0 rounded-[11px] bg-emerald-50 px-[18px] text-[13.5px] font-semibold text-emerald-700 hover:bg-emerald-100 disabled:opacity-50"
-        >
-          {add.isPending ? '添加中…' : '添加'}
-        </button>
-      </form>
-
-      {notice}
-
-      {isPending ? (
-        <p className="px-[22px] py-2.5 text-sm text-faint">加载中…</p>
-      ) : items.length === 0 ? (
-        <p className="px-[22px] py-2.5 text-sm text-faint">还没有清单项，写一句加进去</p>
-      ) : (
-        <ul>
-          {items.map((it) => (
-            <li
-              key={it.id}
-              className="flex items-center gap-[11px] border-t border-surface-2 px-[22px] py-2.5 text-[13.5px] first:border-t-0"
-            >
-              <input
-                type="checkbox"
-                checked={it.is_done}
-                onChange={() => toggle.mutate({ id: it.id, is_done: !it.is_done })}
-                className="size-4 shrink-0 rounded-[5px] border-faint text-brand focus:ring-brand"
-              />
-              <span className={`min-w-0 flex-1 truncate ${it.is_done ? 'text-faint line-through' : 'text-ink'}`}>
-                {it.content}
-              </span>
-              <LinkChip item={it} caseById={caseById} customerById={customerById} />
-              <button
-                type="button"
-                onClick={() => del.mutate(it.id)}
-                disabled={del.isPending}
-                aria-label="删除"
-                className="grid size-8 shrink-0 place-items-center rounded-full text-sm text-faint hover:bg-rose-50 hover:text-rose-600"
-              >
-                ✕
-              </button>
-            </li>
-          ))}
-        </ul>
-      )}
-    </section>
+  const title = !hideTitle && (
+    <div className="flex items-center justify-between px-[22px] pt-[18px] pb-1">
+      <h2 className="text-base font-semibold text-ink">
+        待办清单
+        {openCount > 0 && (
+          <span className="ml-2 inline-flex h-5 min-w-5 items-center justify-center rounded-[7px] bg-emerald-50 px-1.5 align-[2px] text-[11.5px] font-semibold tabular-nums text-emerald-700">
+            {openCount}
+          </span>
+        )}
+      </h2>
+    </div>
   )
+
+  const form = (
+    <form onSubmit={submit} className="flex gap-2 px-[22px] pt-2 pb-2.5">
+      <input
+        value={text}
+        onChange={(e) => setText(e.target.value)}
+        placeholder="写一句待办，回车添加…"
+        className="min-h-11 min-w-0 flex-1 rounded-[11px] border border-line bg-white px-3.5 text-[13px] text-ink outline-none placeholder:text-faint focus:border-brand focus:ring-2 focus:ring-brand-100"
+      />
+      <button
+        type="submit"
+        disabled={add.isPending || text.trim() === ''}
+        className="min-h-11 shrink-0 rounded-[11px] bg-emerald-50 px-[18px] text-[13.5px] font-semibold text-emerald-700 hover:bg-emerald-100 disabled:opacity-50"
+      >
+        {add.isPending ? '添加中…' : '添加'}
+      </button>
+    </form>
+  )
+
+  const list =
+    isPending ? (
+      <p className="px-[22px] py-2.5 text-sm text-faint">加载中…</p>
+    ) : items.length === 0 ? (
+      <p className="px-[22px] py-2.5 text-sm text-faint">还没有清单项，写一句加进去</p>
+    ) : (
+      <ul>
+        {items.map((it) => (
+          <li
+            key={it.id}
+            className="flex items-center gap-[11px] border-t border-surface-2 px-[22px] py-2.5 text-[13.5px] first:border-t-0"
+          >
+            <input
+              type="checkbox"
+              checked={it.is_done}
+              onChange={() => toggle.mutate({ id: it.id, is_done: !it.is_done })}
+              className="size-4 shrink-0 rounded-[5px] border-faint text-brand focus:ring-brand"
+            />
+            <span className={`min-w-0 flex-1 truncate ${it.is_done ? 'text-faint line-through' : 'text-ink'}`}>
+              {it.content}
+            </span>
+            <LinkChip item={it} caseById={caseById} customerById={customerById} />
+            <button
+              type="button"
+              onClick={() => del.mutate(it.id)}
+              disabled={del.isPending}
+              aria-label="删除"
+              className="grid size-8 shrink-0 place-items-center rounded-full text-sm text-faint hover:bg-rose-50 hover:text-rose-600"
+            >
+              ✕
+            </button>
+          </li>
+        ))}
+      </ul>
+    )
+
+  const body = (
+    <>
+      {title}
+      {!inputAtBottom && form}
+      {notice}
+      {topSlot}
+      {list}
+      {inputAtBottom && form}
+    </>
+  )
+
+  if (bare) return <div className="pb-1">{body}</div>
+  return <section className="rounded-card bg-white pb-2 shadow-soft">{body}</section>
 }

@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { render, screen, within } from '@testing-library/react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { MemoryRouter } from 'react-router-dom'
 
@@ -29,7 +29,6 @@ function setDash(over: Record<string, unknown> = {}) {
   dash.data = {
     isPending: false, isError: false,
     activeCaseCount: 27,
-    // 环图按状态 6 类聚合（caseCategoryDistribution 的形状）
     categoryDistribution: [
       { category: 'todo', label: '待办/未开始', count: 5, color: '#7c6fd6' },
       { category: 'waiting', label: '等待外部', count: 1, color: '#3f7cb5' },
@@ -38,6 +37,10 @@ function setDash(over: Record<string, unknown> = {}) {
       { category: 'done', label: '完成/获批', count: 12, color: '#357a52' },
     ],
     grantedCount: 10,
+    // 需要行动案件（主角左栏顶部）
+    actionCases: [
+      { caseId: 'act1', customerId: 'cu1', customerName: '黄玉婷', participants: [{ id: 'cu1', name: '黄玉婷' }], visaLabel: '482 · 补件材料', stage: 'docs_requested', stageLabel: '补件' },
+    ],
     todoCases: [
       { caseId: 'k1', customerId: 'cu1', customerName: '测试2222222', participants: [{ id: 'cu1', name: '测试2222222' }], visaLabel: '494', stage: 'todo', stageLabel: '待办' },
       { caseId: 'k2', customerId: 'cu2', customerName: '测试1111111', participants: [{ id: 'cu2', name: '测试1111111' }], visaLabel: '186', stage: 'drafted', stageLabel: '已草拟' },
@@ -90,112 +93,114 @@ function renderPage() {
 
 beforeEach(() => { setDash(); setChecklist() })
 
-describe('DashboardPage · 概览精简 5 块（mockup 重做）', () => {
-  it('① Header：衬线问候 + 摘要行（待办/临近到期/本月已收）+ 新建客户（无搜索条/铃铛）', () => {
+describe('DashboardPage · 概览主次重设计（主角 + 配角）', () => {
+  it('① 顶栏：衬线问候 + 摘要（待办/临近到期/本月已收）+ 新建客户（无搜索条/铃铛）', () => {
     const { container } = renderPage()
     const h = screen.getByRole('heading', { name: /你好/ })
     expect(h.className).toContain('font-serif')
     const sub = container.querySelector('header p')
-    expect(sub?.textContent).toContain('待办 8 条')
-    expect(sub?.textContent).toContain('临近到期 0 个')
+    expect(sub?.textContent).toContain('待办 8')
+    expect(sub?.textContent).toContain('临近到期 0')
     expect(sub?.textContent).toContain('本月已收 AUD 114.00')
     expect(screen.getByRole('link', { name: /新建客户/ })).toHaveAttribute('href', '/customers/new')
-    // 搜索条与通知铃已删（2026-06-05 客户要求：没用）
     expect(screen.queryByText(/搜索客户 \/ 案件 \/ 参考号/)).toBeNull()
     expect(screen.queryByLabelText('通知')).toBeNull()
   })
 
-  it('② KPI 四卡：进行中案件 27 / 待办事项 8 / 本月收款 114.00 / 欠款总额 196,601.09 + 角标 3 户欠款', () => {
+  it('② 主角「今天要处理」：标题 18px + 计数 = 需要行动案件 + 未完成待办', () => {
     renderPage()
-    expect(screen.getByText('进行中案件')).toBeInTheDocument()
-    expect(screen.getByText('待办事项')).toBeInTheDocument()
-    expect(screen.getByText('本月收款')).toBeInTheDocument()
-    expect(screen.getByText('客户欠款总额')).toBeInTheDocument()
-    expect(screen.getAllByText('27').length).toBeGreaterThan(0) // KPI + 环图中心
-    expect(screen.getByText('114.00')).toBeInTheDocument()
-    expect(screen.getByText('196,601.09')).toBeInTheDocument()
-    expect(screen.getByText('3 户欠款')).toBeInTheDocument()
+    const hero = screen.getByRole('heading', { name: /今天要处理/ })
+    expect(hero.className).toContain('text-[18px]')
+    // todayCount = actionCases(1) + openCount(8) = 9
+    expect(hero.textContent).toContain('9')
+    expect(screen.getByText(/待办 & 需要行动/)).toBeInTheDocument()
   })
 
-  it('② KPI 卡可点：进行中案件 → /cases；本月收款 → /finance；待办/欠款卡是定位按钮', () => {
+  it('② 需要行动案件：取数=当前阶段为 action 的案件，「需要行动」标签 + 跳该案', () => {
     renderPage()
-    expect(screen.getByRole('link', { name: /进行中案件/ })).toHaveAttribute('href', '/cases')
-    expect(screen.getByRole('link', { name: /本月收款/ })).toHaveAttribute('href', '/finance')
-    expect(screen.getByRole('button', { name: /待办事项/ })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: /客户欠款总额/ })).toBeInTheDocument()
+    expect(screen.getByText('黄玉婷')).toBeInTheDocument()
+    const row = screen.getByText('黄玉婷').closest('a')!
+    expect(row.getAttribute('href')).toBe('/customers/cu1?case=act1')
+    expect(row.textContent).toContain('需要行动')
   })
 
-  it('③ 案件分布环：在办/已下签小字 + 按状态类别聚合的图例（每类一段一色）', () => {
+  it('② 待办清单（嵌入主角·输入在底部）：输入框 + 添加 + 逐条待办（随手记 + ✕）', () => {
     renderPage()
-    expect(screen.getByText('案件阶段分布')).toBeInTheDocument()
-    expect(screen.getByText('在办 27 · 已下签 10')).toBeInTheDocument()
-    for (const [label, count] of [['待办/未开始', 5], ['等待外部', 1], ['进行中/已递交', 20], ['需要行动', 1], ['完成/获批', 12]] as const) {
-      const row = screen.getByText(label).closest('div')!
-      expect(row.textContent).toContain(String(count))
-    }
-    // 不再逐阶段出段（旧图例的具体阶段行已被类别行替代）
-    expect(screen.queryByText('提名获批')).toBeNull()
-    expect(screen.getByRole('link', { name: /全部案件/ })).toHaveAttribute('href', '/cases')
-  })
-
-  it('⑥ 待办 / 已草拟 案件：5 行（参与人 + 类别小字 + 阶段 pill）；阶段标签随各案（待办/已草拟）', () => {
-    renderPage()
-    expect(screen.getByText('待办 / 已草拟 案件')).toBeInTheDocument()
-    expect(screen.getByText('测试2222222')).toBeInTheDocument()
-    expect(screen.getByText('邓韬（Dylan）')).toBeInTheDocument()
-    expect(screen.getByText('482 · Subsequent Entrant')).toBeInTheDocument()
-    // 行内阶段 pill 随各案：3 条 todo →「待办」、2 条 drafted →「已草拟」
-    expect(screen.getAllByText('待办').length).toBe(3)
-    expect(screen.getAllByText('已草拟').length).toBe(2)
-    // k3 行的两名参与人都显示，且各自是可点的链接（role=link，点击跳各自客户页）
-    expect(screen.getAllByRole('link', { name: '王璞' }).length + screen.getAllByText('王璞').length).toBeGreaterThan(0)
-    const participantLinks = screen.getAllByText('孙佳琪') // k3 参与人 + k5 自己的行
-    expect(participantLinks.length).toBeGreaterThanOrEqual(2)
-  })
-
-  it('④ 待办清单：输入框 + 添加 + 浅绿临近到期空态条 + 逐条待办（随手记 + ✕）', () => {
-    renderPage()
-    expect(screen.getByText('待办清单')).toBeInTheDocument()
     expect(screen.getByPlaceholderText(/写一句待办/)).toBeInTheDocument()
     expect(screen.getByRole('button', { name: '添加' })).toBeInTheDocument()
-    expect(screen.getByText(/临近到期（签证 \/ 文件 \/ TRT \/ 同居材料）/)).toBeInTheDocument()
-    expect(screen.getByText(/近 30 天无临近到期/)).toBeInTheDocument()
     expect(screen.getByText('2026/6/1 Guoywfan 提名')).toBeInTheDocument()
     expect(screen.getAllByText('随手记')).toHaveLength(6)
     expect(screen.getAllByLabelText('删除')).toHaveLength(6)
   })
 
-  it('④ 欠款总览：共欠你/欠主代理合计 + 逐客户行 + 底部逾期未付分期一行', () => {
-    const { container } = renderPage()
-    expect(screen.getByText('欠款总览')).toBeInTheDocument()
-    const tot = screen.getByText(/共欠你/)
-    expect(tot.textContent).toContain('AUD 196,601.09')
-    expect(tot.textContent).toContain('欠主代理 AUD 0.00')
-    expect(screen.getByText('吕列隆')).toBeInTheDocument()
-    expect(screen.getByText('AUD 190,000.09')).toBeInTheDocument()
-    expect(container.textContent).toContain('逾期未付分期：无')
+  it('② 临近到期空态：近 30 天无临近到期', () => {
+    renderPage()
+    expect(screen.getByText(/近 30 天无临近到期/)).toBeInTheDocument()
   })
 
-  it('④ 逾期未付分期 N>0 → 折进欠款总览底行「N 笔」', () => {
+  it('② 临近到期有数据：合并 文档 + TRT + 同居，紧急度分色（≤7 红 / 8–14 黄 / 15–30 绿）', () => {
     setDash({
-      overdueInstallments: [
-        { installmentId: 'i1', customerId: 'cu6', caseId: 'k9', customerName: '吕列隆', amount: 100, daysOverdue: 3 },
-        { installmentId: 'i2', customerId: 'cu7', caseId: 'k8', customerName: '何祥龙', amount: 200, daysOverdue: 9 },
+      expiringDocItems: [
+        { id: 'e1', customerId: 'cu1', customerName: '杨文超', label: 'SBS 核查', daysRemaining: 3, status: 'soon', tone: 'rose', ic: 'doc' }, // 红
+        { id: 'e2', customerId: 'cu2', customerName: '何祥龙', label: '护照', daysRemaining: 10, status: 'soon', tone: 'amber', ic: 'passport' }, // 黄
+        { id: 'e3', customerId: 'cu3', customerName: '李娜', label: '体检', daysRemaining: 25, status: 'soon', tone: 'amber', ic: 'doc' }, // 绿
       ],
+      trtReminders: [{ caseId: 'k3', customerId: 'cu3', customerName: '孙佳琪', monthsSinceGrant: 25 }],
+      cohabReminders: [{ caseId: 'k9', customerId: 'cu9', customerName: '刘亚雯', caseNumber: 'C9', monthsSince: 4 }],
     })
     const { container } = renderPage()
-    expect(container.textContent).toContain('逾期未付分期：2 笔')
+    // 摘要计数 = 3 文档 + 1 TRT + 1 同居 = 5
+    expect(container.querySelector('header p')?.textContent).toContain('临近到期 5')
+    expect(screen.queryByText(/近 30 天无临近到期/)).toBeNull()
+    // 分色：3 天红条 / 10 天黄条 / 25 天绿条
+    const red = screen.getByText('SBS 核查').closest('a')!
+    expect(red.innerHTML).toContain('bg-rose-400')
+    const amber = screen.getByText('护照').closest('a')!
+    expect(amber.innerHTML).toContain('bg-amber-400')
+    const green = screen.getByText('体检').closest('a')!
+    expect(green.innerHTML).toContain('bg-emerald-400')
+    // TRT / 同居进列表，同居链到该客户并选中该案
+    expect(screen.getByText(/186 TRT 可办/)).toBeInTheDocument()
+    const cohab = screen.getByText('更新同居材料').closest('a')!
+    expect(cohab.getAttribute('href')).toBe('/customers/cu9?case=k9')
   })
 
-  it('⑤ 官方签证处理时间：新标签打开 immi.homeaffairs.gov.au', () => {
+  it('③ 案件进展（配角）：在办/已下签小字 + 类别图例 + 全部案件链 + 环心在办数', () => {
     renderPage()
-    const a = screen.getByRole('link', { name: /官方签证处理时间/ })
-    expect(a).toHaveAttribute('target', '_blank')
-    expect(a.getAttribute('href')).toContain('immi.homeaffairs.gov.au')
+    expect(screen.getByText('案件进展')).toBeInTheDocument()
+    expect(screen.getByText('在办 27 · 已下签 10')).toBeInTheDocument()
+    const progress = screen.getByText('案件进展').closest('section')!
+    for (const [label, count] of [['待办/未开始', 5], ['等待外部', 1], ['进行中/已递交', 20], ['需要行动', 1], ['完成/获批', 12]] as const) {
+      const row = within(progress).getByText(label).closest('div')!
+      expect(row.textContent).toContain(String(count))
+    }
+    expect(screen.getByRole('link', { name: /全部案件/ })).toHaveAttribute('href', '/cases')
+    expect(screen.getAllByText('27').length).toBeGreaterThan(0) // 环心
   })
 
-  it('C：待办 / 已草拟 案件去掉条数上限——超过 5 条也全部列出（不再 slice 截断）', () => {
+  it('③ 钱（配角）：本月收款 114.00（绿）+ 客户欠款总额 196,601.09（珊瑚）+ 3 户欠款角标 + 链财务', () => {
+    renderPage()
+    expect(screen.getByText('本月收款')).toBeInTheDocument()
+    expect(screen.getByText('客户欠款总额')).toBeInTheDocument()
+    expect(screen.getByText('114.00')).toBeInTheDocument()
+    expect(screen.getByText('196,601.09')).toBeInTheDocument()
+    expect(screen.getByText('3 户欠款')).toBeInTheDocument()
+    expect(screen.getAllByRole('link').filter((a) => a.getAttribute('href') === '/finance').length).toBeGreaterThan(0)
+  })
+
+  it('④ 待办 / 已草拟 案件 chips：参与人 + 类型；阶段标签不在 chip 重复', () => {
+    renderPage()
+    expect(screen.getByText('待办 / 已草拟 案件')).toBeInTheDocument()
+    expect(screen.getByText('测试2222222')).toBeInTheDocument()
+    expect(screen.getByText('邓韬（Dylan）')).toBeInTheDocument()
+    expect(screen.getByText('482 · Subsequent Entrant')).toBeInTheDocument()
+    // k3 两名参与人都显示，孙佳琪在 k3 + k5 自己的行出现 ≥2 次
+    expect(screen.getAllByText('孙佳琪').length).toBeGreaterThanOrEqual(2)
+  })
+
+  it('④ 待办 / 已草拟 案件全部列出（chips 不截断）', () => {
     setDash({
+      actionCases: [],
       todoCases: Array.from({ length: 8 }, (_, i) => ({
         caseId: `k${i}`, customerId: `cu${i}`, customerName: `待办客户${i}`,
         participants: [{ id: `cu${i}`, name: `待办客户${i}` }], visaLabel: '482',
@@ -203,70 +208,62 @@ describe('DashboardPage · 概览精简 5 块（mockup 重做）', () => {
       })),
     })
     renderPage()
-    // 第 6、7、8 条（旧 slice(0,5) 会截掉）都应出现
     expect(screen.getByText('待办客户5')).toBeInTheDocument()
     expect(screen.getByText('待办客户6')).toBeInTheDocument()
     expect(screen.getByText('待办客户7')).toBeInTheDocument()
   })
 
-  it('C：待办 / 已草拟 案件区块移到概览页面底部（在「官方签证处理时间」之后）', () => {
+  it('⑤ 官方签证处理时间：底部窄条，新标签打开 immi.homeaffairs.gov.au', () => {
+    renderPage()
+    const a = screen.getByRole('link', { name: /官方签证处理时间/ })
+    expect(a).toHaveAttribute('target', '_blank')
+    expect(a.getAttribute('href')).toContain('immi.homeaffairs.gov.au')
+  })
+
+  it('⑤ 顺序：待办 / 已草拟 chips 在「官方签证处理时间」之前（官方时间垫底）', () => {
     renderPage()
     const todo = screen.getByText('待办 / 已草拟 案件')
     const official = screen.getByRole('link', { name: /官方签证处理时间/ })
-    // todo 标题在 official 链接之后 → DOCUMENT_POSITION_FOLLOWING(4)
-    expect(official.compareDocumentPosition(todo) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    // todo 在 official 之前 → todo 相对 official 为 PRECEDING(2)
+    expect(official.compareDocumentPosition(todo) & Node.DOCUMENT_POSITION_PRECEDING).toBeTruthy()
   })
 
-  it('临近到期有数据：摘要计数含 TRT + 同居材料，条内显示客户名', () => {
-    setDash({
-      expiringDocItems: [
-        { id: 'e1', customerId: 'cu1', customerName: '王璞', label: '护照 · 30 天', daysRemaining: 30, status: 'soon', tone: 'amber', ic: 'passport' },
-      ],
-      trtReminders: [
-        { caseId: 'k3', customerId: 'cu3', customerName: '孙佳琪', monthsSinceGrant: 25 },
-      ],
-      cohabReminders: [
-        { caseId: 'k9', customerId: 'cu9', customerName: '张献元', caseNumber: 'C9', monthsSince: 4 },
-      ],
-    })
+  it('响应式：主角两栏 + 配角两栏都带「窄屏单列 / 宽屏多列」类（不横向滚动）', () => {
     const { container } = renderPage()
-    expect(container.querySelector('header p')?.textContent).toContain('临近到期 3 个')
-    expect(screen.queryByText(/近 30 天无临近到期/)).toBeNull()
-    expect(screen.getByText(/护照 · 30 天/)).toBeInTheDocument()
-    expect(screen.getByText(/186 TRT 可办/)).toBeInTheDocument()
-    // 186/配偶签 3 个月循环提醒：更新同居材料（链到该客户并选中该案）
-    const cohabLine = screen.getByText(/更新同居材料 · 距上次 4 个月/)
-    expect(cohabLine.closest('a')?.getAttribute('href')).toBe('/customers/cu9?case=k9')
+    // 主角两栏：grid-cols-1 lg:grid-cols-[1.25fr_1fr]
+    expect(container.querySelector('.lg\\:grid-cols-\\[1\\.25fr_1fr\\]')).not.toBeNull()
+    // 配角两栏：grid-cols-1 md:grid-cols-2
+    expect(container.querySelector('.md\\:grid-cols-2')).not.toBeNull()
   })
 
-  it('旧块全部移除：月度趋势柱图 / 星标客户 / 逾期未付款大卡 / 递交进度表 / 独立到期卡', () => {
+  it('旧块全部移除：KPI 四卡 / 欠款总览列表 / 逾期分期 / 月度趋势 / 星标 / 递交表', () => {
     renderPage()
+    expect(screen.queryByText('待办事项')).toBeNull() // 旧 KPI 卡标签
+    expect(screen.queryByText('欠款总览')).toBeNull()
+    expect(screen.queryByText(/逾期未付分期/)).toBeNull()
     expect(screen.queryByText('月度收款趋势')).toBeNull()
     expect(screen.queryByText('星标客户')).toBeNull()
-    expect(screen.queryByText('逾期未付款')).toBeNull()
     expect(screen.queryByText('递交进度')).toBeNull()
     expect(screen.queryByText('即将到期提醒')).toBeNull()
-    expect(screen.queryByText('打开案件表')).toBeNull()
   })
 
-  it('空数据：各块空态、不报错、不出假数字', () => {
+  it('空数据：各块空态、不报错、不出假数字、0 户不显示角标', () => {
     setDash({
       activeCaseCount: 0,
       categoryDistribution: [],
       grantedCount: 0,
+      actionCases: [],
       todoCases: [],
       thisMonthReceipts: 0,
       debtTotals: { clientOwesTotal: 0, companyOwesTotal: 0 },
       customerDebts: [],
     })
     setChecklist({ items: [], openCount: 0 })
-    const { container } = renderPage()
+    renderPage()
     expect(screen.getByText('暂无在办案件')).toBeInTheDocument()
     expect(screen.getByText('暂无待办 / 已草拟 案件')).toBeInTheDocument()
-    expect(screen.getByText('无未结欠款')).toBeInTheDocument()
     expect(screen.getByText(/近 30 天无临近到期/)).toBeInTheDocument()
-    expect(container.textContent).toContain('逾期未付分期：无')
-    expect(screen.queryByText(/\d+ 户欠款/)).toBeNull() // 0 户不显示角标
+    expect(screen.queryByText(/\d+ 户欠款/)).toBeNull()
     expect(screen.getAllByText('0.00').length).toBeGreaterThan(0)
   })
 })

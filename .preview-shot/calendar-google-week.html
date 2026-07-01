@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="stylesheet" href="../dist/assets/index-Dy0y7Hcj.css">
+<style>
+  .bar{display:block;width:100%;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;border-radius:4px;border-left-width:3px;border-left-style:solid;padding:3px 4px 3px 8px;text-align:left;font-size:11.5px;line-height:1.2}
+  .num{display:grid;width:22px;height:22px;place-items:center;border-radius:9999px;font-size:12px;font-weight:600}
+  .C_lodged{border-left-color:#7e887e;background:rgba(126,136,126,.10)}
+  .C_approved{border-left-color:#357a52;background:rgba(53,122,82,.10)}
+  .C_docs{border-left-color:#c08a2e;background:rgba(192,138,46,.10)}
+  .C_rem{border-left-color:#7c6fd6;background:rgba(124,111,214,.10)}
+  .colhead{display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid var(--color-line);background:#f6faf7;padding:8px 10px}
+  .colbody{padding:6px;min-height:420px}
+  .dot{width:7px;height:7px;border-radius:9999px;flex-shrink:0;display:inline-block}
+</style>
+</head>
+<body class="text-body antialiased" style="background:#e8f0ea">
+<main class="px-8 pt-6 pb-10">
+<section class="mx-auto max-w-[1180px] space-y-3">
+  <div class="flex flex-wrap items-center gap-3">
+    <h1 class="font-serif text-[24px] font-bold tracking-[-0.01em] text-ink">案件日历</h1>
+    <button class="h-9 rounded-full border border-line-2 bg-white px-3.5 text-[13px] font-semibold text-body shadow-xs">今天</button>
+    <div class="flex items-center gap-1"><button class="grid size-8 place-items-center rounded-full text-muted">‹</button><button class="grid size-8 place-items-center rounded-full text-muted">›</button></div>
+    <button class="inline-flex h-9 items-center gap-1.5 rounded-full border border-line-2 bg-white px-3.5 text-[14px] font-semibold text-ink shadow-xs">2026年6月 <span class="text-faint">▾</span></button>
+    <div class="ml-auto flex items-center gap-3">
+      <div class="flex h-9 w-[220px] items-center gap-2 rounded-full border border-line-2 bg-white px-3.5 text-faint shadow-xs"><span class="text-[14px] text-faint">搜客户 / 案件号 / 类型…</span></div>
+      <div class="inline-flex gap-1 rounded-full bg-surface-2 p-1">
+        <button class="h-7 rounded-full px-3 text-[13px] font-semibold text-muted">月</button>
+        <button class="h-7 rounded-full bg-white px-3 text-[13px] font-semibold text-brand shadow-xs">周</button>
+        <button class="h-7 rounded-full px-3 text-[13px] font-semibold text-muted">日</button>
+      </div>
+    </div>
+  </div>
+  <div class="flex flex-wrap items-center gap-x-4 gap-y-1.5 text-[12px] text-muted">
+    <span class="inline-flex items-center gap-1.5"><span class="dot" style="background:#7e887e"></span>提名 / 签证递交</span>
+    <span class="inline-flex items-center gap-1.5"><span class="dot" style="background:#357a52"></span>下签 / 获批</span>
+    <span class="inline-flex items-center gap-1.5"><span class="dot" style="background:#c08a2e"></span>补件</span>
+    <span class="inline-flex items-center gap-1.5"><span class="dot" style="background:#7c6fd6"></span>提醒</span>
+  </div>
+
+  <div class="overflow-hidden rounded-card border border-line bg-white shadow-soft">
+    <div class="grid grid-cols-7 divide-x divide-line">
+      <div><div class="colhead"><span class="flex items-center gap-1.5 text-[12px] font-bold text-muted">周一 <span class="num text-ink">15</span></span><span class="text-faint">+</span></div><div class="colbody"></div></div>
+      <div><div class="colhead"><span class="flex items-center gap-1.5 text-[12px] font-bold text-muted">周二 <span class="num text-white" style="background:#059669">16</span></span><span class="text-faint">+</span></div><div class="colbody space-y-1">
+        <span class="bar C_rem"><span class="text-ink">谢华</span> <span class="text-faint">TRT 提醒</span></span>
+        <span class="bar C_docs"><span class="text-ink">钱超萍</span> <span class="text-faint">补件</span></span></div></div>
+      <div><div class="colhead"><span class="flex items-center gap-1.5 text-[12px] font-bold text-muted">周三 <span class="num text-ink">17</span></span><span class="text-faint">+</span></div><div class="colbody"></div></div>
+      <div><div class="colhead"><span class="flex items-center gap-1.5 text-[12px] font-bold text-muted">周四 <span class="num text-ink">18</span></span><span class="text-faint">+</span></div><div class="colbody space-y-1">
+        <span class="bar C_lodged"><span class="text-ink">周杰</span> <span class="text-faint">提名递交</span></span></div></div>
+      <div><div class="colhead"><span class="flex items-center gap-1.5 text-[12px] font-bold text-muted">周五 <span class="num text-ink">19</span></span><span class="text-faint">+</span></div><div class="colbody"></div></div>
+      <div><div class="colhead"><span class="flex items-center gap-1.5 text-[12px] font-bold text-muted">周六 <span class="num text-ink">20</span></span><span class="text-faint">+</span></div><div class="colbody space-y-1">
+        <span class="bar C_approved"><span class="text-ink">谢华</span> <span class="text-faint">下签</span></span></div></div>
+      <div><div class="colhead"><span class="flex items-center gap-1.5 text-[12px] font-bold text-muted">周日 <span class="num text-ink">21</span></span><span class="text-faint">+</span></div><div class="colbody"></div></div>
+    </div>
+  </div>
+</section>
+</main>
+</body>
+</html>

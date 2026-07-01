@@ -2,6 +2,7 @@ import { customerDisplayName } from './customerName'
 import { utcDayDiff } from './dateDiff'
 import { formatVisaType } from './visa'
 import { getLodgementLodgedDate, getLodgementStatus } from './lodgementStatus'
+import { stageCategory } from './statusColor'
 import type { LodgementDerivedStatus } from './lodgementStatus'
 import { isNominationApproved, isVisaGranted } from './approval'
 import { caseGroupCode } from './caseGroups'
@@ -341,6 +342,40 @@ export function selectCaseRows(
   }
   // 默认按距今降序（最近递交在前），同距今按 caseId 稳定排序
   return rows.sort((a, b) => b.daysSince - a.daysSince || a.caseId.localeCompare(b.caseId))
+}
+
+export interface ProgressSummary {
+  /** 已递交且未决：在审中（含进行中/等待外部/需要行动） */
+  inReview: number
+  /** 未递交（提名/签证均无递交日）：待递交 */
+  pending: number
+  /** 已获批（下签 / 提名获批等 done 类别） */
+  approved: number
+  /** 已终止（拒签 / 撤签等 terminated 类别） */
+  terminated: number
+  total: number
+}
+
+/**
+ * 递交进度页头「汇总粒」用：按案件当前阶段把可见行归到四桶。
+ * 未递交 → 待递交；其余按 stageCategory(单一来源)：done=已获批、terminated=已终止、余下=在审。
+ */
+export function summarizeProgress(rows: CaseRow[]): ProgressSummary {
+  let inReview = 0
+  let pending = 0
+  let approved = 0
+  let terminated = 0
+  for (const r of rows) {
+    if (!r.lodged) {
+      pending += 1
+      continue
+    }
+    const cat = stageCategory(r.currentStage)
+    if (cat === 'done') approved += 1
+    else if (cat === 'terminated') terminated += 1
+    else inReview += 1
+  }
+  return { inReview, pending, approved, terminated, total: rows.length }
 }
 
 export type CaseSortKey =

@@ -410,12 +410,12 @@ describe('CustomerDetailPage（案件中心单页 · 无 tab）', () => {
     expect(screen.queryByText('工作 / 雇主担保')).toBeNull()
   })
 
-  it('费用记录卡标题带案件号 tag + 客户侧应收合计贴底（纯应收视图）', async () => {
+  it('费用记录卡：顶部净额 hero（本案净额·已结口径）取代底部合计块', async () => {
     vi.mocked(listCases).mockResolvedValue([mkCase({ id: 'ca1', visa_subclass: '482' })])
     renderPage()
     await screen.findAllByText('测试客户')
-    expect(await screen.findByText('应收合计')).toBeInTheDocument()
-    expect(screen.queryByText('本案净额')).not.toBeInTheDocument()
+    expect(await screen.findByText('本案净额(已结口径)')).toBeInTheDocument()
+    expect(screen.queryByText('本案合计')).not.toBeInTheDocument() // 旧底部合计块已并入顶部 hero
   })
 
   it('参与的案件：出现在参与人页面（无归属/主导标注）、平铺参与客户、阶段可推进', async () => {
@@ -425,6 +425,13 @@ describe('CustomerDetailPage（案件中心单页 · 无 tab）', () => {
     vi.mocked(listCases).mockResolvedValue([mkCase({ id: 'caA', customer_id: 'al1', visa_subclass: '482', visa_stream: null })])
     vi.mocked(listAllCaseApplicants).mockResolvedValue([part] as never)
     vi.mocked(listCaseApplicants).mockResolvedValue([part] as never)
+    // 该案已推进过一次阶段（有流转记录）→「更新至」行显示（含「· 全员进度一致」）；空流转记录则整行隐藏
+    vi.mocked(getCaseStageHistory).mockResolvedValue([
+      {
+        id: 'hA', case_id: 'caA', from_stage: 'todo', to_stage: 'nomination_lodged', note: null,
+        changed_by: null, changed_at: '2026-05-01T00:00:00Z', effective_at: '2026-05-01T00:00:00Z',
+      } as CaseStageHistory,
+    ])
     renderPage()
     await screen.findAllByText('测试客户')
     // 参与的案件出现在 tab，且**不再标注归属人**（没有谁主导一说）
@@ -444,6 +451,15 @@ describe('CustomerDetailPage（案件中心单页 · 无 tab）', () => {
     fireEvent.click(screen.getByRole('button', { name: '推进阶段 →' }))
     expect(screen.getByRole('button', { name: /更新阶段/ })).toBeInTheDocument()
     expect(screen.queryByText(/进度同步自主案件/)).not.toBeInTheDocument()
+  })
+
+  it('「更新至」行：无阶段流转记录 → 整行隐藏（即便 current_stage 有默认值 nomination_lodged）；判断用流转记录不看 current_stage', async () => {
+    vi.mocked(listCases).mockResolvedValue([mkCase({ id: 'ca1', visa_subclass: '482', visa_stream: null, current_stage: 'nomination_lodged' })])
+    // beforeEach 默认 getCaseStageHistory=[] → 无流转记录 →「更新至」整行不渲染
+    renderPage()
+    await screen.findAllByText('测试客户')
+    await screen.findByRole('button', { name: '482' }) // 案件卡已渲染
+    expect(screen.queryByText('更新至')).not.toBeInTheDocument()
   })
 
   it('?case= 直达：URL 带 case 参数 → 自动选中该案件（全站案件链接的落点）', async () => {

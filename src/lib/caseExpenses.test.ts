@@ -5,7 +5,7 @@ import type { Payment } from '../types/models'
 const mkPayment = (o: Partial<Payment>): Payment => ({
   id: 'pay1', case_id: 'c1', applicant_id: null, direction: 'from_client', installment_id: null, plan_item_id: null, amount: 0,
   currency: 'AUD', method: 'transfer', paid_at: null, note: null, fee_category: null, invoice_path: null, invoice_name: null,
-  from_client_customer_id: null, recorded_by: null, created_at: '', ...o,
+  from_client_customer_id: null, is_shared: false, recorded_by: null, created_at: '', ...o,
 })
 
 describe('selectCaseExpenses（案件支出区：三类实付流水，与财务账目同口径）', () => {

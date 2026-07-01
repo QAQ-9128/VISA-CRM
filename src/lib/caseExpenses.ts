@@ -1,5 +1,6 @@
 import { EXPENSE_DIRECTIONS } from '../types/domain'
-import type { Payment } from '../types/models'
+import type { Payment, PaymentPlanItem } from '../types/models'
+import { isPayableItem } from './planItems'
 
 /**
  * 案件支出区（费用记录卡）纯派生：本案三类实付支出（付主代理 / 付介绍人 / 垫付杂项）。
@@ -55,4 +56,23 @@ export function selectCaseExpenses(payments: Payment[]): CaseExpenses {
       total: round2(toCompany + toReferrer + misc),
     },
   }
+}
+
+/** 预支出（payable 款项，尚未实付 → 不进净额）。携带付款对象 expense_direction。 */
+export interface PendingExpenses {
+  items: PaymentPlanItem[]
+  total: number
+}
+
+/**
+ * 「预支出」纯派生：本案 payable 款项（kind='payable'），按金额(amount_due=实付)求和。
+ * 与实际支出（selectCaseExpenses，payments）分列两小结；预支出只展示、不计入净额（口径不变）。
+ */
+export function selectPendingExpenses(planItems: PaymentPlanItem[]): PendingExpenses {
+  const items = planItems
+    .filter(isPayableItem)
+    .slice()
+    .sort((a, b) => (b.created_at ?? '').localeCompare(a.created_at ?? '') || a.id.localeCompare(b.id))
+  const total = round2(items.reduce((s, it) => s + Math.max(0, num(it.amount_due)), 0))
+  return { items, total }
 }

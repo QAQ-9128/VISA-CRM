@@ -4,12 +4,12 @@ import type { Payment, PaymentPlanItem } from '../types/models'
 
 const mkItem = (o: Partial<PaymentPlanItem>): PaymentPlanItem => ({
   id: 'it1', plan_id: 'p1', fee_category: '律师费', amount_due: 1000, periods: 1, note: null,
-  kind: null, created_at: '', updated_at: '', ...o,
+  kind: null, expense_direction: null, is_shared: false, created_at: '', updated_at: '', ...o,
 })
 const mkPay = (o: Partial<Payment>): Payment => ({
   id: 'pay1', case_id: 'c1', applicant_id: null, direction: 'from_client', installment_id: null,
   plan_item_id: 'it1', amount: 0, currency: 'AUD', method: 'transfer', paid_at: null, note: null,
-  fee_category: null, invoice_path: null, invoice_name: null, from_client_customer_id: null, recorded_by: null, created_at: '', ...o,
+  fee_category: null, invoice_path: null, invoice_name: null, from_client_customer_id: null, is_shared: false, recorded_by: null, created_at: '', ...o,
 })
 
 describe('getItemPaid', () => {

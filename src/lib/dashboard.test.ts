@@ -5,6 +5,7 @@ import {
   selectCustomerDebtSummary,
   selectOverdueInstallments,
   selectTodoCases,
+  selectActionCases,
   countActiveCases,
   caseCategoryDistribution,
   sumClientReceiptsInMonth,
@@ -354,7 +355,7 @@ describe('sumClientReceiptsInMonth（某月 from_client 收款合计）', () => 
   const mk = (o: Partial<Payment>): Payment => ({
     id: 'p', case_id: 'c1', applicant_id: null, direction: 'from_client', installment_id: null, plan_item_id: null,
     from_client_customer_id: null, amount: 0, currency: 'AUD', method: 'transfer', paid_at: null, note: null,
-    fee_category: null, invoice_path: null, invoice_name: null, recorded_by: null, created_at: '', ...o,
+    fee_category: null, invoice_path: null, invoice_name: null, is_shared: false, recorded_by: null, created_at: '', ...o,
   })
   it('只算指定月份的客户付款；忽略其它方向/其它月份/无日期；金额字符串可强转', () => {
     const payments = [
@@ -404,6 +405,47 @@ describe('selectExpiringDocs（文档到期：仅 ≤30 天或已过期，按紧
     ]
     const r = selectExpiringDocs(docs, customers, caseById, TODAY)
     expect(r.map((x) => x.id).sort()).toEqual(['general', 'on-active'])
+  })
+})
+
+describe('selectActionCases（需要行动案件：current_stage 类别为 action，未归档，按 created_at 倒序）', () => {
+  const customers = { cu1: mkCustomer({ id: 'cu1', full_name: '黄玉婷' }), cu2: mkCustomer({ id: 'cu2', full_name: '李娜' }) }
+
+  it('只取 action 类阶段（docs_requested 补件 / appeal 上诉 / additional_docs），排除其它阶段', () => {
+    const cases = [
+      mkCase({ id: 'a', customer_id: 'cu1', current_stage: 'docs_requested' }),
+      mkCase({ id: 'b', customer_id: 'cu1', current_stage: 'appeal' }),
+      mkCase({ id: 'c', customer_id: 'cu1', current_stage: 'additional_docs' }),
+      mkCase({ id: 'd', customer_id: 'cu1', current_stage: 'todo' }), // 非 action
+      mkCase({ id: 'e', customer_id: 'cu1', current_stage: 'visa_lodged' }), // 进行中
+      mkCase({ id: 'f', customer_id: 'cu1', current_stage: 'granted' }), // 完成
+    ]
+    expect(selectActionCases(cases, customers).map((t) => t.caseId).sort()).toEqual(['a', 'b', 'c'])
+  })
+
+  it('排除已归档', () => {
+    const cases = [
+      mkCase({ id: 'a', customer_id: 'cu1', current_stage: 'docs_requested', is_archived: false }),
+      mkCase({ id: 'b', customer_id: 'cu1', current_stage: 'appeal', is_archived: true }),
+    ]
+    expect(selectActionCases(cases, customers).map((t) => t.caseId)).toEqual(['a'])
+  })
+
+  it('按 created_at 倒序（最新在上），带签证标签 + 在册参与人', () => {
+    const cases = [
+      mkCase({ id: 'old', customer_id: 'cu1', current_stage: 'docs_requested', visa_subclass: '482', visa_stream: 'Core Skills', created_at: '2026-01-01T00:00:00Z' }),
+      mkCase({ id: 'new', customer_id: 'cu1', current_stage: 'appeal', created_at: '2026-03-01T00:00:00Z' }),
+    ]
+    const applicants = [{ case_id: 'old', customer_id: 'cu2' }]
+    const r = selectActionCases(cases, customers, applicants)
+    expect(r.map((t) => t.caseId)).toEqual(['new', 'old'])
+    const old = r.find((t) => t.caseId === 'old')!
+    expect(old.visaLabel).toContain('482')
+    expect(old.participants.map((p) => p.id)).toEqual(['cu1', 'cu2'])
+  })
+
+  it('无 action 案件 → 空数组', () => {
+    expect(selectActionCases([mkCase({ current_stage: 'visa_lodged' })], customers)).toEqual([])
   })
 })
 

@@ -115,3 +115,33 @@ body {
     transform: translateY(0);
   }
 }
+
+/*
+ * 费用记录卡 · 行操作悬停显隐（仅鼠标设备）。
+ * 默认（触屏 / 粗指针 / 无 hover）：操作区常显，保证手机平板可用（任务 §8 兜底）。
+ * 鼠标 + 精细指针：静止透明占位（opacity:0 + pointer-events:none，不参与点击），
+ * 悬停 / 键盘聚焦该行才淡入（opacity + 轻微 translateX，~140ms）。
+ * ★用 opacity/transform（非 display）+ 操作区永远在 DOM/网格列里 → 零布局抖动（任务 §3）★
+ */
+.fee-row-actions {
+  opacity: 1;
+  transform: none;
+  pointer-events: auto;
+  transition: opacity 0.14s ease, transform 0.14s ease;
+}
+@media (hover: hover) and (pointer: fine) {
+  .fee-row-actions {
+    opacity: 0;
+    transform: translateX(6px);
+    pointer-events: none;
+  }
+  .fee-row:hover .fee-row-actions,
+  .fee-row:focus-within .fee-row-actions {
+    opacity: 1;
+    transform: none;
+    pointer-events: auto;
+  }
+  .fee-row:hover {
+    background: #f5faf6;
+  }
+}

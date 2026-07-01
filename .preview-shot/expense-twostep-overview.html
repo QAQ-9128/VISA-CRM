@@ -1,0 +1,104 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="stylesheet" href="../dist/assets/index-qyh7CriC.css">
+</head>
+<body class="text-body antialiased" style="background:#e8f0ea">
+<main class="px-8 pt-6 pb-8">
+<div class="mx-auto max-w-[560px] rounded-[20px] bg-white p-5 [box-shadow:0_14px_34px_-20px_rgba(40,90,60,.22)]">
+
+  <div class="mb-1 flex items-center gap-2">
+    <h2 class="font-serif text-[18px] font-bold tracking-[-0.01em] text-ink"><span class="mr-1.5">💳</span>费用记录</h2>
+    <span class="rounded-full bg-[var(--color-lime-soft)] px-2.5 py-0.5 text-[12px] font-semibold text-[var(--color-lime-ink)]">482</span>
+  </div>
+  <p class="mb-3 text-[12px] text-faint">本案 · 按人拆分 · 与财务同源</p>
+
+  <!-- 💸 本案支出（两步） -->
+  <div class="mt-2 border-t border-line pt-3">
+    <h3 class="font-serif text-[14px] font-bold text-ink"><span class="mr-1">💸</span>本案支出</h3>
+    <p class="mt-0.5 text-[11.5px] text-faint">应付款项（付主代理 / 付介绍人）两步 · 垫付杂项单记 · 与财务账目联动同源</p>
+
+    <div class="mt-2">
+      <!-- 待付款行 -->
+      <div class="border-b border-line">
+        <div class="flex items-center gap-2 py-2.5">
+          <button class="grid size-5 shrink-0 place-items-center rounded text-faint"><svg class="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="m9 6 6 6-6 6"/></svg></button>
+          <span class="min-w-0 flex-1 truncate text-sm text-ink">提名代理费</span>
+          <span class="min-w-[92px] shrink-0 whitespace-nowrap text-right text-sm font-semibold tabular-nums text-ink">AUD 3,000.00</span>
+          <span class="flex w-[60px] shrink-0 justify-center"><span class="rounded-full px-2 py-0.5 text-[11px] font-semibold bg-[#e7eefc] text-[#3f7cb5]">待付款</span></span>
+          <div class="flex shrink-0 items-center justify-end gap-1">
+            <button class="rounded-full bg-[#c25a52] px-2.5 py-1 text-[12px] font-semibold text-white">记支出</button>
+            <button class="grid size-7 place-items-center rounded-full text-muted"><svg class="size-[18px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="5" cy="12" r="1.4" fill="currentColor"/><circle cx="12" cy="12" r="1.4" fill="currentColor"/><circle cx="19" cy="12" r="1.4" fill="currentColor"/></svg></button>
+          </div>
+        </div>
+      </div>
+      <!-- 已付行（展开实付明细：付款对象 chip + 改/撤销） -->
+      <div class="border-b border-line last:border-0">
+        <div class="flex items-center gap-2 py-2.5">
+          <button class="grid size-5 shrink-0 place-items-center rounded text-faint"><svg class="size-4 rotate-90" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="m9 6 6 6-6 6"/></svg></button>
+          <span class="min-w-0 flex-1 truncate text-sm text-ink">服务费</span>
+          <span class="min-w-[92px] shrink-0 whitespace-nowrap text-right text-sm font-semibold tabular-nums text-[#c25a52]">AUD 2,000.00</span>
+          <span class="flex w-[60px] shrink-0 justify-center"><span class="rounded-full px-2 py-0.5 text-[11px] font-semibold bg-emerald-50 text-emerald-700">已付</span></span>
+          <div class="flex shrink-0 items-center justify-end gap-1">
+            <button class="grid size-7 place-items-center rounded-full text-muted"><svg class="size-[18px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="5" cy="12" r="1.4" fill="currentColor"/><circle cx="12" cy="12" r="1.4" fill="currentColor"/><circle cx="19" cy="12" r="1.4" fill="currentColor"/></svg></button>
+          </div>
+        </div>
+        <div class="mb-2 space-y-1 rounded-[12px] bg-rose-50/50 p-2.5">
+          <div class="flex items-center gap-2 text-[12px]">
+            <span class="text-faint tabular-nums">2026-06-01</span>
+            <span class="tabular-nums text-[#c25a52]">AUD 1,200.00</span>
+            <span class="flex-1 truncate text-faint">付主代理</span>
+            <button class="font-semibold text-brand">改</button>
+            <button class="font-semibold text-[var(--color-coral)]">撤销</button>
+          </div>
+          <div class="flex items-center gap-2 text-[12px]">
+            <span class="text-faint tabular-nums">2026-06-04</span>
+            <span class="tabular-nums text-[#c25a52]">AUD 800.00</span>
+            <span class="flex-1 truncate text-faint">付介绍人</span>
+            <button class="font-semibold text-brand">改</button>
+            <button class="font-semibold text-[var(--color-coral)]">撤销</button>
+          </div>
+        </div>
+      </div>
+      <!-- 应付款项小计 -->
+      <div class="mt-1.5 flex flex-wrap items-center justify-end gap-x-4 gap-y-1 rounded-[12px] bg-surface-2 px-3 py-2 text-[12px]">
+        <span class="mr-auto font-semibold text-ink">应付款项小计</span>
+        <span class="text-muted">应付 <b class="font-semibold tabular-nums text-ink">AUD 5,000.00</b></span>
+        <span class="text-muted">已付 <b class="font-semibold tabular-nums text-[#c25a52]">AUD 2,000.00</b></span>
+        <span class="text-muted">待付 <b class="font-semibold tabular-nums text-[var(--color-coral)]">AUD 3,000.00</b></span>
+      </div>
+    </div>
+    <button class="mt-2.5 flex min-h-10 w-full items-center justify-center gap-1.5 rounded-[12px] border border-dashed border-[#c25a52]/45 bg-rose-50/30 text-[13px] font-semibold text-[#c25a52]">+ 添加应付款项</button>
+
+    <!-- 垫付杂项（单步） -->
+    <div class="mt-4 border-t border-line pt-3">
+      <h4 class="text-[12.5px] font-bold text-ink">垫付杂项</h4>
+      <ul class="mt-1.5 space-y-1">
+        <li class="border-b border-line pb-1.5 last:border-0">
+          <div class="flex items-center gap-2 py-1 text-[12.5px]">
+            <span class="shrink-0 rounded-full bg-[var(--color-coral-bg)] px-2 py-0.5 text-[11px] font-semibold text-[#c25a52]">垫付杂项</span>
+            <span class="min-w-0 flex-1 truncate"><span class="text-ink">体检费垫付</span><span class="text-faint"> · 转账 · 2026-06-02</span></span>
+            <span class="min-w-[92px] shrink-0 whitespace-nowrap text-right font-semibold tabular-nums text-[#c25a52]">AUD 350.00</span>
+            <button class="grid size-7 place-items-center rounded-full text-muted"><svg class="size-[18px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="5" cy="12" r="1.4" fill="currentColor"/><circle cx="12" cy="12" r="1.4" fill="currentColor"/><circle cx="19" cy="12" r="1.4" fill="currentColor"/></svg></button>
+          </div>
+        </li>
+      </ul>
+      <button class="mt-2 flex min-h-9 w-full items-center justify-center gap-1.5 rounded-[12px] border border-dashed border-[#c25a52]/35 bg-rose-50/20 text-[12.5px] font-semibold text-[#c25a52]">+ 记垫付杂项</button>
+    </div>
+
+    <!-- 支出合计 -->
+    <div class="mt-3 flex flex-wrap items-end justify-between gap-2 rounded-[12px] bg-surface-2 px-3 py-2">
+      <div>
+        <div class="text-[11.5px] text-muted">支出合计</div>
+        <div class="font-serif text-[17px] font-bold tabular-nums text-[#c25a52]">AUD 2,350.00</div>
+      </div>
+      <div class="text-[11.5px] tabular-nums text-faint">付主代理 1,200.00 · 付介绍人 800.00 · 垫付杂项 350.00</div>
+    </div>
+  </div>
+
+</div>
+</main>
+</body>
+</html>

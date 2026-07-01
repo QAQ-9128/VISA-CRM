@@ -517,6 +517,126 @@ describe('CaseForm（新增案件 · 一案一组）', () => {
     expect(v.case_details).toEqual({ 文件类型: 'Cover Letter' }) // 无「评估职位」残留
   })
 
+  // ── 大类=职业评估（单人评估）：隐藏「所属账号」与整段「组(Group)/参与人」；签证类零回归 ──
+  it('大类=职业评估 → 所属账号 / 组（Group）/ 本案参与人 整块隐藏；评估机构·职位 + 目的国/货币/保存 照常', async () => {
+    renderForm()
+    await screen.findByLabelText('案件大类')
+    fireEvent.change(screen.getByLabelText('案件大类'), { target: { value: '职业评估' } })
+    // 隐藏：账号 + 组/参与人
+    expect(screen.queryByLabelText('所属账号')).toBeNull()
+    expect(screen.queryByText('组（Group）')).toBeNull()
+    expect(screen.queryByText('本案参与人')).toBeNull()
+    expect(screen.queryByLabelText('添加参与人')).toBeNull()
+    expect(screen.queryByText(/账目按参与人自动分开/)).toBeNull()
+    // 评估字段在（来自 CaseTypeCascade）+ 操作区照常
+    expect(screen.getByLabelText('评估机构')).toBeInTheDocument()
+    expect(screen.getByLabelText('评估职位')).toBeInTheDocument()
+    expect(screen.getByLabelText('目的国')).toBeInTheDocument()
+    expect(screen.getByLabelText('货币')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: '保存' })).not.toBeDisabled()
+  })
+
+  it('职业评估保存：immi_account_id=null；即便带 initialApplicantIds 预选，applicantIds 恒为 []（单人，归账归案件客户，账目算法不动）', async () => {
+    const { onSubmit } = renderForm(undefined, ['S'])
+    await screen.findByLabelText('案件大类')
+    fireEvent.change(screen.getByLabelText('案件大类'), { target: { value: '职业评估' } })
+    fireEvent.click(screen.getByRole('button', { name: '保存' }))
+    const call = onSubmit.mock.calls[0]
+    expect(call[0].case_category).toBe('职业评估')
+    expect(call[0].immi_account_id).toBeNull()
+    // 职业评估没有「待办」：新建不预设阶段（用 DB 默认/未推进 → 当前阶段显示「无」），表单不写 current_stage
+    expect('current_stage' in call[0]).toBe(false)
+    expect(call[1]).toEqual([]) // 单人态：不写 case_applicants 行
+  })
+
+  it('编辑职业评估案件保存：不写 current_stage（阶段走 updateCaseStage，不被表单覆盖）', async () => {
+    const oaCase = {
+      ...oldLinkedCase, visa_subclass: 'Skill Assessment', visa_stream: null, case_category: '职业评估',
+      current_stage: 'oa_positive', case_details: { 评估机构: 'VETASSESS', 评估职位: 'Cook' },
+      parent_case_id: null, parent_sync_progress: false,
+    } as unknown as Case
+    const { onSubmit } = renderForm(oaCase)
+    await screen.findByLabelText('案件大类')
+    fireEvent.click(screen.getByRole('button', { name: '保存' }))
+    expect('current_stage' in onSubmit.mock.calls[0][0]).toBe(false) // 编辑不传 → 现有阶段原样保留
+  })
+
+  it('签证类零回归：482 仍显示所属账号 + 组/参与人；切换大类显隐即时（职业评估隐 → 482 显 → 职业评估隐）', async () => {
+    renderForm()
+    await screen.findByLabelText('案件大类')
+    fireEvent.change(screen.getByLabelText('案件大类'), { target: { value: '职业评估' } })
+    expect(screen.queryByLabelText('所属账号')).toBeNull()
+    expect(screen.queryByText('组（Group）')).toBeNull()
+    // 切到 482：账号 + 组/参与人 恢复（只影响职业评估）
+    pickVisa('482')
+    expect(screen.getByLabelText('所属账号')).toBeInTheDocument()
+    expect(screen.getByText('组（Group）')).toBeInTheDocument()
+    expect(screen.getByText('本案参与人')).toBeInTheDocument()
+    // 再切回职业评估：即时隐藏
+    fireEvent.change(screen.getByLabelText('案件大类'), { target: { value: '职业评估' } })
+    expect(screen.queryByLabelText('所属账号')).toBeNull()
+    expect(screen.queryByText('组（Group）')).toBeNull()
+  })
+
+  // ── 大类=De Facto 关系认定（关系类有组）：隐藏「所属账号」、**保留**组(Group)/参与人；与职业评估去组相反 ──
+  it('大类=De Facto → 隐藏所属账号、**保留**组（Group）/本案参与人；用途字段在 + 目的国/货币/保存照常', async () => {
+    renderForm()
+    await screen.findByLabelText('案件大类')
+    fireEvent.change(screen.getByLabelText('案件大类'), { target: { value: 'De Facto 关系认定' } })
+    expect(screen.queryByLabelText('所属账号')).toBeNull() // 隐账号
+    // 保留：组（Group）/ 本案参与人 / 添加参与人（与职业评估去组相反）
+    expect(screen.getByText('组（Group）')).toBeInTheDocument()
+    expect(screen.getByText('本案参与人')).toBeInTheDocument()
+    expect(screen.getByLabelText('添加参与人')).toBeInTheDocument()
+    // 用途字段在（来自 CaseTypeCascade）+ 操作区照常
+    expect(screen.getByLabelText('用途')).toBeInTheDocument()
+    expect(screen.getByLabelText('目的国')).toBeInTheDocument()
+    expect(screen.getByLabelText('货币')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: '保存' })).not.toBeDisabled()
+  })
+
+  it('De Facto 保存：immi_account_id=null、current_stage=df_prep（初始落第一阶段，存 code）；有组 → applicantIds 照常保留', async () => {
+    const { onSubmit } = renderForm(undefined, ['S'])
+    await screen.findByLabelText('案件大类')
+    fireEvent.change(screen.getByLabelText('案件大类'), { target: { value: 'De Facto 关系认定' } })
+    fireEvent.click(screen.getByRole('button', { name: '保存' }))
+    const call = onSubmit.mock.calls[0]
+    expect(call[0].case_category).toBe('De Facto 关系认定')
+    expect(call[0].visa_subclass).toBe('De Facto') // 入库 code，非显示名
+    expect(call[0].immi_account_id).toBeNull()
+    expect(call[0].current_stage).toBe('df_prep') // 新建落第一阶段
+    expect(call[1]).toEqual(['S']) // 有组：参与人照常保留（与定制文件/职业评估恒 [] 相反）
+  })
+
+  it('编辑 De Facto 案件保存：不覆写 current_stage（阶段走 updateCaseStage，保留已推进进度）；隐账号留组同样成立', async () => {
+    const dfCase = {
+      ...oldLinkedCase, visa_subclass: 'De Facto', visa_stream: null, case_category: 'De Facto 关系认定',
+      current_stage: 'df_submitted', case_details: { 用途: '独立关系认定' },
+      parent_case_id: null, parent_sync_progress: false,
+    } as unknown as Case
+    const { onSubmit } = renderForm(dfCase)
+    await screen.findByLabelText('案件大类')
+    expect(screen.queryByLabelText('所属账号')).toBeNull()
+    expect(screen.getByText('组（Group）')).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: '保存' }))
+    expect('current_stage' in onSubmit.mock.calls[0][0]).toBe(false) // 编辑不传 → 现有阶段原样保留
+  })
+
+  it('签证类零回归：De Facto(隐账号留组) → 482(账号+组都在) → De Facto(再隐账号留组)，切换即时', async () => {
+    renderForm()
+    await screen.findByLabelText('案件大类')
+    fireEvent.change(screen.getByLabelText('案件大类'), { target: { value: 'De Facto 关系认定' } })
+    expect(screen.queryByLabelText('所属账号')).toBeNull()
+    expect(screen.getByText('组（Group）')).toBeInTheDocument()
+    pickVisa('482') // 切到 482：账号恢复、组仍在
+    expect(screen.getByLabelText('所属账号')).toBeInTheDocument()
+    expect(screen.getByText('组（Group）')).toBeInTheDocument()
+    // 再切回 De Facto：账号即时再隐、组仍在
+    fireEvent.change(screen.getByLabelText('案件大类'), { target: { value: 'De Facto 关系认定' } })
+    expect(screen.queryByLabelText('所属账号')).toBeNull()
+    expect(screen.getByText('组（Group）')).toBeInTheDocument()
+  })
+
   it('500 学生签：子类别选 Student Guardian → 入库 590；就读院校进 case_details', async () => {
     const { onSubmit } = renderForm()
     await screen.findByLabelText('案件大类')

@@ -8,8 +8,11 @@ import { useReferrer } from '../../../hooks/queries/useReferrers'
 import { useCaseStageHistory } from '../../../hooks/queries/useCases'
 import { useCustomerFinance } from '../../../hooks/queries/useCustomerFinance'
 import { selectProcessingRows } from '../../../lib/processingTime'
-import { ProcessingDurationRows } from './ProcessingDurationRows'
+import { isOccupationalCategory } from '../../../lib/caseStages'
+import { selectOccupationalDurations } from '../../../lib/occupationalDuration'
+import { ProcessingDurationRows, OccupationalDurationRows } from './ProcessingDurationRows'
 import { customerDisplayName } from '../../../lib/customerName'
+import { FamilyManager } from '../../family/FamilyManager'
 import { customerNetTotal } from '../../../lib/finance'
 import { formatMoney } from '../../../lib/money'
 import { GENDER_LABELS } from '../../../types/domain'
@@ -62,7 +65,11 @@ export function SummaryBand({
   // 「审理时长」格：选中案件的阶段历史派生递交日，按在审阶段一行（提名或签证）或两行（都递交了），
   // 口径 = flowProcessing 单一来源（审理中=今天−递交实时；已批=获批日−递交定格仍显示；本地日期）
   const history = useCaseStageHistory(selectedCase?.id)
-  const processingRows = selectedCase
+  // 职业评估：审理时长改两段（CHN 资历认证 / 技术评估，本地派生，随选中案件 + 切阶段联动重算，§5）；
+  // 签证类：沿用提名/签证两行（selectProcessingRows）。两者都从同一 stageHistory 查询派生 → 切阶段后自动重算。
+  const isOA = isOccupationalCategory(selectedCase?.case_category)
+  const oaDurations = selectedCase && isOA ? selectOccupationalDurations(history.data ?? []) : null
+  const processingRows = selectedCase && !isOA
     ? selectProcessingRows(selectedCase.current_stage, history.data ?? [])
     : []
 
@@ -74,6 +81,8 @@ export function SummaryBand({
         <div className="min-w-0">
           <div className="truncate font-serif text-[22px] font-bold tracking-[-0.01em] text-ink">{customerDisplayName(customer)}</div>
           <div className="text-[12px] text-faint">客户</div>
+          {/* 客户级 family（家庭成员）：常驻大名字下，切任意案件 tab 都显示；管理入口在此（客户层面） */}
+          <FamilyManager customerId={customer.id} />
         </div>
       </div>
 
@@ -98,6 +107,8 @@ export function SummaryBand({
         <Cell label="审理时长">
           {!selectedCase ? (
             <span className="text-faint">暂无案件</span>
+          ) : isOA ? (
+            <OccupationalDurationRows durations={oaDurations!} />
           ) : processingRows.length > 0 ? (
             <ProcessingDurationRows rows={processingRows} />
           ) : (

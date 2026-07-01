@@ -29,7 +29,7 @@ const mkCustomer = (o: Partial<Customer>): Customer => ({
 const mkPayment = (o: Partial<Payment>): Payment => ({
   id: 'pay1', case_id: 'c1', applicant_id: null, direction: 'from_client', installment_id: null, plan_item_id: null, amount: 0,
   currency: 'AUD', method: 'transfer', paid_at: null, note: null, fee_category: null, invoice_path: null, invoice_name: null,
-  from_client_customer_id: null, recorded_by: null, created_at: '', ...o,
+  from_client_customer_id: null, is_shared: false, recorded_by: null, created_at: '', ...o,
 })
 const mkReferrer = (o: Partial<Referrer>): Referrer => ({
   id: 'r1', name: '王介绍', kind: 'referrer', contact_phone: null, contact_email: null, notes: null,

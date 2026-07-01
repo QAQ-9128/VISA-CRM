@@ -38,6 +38,9 @@ export interface CaseFeeLine {
   status: FeeLineStatus
 }
 
+/** 「共享 · 全案」组的哨兵 participantId（非真实客户，仅作 React key / 身份标识）。 */
+export const SHARED_GROUP_ID = '__shared__'
+
 export interface CaseFeeGroup {
   /**
    * 记款/新增款项时写入 applicant_id 的值：
@@ -45,6 +48,8 @@ export interface CaseFeeGroup {
    * 与财务页 merged 行同口径，保证两边应收/已收一致）。
    */
   applicantId: string | null
+  /** 「共享 · 全案」组：is_shared 款项聚合，不归任何 applicant（录入时写 is_shared=true）。 */
+  shared: boolean
   role: ReceivableRole
   /** 新增款项/记款的目标计划 id；null = 未建计划（懒建，applicant_id=上面的绑定值） */
   planId: string | null
@@ -60,7 +65,9 @@ export interface CaseFeeGroup {
 
 export interface CaseFees {
   groups: CaseFeeGroup[]
-  /** 是否多账单单元 → 决定 UI 是否分组 + 是否给「添加款项」下拉 */
+  /** 「共享 · 全案」组（恒存在，供「添加款项」入口；无共享款项时 lines 空、小计 0）。不算进 multi。 */
+  sharedGroup: CaseFeeGroup
+  /** 是否多账单单元 → 决定 UI 是否分组 + 是否给「添加款项」下拉（仅看客户组，不含共享组） */
   multi: boolean
   /** 客户侧合计（from_client 口径）：应收合计 / 已收 / 未收 */
   totals: { receivable: number; paid: number; unpaid: number }
@@ -95,19 +102,13 @@ export function selectCaseFeeGroups(
    * 构造一个单元。covered = 该单元覆盖的 applicant_id 集合（owner 含 null：合并/遗留款显示在他名下）；
    * billing = 新增款项/记款写入的 applicant_id（合并模式 owner=null，与财务页 merged 行同口径）。
    */
-  const buildUnit = (participantId: string, covered: (string | null)[], billing: string | null): CaseFeeGroup => {
-    const inUnit = (aid: string | null) => covered.includes(aid)
-    const unitPlans = casePlans.filter((p) => inUnit(p.applicant_id ?? null))
-    const unitPayments = casePayments.filter((p) => inUnit(p.applicant_id ?? null))
-    const unitPlanIds = new Set(unitPlans.map((p) => p.id))
-    const items = caseItems.filter((i) => unitPlanIds.has(i.plan_id))
-    const t = getCaseTotals(items, unitPayments)
-
-    const lines: CaseFeeLine[] = items
+  // 款项行构造（应收侧，从 payments 派生已付/未付/状态）；客户组与共享组共用。
+  const buildLines = (its: PaymentPlanItem[], pmts: Payment[]): CaseFeeLine[] =>
+    its
       .slice()
       .sort((a, b) => (a.created_at ?? '').localeCompare(b.created_at ?? '') || a.id.localeCompare(b.id))
       .map((it) => {
-        const paid = getItemPaid(it.id, unitPayments)
+        const paid = getItemPaid(it.id, pmts)
         const unpaid = round2(Math.max(0, num(it.amount_due) - paid))
         return {
           kind: 'receivable' as const,
@@ -120,18 +121,52 @@ export function selectCaseFeeGroups(
         }
       })
 
+  const buildUnit = (participantId: string, covered: (string | null)[], billing: string | null): CaseFeeGroup => {
+    const inUnit = (aid: string | null) => covered.includes(aid)
+    const unitPlans = casePlans.filter((p) => inUnit(p.applicant_id ?? null))
+    // ★共享款项(is_shared)绝不并进客户/主申组（即便挂 null 计划、被 owner 的 null 覆盖）→ 显式排除。
+    const unitPayments = casePayments.filter((p) => !p.is_shared && inUnit(p.applicant_id ?? null))
+    const unitPlanIds = new Set(unitPlans.map((p) => p.id))
+    const items = caseItems.filter((i) => !i.is_shared && unitPlanIds.has(i.plan_id))
+    const t = getCaseTotals(items, unitPayments)
+
     // 新增款项/记款目标计划 = 绑定口径的计划；无则 null → 懒建（applicant_id=billing）
     const ownPlanId = unitPlans.find((p) => (p.applicant_id ?? null) === billing)?.id ?? null
     return {
       applicantId: billing,
+      shared: false,
       role: participantId === owner ? 'primary' : 'secondary',
       planId: ownPlanId,
       participantId,
       participantName: customerDisplayName(customerById[participantId]),
-      lines,
+      lines: buildLines(items, unitPayments),
       receivable: t.totalDue,
       paid: t.totalPaid,
       unpaid: round2(Math.max(0, t.totalUnpaid)),
+    }
+  }
+
+  // 「共享 · 全案」组：is_shared 应收款项/收款聚合，不归任何 applicant。恒构造（无共享款项时空、供录入入口）。
+  // 目标计划 = 已承载共享款项的计划 → 复用；否则复用一个 null-applicant 计划；都无则 null（懒建 applicant_id=null）。
+  const buildSharedGroup = (): CaseFeeGroup => {
+    const sharedItems = caseItems.filter((i) => i.is_shared)
+    const sharedPayments = casePayments.filter((p) => p.is_shared)
+    const st = getCaseTotals(sharedItems, sharedPayments)
+    const sharedPlanId =
+      sharedItems.map((i) => i.plan_id).find(Boolean) ??
+      casePlans.find((p) => (p.applicant_id ?? null) === null)?.id ??
+      null
+    return {
+      applicantId: null,
+      shared: true,
+      role: 'secondary',
+      planId: sharedPlanId,
+      participantId: SHARED_GROUP_ID,
+      participantName: '共享 · 全案',
+      lines: buildLines(sharedItems, sharedPayments),
+      receivable: st.totalDue,
+      paid: st.totalPaid,
+      unpaid: round2(Math.max(0, st.totalUnpaid)),
     }
   }
 
@@ -155,14 +190,17 @@ export function selectCaseFeeGroups(
   const groups = personIds.map((id) =>
     buildUnit(id, id === owner ? [owner, null] : [id], id === owner && caseRow.sync_tracking ? null : id),
   )
+  const sharedGroup = buildSharedGroup()
+  // 本案合计 = 客户组 Σ + 共享组（保证费用卡 hero 净额含共享；getCaseTotals 一字不改，仍按组各调）。
   const totals = {
-    receivable: round2(groups.reduce((s, g) => s + g.receivable, 0)),
-    paid: round2(groups.reduce((s, g) => s + g.paid, 0)),
-    unpaid: round2(groups.reduce((s, g) => s + g.unpaid, 0)),
+    receivable: round2(groups.reduce((s, g) => s + g.receivable, 0) + sharedGroup.receivable),
+    paid: round2(groups.reduce((s, g) => s + g.paid, 0) + sharedGroup.paid),
+    unpaid: round2(groups.reduce((s, g) => s + g.unpaid, 0) + sharedGroup.unpaid),
   }
 
   return {
     groups,
+    sharedGroup,
     multi: groups.length > 1,
     totals,
     participants,

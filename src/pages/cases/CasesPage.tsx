@@ -7,7 +7,7 @@ import { useAllCaseApplicants } from '../../hooks/queries/useCaseApplicants'
 import { useOpenRecords } from '../../hooks/queries/useRecords'
 import { useEmployers } from '../../hooks/queries/useEmployers'
 import { useReferrers } from '../../hooks/queries/useReferrers'
-import { selectCaseRows } from '../../lib/casesTable'
+import { selectCaseRows, summarizeProgress } from '../../lib/casesTable'
 import {
   selectCaseListRows,
   filterCaseListRows,
@@ -32,6 +32,19 @@ function toggle<T>(set: ReadonlySet<T>, value: T): Set<T> {
   if (next.has(value)) next.delete(value)
   else next.add(value)
   return next
+}
+
+/** 页头汇总粒：大号彩色数字 + 标签（色点同色），状态色取 statusColor 体系值。 */
+function Stat({ n, label, color }: { n: number; label: string; color: string }) {
+  return (
+    <div className="flex min-w-[84px] flex-col items-start rounded-[14px] border border-line-2 bg-white px-4 py-2 shadow-xs">
+      <span className="flex items-center gap-1.5 text-[24px] leading-none font-extrabold tabular-nums" style={{ color }}>
+        <span className="size-[7px] rounded-full" style={{ backgroundColor: color }} />
+        {n}
+      </span>
+      <span className="mt-1 text-[11.5px] font-bold tracking-[0.02em] text-muted">{label}</span>
+    </div>
+  )
 }
 
 /** 递交进度页（案件列表/案件详情页已删：案件功能全部在客户详情页，这里只留 Excel 式审理跟踪表）。 */
@@ -130,6 +143,8 @@ export function CasesPage() {
   )
   // 看板呈现「同一筛选结果」：与进度表共用 allowedIds（避免两套筛选并存）
   const boardVms = useMemo(() => caseCards.filter((vm) => allowedIds.has(vm.caseId)), [caseCards, allowedIds])
+  // 页头汇总粒（在审/待递交/已获批/已终止）：随当前筛选结果统计，一眼看到分布
+  const summary = useMemo(() => summarizeProgress(filteredCaseRows), [filteredCaseRows])
 
   // 卡片「查看进度 →」：切到进度表并把搜索定位到该案件（复用现有搜索，不动表格本身）
   const jumpToCase = (caseId: string) => {
@@ -168,13 +183,25 @@ export function CasesPage() {
 
   return (
     <section className="space-y-4">
-      <div>
-        <h1 className="font-serif text-[26px] font-bold tracking-[-0.01em] text-ink">递交进度</h1>
-        <p className="mt-0.5 text-sm font-medium text-muted">
-          {view === 'board'
-            ? `案件卡一览 · 共 ${boardVms.length} 件 · 点卡片「查看进度」回进度表定位`
-            : `全部案件审理跟踪 · 共 ${listRows.length} 件 · 点行进客户档案`}
-        </p>
+      {/* 编辑感页头：小标 + 衬线大标题 + 右侧汇总粒（在审/待递交/已获批/已终止），一眼看到全局分布 */}
+      <div className="flex flex-wrap items-end justify-between gap-4 border-b-2 border-ink pb-3.5">
+        <div>
+          <div className="text-[11px] font-extrabold tracking-[0.22em] text-[var(--color-lime-d)] uppercase">
+            Case Tracking · 案件审理跟踪
+          </div>
+          <h1 className="mt-1 font-serif text-[30px] leading-none font-bold tracking-[-0.02em] text-ink">递交进度</h1>
+          <p className="mt-2 text-sm font-medium text-muted">
+            {view === 'board'
+              ? `案件卡一览 · 共 ${boardVms.length} 件 · 点卡片「查看进度」回进度表定位`
+              : `全部案件审理跟踪 · 共 ${listRows.length} 件 · 点行进客户档案`}
+          </p>
+        </div>
+        <div className="flex flex-wrap gap-2.5">
+          <Stat n={summary.inReview} label="在审" color="#7e887e" />
+          <Stat n={summary.pending} label="待递交" color="#c08a2e" />
+          <Stat n={summary.approved} label="已获批" color="#357a52" />
+          {summary.terminated > 0 && <Stat n={summary.terminated} label="已终止" color="#b14e47" />}
+        </div>
       </div>
 
       {/* 视图段控 + 搜索 + 筛选（搜索/筛选两视图共用） */}

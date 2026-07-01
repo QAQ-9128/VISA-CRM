@@ -98,4 +98,8 @@ export const queryKeys = {
   familyLinks: {
     all: ['family_member_links'] as const,
   },
+  familyMembers: {
+    all: ['customer_family_members'] as const,
+    byCustomer: (customerId: string) => ['customer_family_members', 'byCustomer', customerId] as const,
+  },
 }

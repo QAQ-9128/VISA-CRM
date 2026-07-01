@@ -14,6 +14,7 @@ import {
   useRemoveSelfFromCase,
 } from '../../hooks/queries/useCaseApplicants'
 import { caseGroupCode } from '../../lib/caseGroups'
+import { initialStageForCategory } from '../../lib/caseStages'
 import { customerDisplayName } from '../../lib/customerName'
 import {
   cascadeFromCase,
@@ -102,6 +103,12 @@ export function CaseForm({
   // 参与人 = cases.customer_id + case_applicants 行 —— 提交恒传 []（不写关联行）即「案件客户为唯一参与人」，
   // 是本就合法的单人态（账目按人归属照常归到案件客户），不是「无参与人」。
   const isCustomDoc = cascade.category === '定制文件'
+  // 职业评估 = 单人评估：隐藏「所属账号」与整段「组(Group)/参与人」（仅前端条件渲染，
+  // 底层单人案件结构与归账不变——提交 applicantIds=[] 即「案件客户为唯一参与人」，合法单人态）。
+  const isOccupational = cascade.category === '职业评估'
+  // De Facto 关系认定 = 关系类有组：隐藏「所属账号」、**保留**组/参与人（与职业评估去组相反，仅前端条件渲染，
+  // 底层归账按 (case_id, applicant_id) 不变）。新建时初始阶段落到 df_prep（见 submit）。
+  const isDeFacto = cascade.category === 'De Facto 关系认定'
   // 「3 个月提醒 · 更新同居材料」仅 186 ENS + 配偶签（820/309）渲染并写入。
   const isCohabType = cascade.visaType === '186' || cascade.visaType === '820' || cascade.visaType === '309'
   const canSave = derivedSubclass !== ''
@@ -157,9 +164,16 @@ export function CaseForm({
             ? cascade.sponsorEmployerId || null
             : null,
         case_details: pruneDetails(cascade.details),
-        immi_account_id: immiAccountId || null,
+        // 职业评估 / De Facto 都隐藏账号区 → 不写 immi_account_id（兜底 null，不残留）
+        immi_account_id: isOccupational || isDeFacto ? null : immiAccountId || null,
+        // 初始阶段：De Facto 新建落到 df_prep（同居关系材料准备＝自然起始态）；其它大类不预设、用 DB 默认
+        // （职业评估走「未推进显示无」）。编辑模式恒不覆写 current_stage（保留已推进进度）。
+        ...(!editing && initialStageForCategory(cascade.category)
+          ? { current_stage: initialStageForCategory(cascade.category)! }
+          : {}),
       },
-      isCustomDoc ? [] : applicantIds,
+      // 职业评估 = 单人评估提交空参与人；De Facto 有组 → 照常带参与人（与定制文件/职业评估相反）
+      isCustomDoc || isOccupational ? [] : applicantIds,
       next,
     )
   }
@@ -198,13 +212,14 @@ export function CaseForm({
   const restBlocks = (
     <>
       {/* 所属账号（移民局系统账号）：独立一行放表单上部、紧跟案件类型区。
-          下拉选已有 + 就地新增；可空，账号建一次即被多案件复用 */}
-      <ImmiAccountSelect value={immiAccountId} onChange={setImmiAccountId} />
+          下拉选已有 + 就地新增；可空，账号建一次即被多案件复用。
+          职业评估 = 单人评估：整段隐藏（仅前端条件渲染，提交不写 immi_account_id）。 */}
+      {!isOccupational && !isDeFacto && <ImmiAccountSelect value={immiAccountId} onChange={setImmiAccountId} />}
 
-      {/* 组（Group）+ 本案参与人：大类=定制文件时整块隐藏（文档服务单客户，案件客户即唯一参与人）。
+      {/* 组（Group）+ 本案参与人：大类=定制文件 或 职业评估 时整块隐藏（单客户/单人评估，案件客户即唯一参与人）。
           收拢干净版（参与人区-收拢干净版.png）：单卡扁平无嵌套——组码挪到标题行右侧、
           「即时生效」提示只留参与人标题右侧一处、添加下拉与「+ 新建客户」并排一行。 */}
-      {!isCustomDoc && (
+      {!isCustomDoc && !isOccupational && (
       <div className="rounded-[14px] border border-line-2 p-4">
         {/* 标题行：组（Group）｜组码 pill + 共 N 人 */}
         <div className="flex flex-wrap items-center justify-between gap-2">

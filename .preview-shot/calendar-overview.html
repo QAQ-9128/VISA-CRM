@@ -1,0 +1,147 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="stylesheet" href="../dist/assets/index-CKh6kkh3.css">
+<style>
+  .ev{display:flex;width:100%;align-items:center;gap:4px;border-radius:5px;padding:1px 4px;text-align:left;font-size:11px;line-height:1.2}
+  .dot{width:7px;height:7px;border-radius:9999px;flex-shrink:0;display:inline-block}
+  .cell{min-height:92px;border-right:1px solid var(--color-line);border-bottom:1px solid var(--color-line);padding:6px}
+  .num{display:grid;width:22px;height:22px;place-items:center;border-radius:9999px;font-size:12px;font-weight:600;margin-left:auto}
+</style>
+</head>
+<body class="text-body antialiased" style="background:#e8f0ea">
+<main class="px-8 pt-6 pb-10">
+<section class="mx-auto max-w-[1180px] space-y-4">
+
+  <!-- Header -->
+  <div class="flex flex-wrap items-end justify-between gap-3">
+    <div>
+      <h1 class="font-serif text-[26px] font-bold tracking-[-0.01em] text-ink">案件日历</h1>
+      <p class="mt-0.5 text-sm font-medium text-muted">每个事件只标一个关键日期点 · 不显示审理时长</p>
+    </div>
+    <div class="flex flex-wrap items-center gap-3">
+      <div class="flex items-center gap-[14px] rounded-[14px] border border-line bg-white px-4 py-[9px] [box-shadow:0_8px_22px_-16px_rgba(40,90,60,.30)]">
+        <button class="grid size-[26px] place-items-center rounded-[8px] bg-emerald-50 text-[14px] font-bold text-emerald-700">‹</button>
+        <button class="flex items-center gap-[6px] rounded-[9px] px-2 py-[3px] text-[16px] font-semibold text-ink"><span>2026年6月</span><span class="text-[11px] font-normal text-faint">本月</span><svg width="13" height="13" viewBox="0 0 20 20" fill="none" class="text-faint"><path d="m5 8 5 5 5-5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+        <button class="grid size-[26px] place-items-center rounded-[8px] bg-emerald-50 text-[14px] font-bold text-emerald-700">›</button>
+      </div>
+      <button class="inline-flex h-11 items-center gap-1.5 rounded-full bg-brand-700 px-4 text-[14px] font-semibold text-white">＋ 新建提醒</button>
+    </div>
+  </div>
+
+  <!-- Legend -->
+  <div class="flex flex-wrap items-center gap-x-4 gap-y-1.5 text-[12px] text-muted">
+    <span class="inline-flex items-center gap-1.5"><span class="dot" style="background:#7e887e"></span>提名 / 签证递交</span>
+    <span class="inline-flex items-center gap-1.5"><span class="dot" style="background:#357a52"></span>下签 / 获批</span>
+    <span class="inline-flex items-center gap-1.5"><span class="dot" style="background:#c0392b"></span>拒签</span>
+    <span class="inline-flex items-center gap-1.5"><span class="dot" style="background:#c08a2e"></span>补件 / 要求补件</span>
+    <span class="inline-flex items-center gap-1.5"><span class="dot" style="background:#7c6fd6"></span>提醒（自定义 / TRT / 补材料）</span>
+  </div>
+
+  <div class="lg:grid lg:grid-cols-[minmax(0,1fr)_330px] lg:gap-4 lg:items-start">
+    <!-- Calendar -->
+    <div class="overflow-hidden rounded-card border border-line bg-white shadow-soft">
+      <div class="grid grid-cols-7 border-b border-line bg-surface-2 text-center text-[11.5px] font-bold text-muted">
+        <div class="py-2">一</div><div class="py-2">二</div><div class="py-2">三</div><div class="py-2">四</div><div class="py-2">五</div><div class="py-2">六</div><div class="py-2">日</div>
+      </div>
+      <!-- 周1: 1-7 -->
+      <div class="grid grid-cols-7">
+        <div class="cell"><div class="flex"><span class="num text-ink">1</span></div></div>
+        <div class="cell"><div class="flex"><span class="num text-ink">2</span></div>
+          <div class="ev"><span class="dot" style="background:#7e887e"></span><span class="truncate">孙佳辰 <span class="text-faint">提名递交</span></span></div></div>
+        <div class="cell"><div class="flex"><span class="num text-ink">3</span></div></div>
+        <div class="cell"><div class="flex"><span class="num text-ink">4</span></div></div>
+        <div class="cell"><div class="flex"><span class="num text-ink">5</span></div>
+          <div class="ev"><span class="dot" style="background:#357a52"></span><span class="truncate">陈娜 <span class="text-faint">提名获批</span></span></div></div>
+        <div class="cell"><div class="flex"><span class="num text-faint/50">6</span></div></div>
+        <div class="cell" style="border-right:0"><div class="flex"><span class="num text-faint/50">7</span></div></div>
+      </div>
+      <!-- 周2: 8-14 -->
+      <div class="grid grid-cols-7">
+        <div class="cell"><div class="flex"><span class="num text-ink">8</span></div>
+          <div class="ev"><span class="dot" style="background:#7e887e"></span><span class="truncate">王芳 <span class="text-faint">签证递交</span></span></div></div>
+        <div class="cell"><div class="flex"><span class="num text-ink">9</span></div>
+          <div class="ev"><span class="dot" style="background:#7c6fd6"></span><span class="truncate">刘晓丽 <span class="text-faint">补材料提醒</span></span></div></div>
+        <div class="cell"><div class="flex"><span class="num text-ink">10</span></div>
+          <div class="ev"><span class="dot" style="background:#c08a2e"></span><span class="truncate">钱超萍 <span class="text-faint">补件</span></span></div></div>
+        <div class="cell"><div class="flex"><span class="num text-ink">11</span></div></div>
+        <div class="cell"><div class="flex"><span class="num text-ink">12</span></div></div>
+        <div class="cell"><div class="flex"><span class="num text-ink">13</span></div>
+          <div class="ev"><span class="dot" style="background:#7e887e"></span><span class="truncate">何翔龙 <span class="text-faint">提名递交</span></span></div></div>
+        <div class="cell" style="border-right:0"><div class="flex"><span class="num text-ink">14</span></div></div>
+      </div>
+      <!-- 周3: 15-21（16 今天+选中+溢出） -->
+      <div class="grid grid-cols-7">
+        <div class="cell"><div class="flex"><span class="num text-ink">15</span></div></div>
+        <div class="cell" style="box-shadow:inset 0 0 0 2px var(--color-brand-200)"><div class="flex"><span class="num" style="background:#16a34a;color:#fff">16</span></div>
+          <div class="ev"><span class="dot" style="background:#7c6fd6"></span><span class="truncate">谢华 <span class="text-faint">TRT 提醒</span></span></div>
+          <div class="ev"><span class="dot" style="background:#c08a2e"></span><span class="truncate">钱超萍 <span class="text-faint">补件</span></span></div>
+          <button class="w-full rounded-[5px] px-1 text-left text-[11px] font-semibold text-brand-700">+3 更多 ›</button></div>
+        <div class="cell"><div class="flex"><span class="num text-ink">17</span></div></div>
+        <div class="cell"><div class="flex"><span class="num text-ink">18</span></div></div>
+        <div class="cell"><div class="flex"><span class="num text-ink">19</span></div></div>
+        <div class="cell"><div class="flex"><span class="num text-ink">20</span></div>
+          <div class="ev"><span class="dot" style="background:#357a52"></span><span class="truncate">李若萱 <span class="text-faint">下签</span></span></div></div>
+        <div class="cell" style="border-right:0"><div class="flex"><span class="num text-ink">21</span></div></div>
+      </div>
+      <!-- 周4: 22-28 -->
+      <div class="grid grid-cols-7">
+        <div class="cell"><div class="flex"><span class="num text-ink">22</span></div>
+          <div class="ev"><span class="dot" style="background:#c0392b"></span><span class="truncate">取兰花 <span class="text-faint">拒签</span></span></div></div>
+        <div class="cell"><div class="flex"><span class="num text-ink">23</span></div></div>
+        <div class="cell"><div class="flex"><span class="num text-ink">24</span></div></div>
+        <div class="cell"><div class="flex"><span class="num text-ink">25</span></div></div>
+        <div class="cell"><div class="flex"><span class="num text-ink">26</span></div></div>
+        <div class="cell"><div class="flex"><span class="num text-ink">27</span></div></div>
+        <div class="cell" style="border-right:0"><div class="flex"><span class="num text-ink">28</span></div></div>
+      </div>
+      <!-- 周5: 29-30 + 7/1-5 -->
+      <div class="grid grid-cols-7">
+        <div class="cell" style="border-bottom:0"><div class="flex"><span class="num text-ink">29</span></div></div>
+        <div class="cell" style="border-bottom:0"><div class="flex"><span class="num text-ink">30</span></div></div>
+        <div class="cell" style="border-bottom:0"><div class="flex"><span class="num text-faint/50">1</span></div></div>
+        <div class="cell" style="border-bottom:0"><div class="flex"><span class="num text-faint/50">2</span></div></div>
+        <div class="cell" style="border-bottom:0"><div class="flex"><span class="num text-faint/50">3</span></div></div>
+        <div class="cell" style="border-bottom:0"><div class="flex"><span class="num text-faint/50">4</span></div></div>
+        <div class="cell" style="border-right:0;border-bottom:0"><div class="flex"><span class="num text-faint/50">5</span></div></div>
+      </div>
+    </div>
+
+    <!-- Day detail -->
+    <aside class="hidden lg:block overflow-hidden rounded-card border border-line bg-white shadow-soft">
+      <div class="border-b border-line px-4 py-3">
+        <h2 class="font-serif text-[16px] font-bold text-ink">6月16日 · 周二</h2>
+        <p class="mt-0.5 text-[12px] text-faint"><span class="mr-1 font-semibold text-emerald-700">今天</span>共 5 件事件</p>
+      </div>
+      <ul class="space-y-2 p-3">
+        <li class="rounded-[12px] border border-line bg-white p-3">
+          <div class="flex items-center gap-2"><span class="dot" style="background:#7c6fd6"></span><span class="min-w-0 flex-1 truncate text-[13.5px] font-semibold text-ink">谢华 <span class="text-faint">· TRT 提醒</span></span><span class="shrink-0 rounded-full px-2 py-0.5 text-[11px] font-semibold" style="background:#7c6fd620;color:#7c6fd6">TRT 提醒</span></div>
+          <p class="mt-1 truncate text-[12px] text-body">下签满 2 年 · 可递 186 TRT</p>
+          <div class="mt-1 flex items-center justify-between gap-2"><span class="min-w-0 truncate text-[11.5px] text-faint">482/Core Skills · 案件号 99710250</span><button class="shrink-0 text-[12px] font-semibold text-brand-700">去案件 →</button></div>
+        </li>
+        <li class="rounded-[12px] border border-line bg-white p-3">
+          <div class="flex items-center gap-2"><span class="dot" style="background:#c08a2e"></span><span class="min-w-0 flex-1 truncate text-[13.5px] font-semibold text-ink">钱超萍 <span class="text-faint">· 补件</span></span><span class="shrink-0 rounded-full px-2 py-0.5 text-[11px] font-semibold" style="background:#c08a2e20;color:#c08a2e">补件</span></div>
+          <p class="mt-1 truncate text-[12px] text-body">Request 体检补材料</p>
+          <div class="mt-1 flex items-center justify-between gap-2"><span class="min-w-0 truncate text-[11.5px] text-faint">186 · 案件号 63310925</span><button class="shrink-0 text-[12px] font-semibold text-brand-700">去案件 →</button></div>
+        </li>
+        <li class="rounded-[12px] border border-line bg-white p-3">
+          <div class="flex items-center gap-2"><span class="dot" style="background:#7e887e"></span><span class="min-w-0 flex-1 truncate text-[13.5px] font-semibold text-ink">何翔龙 <span class="text-faint">· 提名递交</span></span><span class="shrink-0 rounded-full px-2 py-0.5 text-[11px] font-semibold" style="background:#7e887e20;color:#7e887e">提名递交</span></div>
+          <div class="mt-1 flex items-center justify-between gap-2"><span class="min-w-0 truncate text-[11.5px] text-faint">482/Core Skills · 案件号 06060244</span><button class="shrink-0 text-[12px] font-semibold text-brand-700">去案件 →</button></div>
+        </li>
+        <li class="rounded-[12px] border border-line bg-white p-3">
+          <div class="flex items-center gap-2"><span class="dot" style="background:#7e887e"></span><span class="min-w-0 flex-1 truncate text-[13.5px] font-semibold text-ink">王芳 <span class="text-faint">· 签证递交</span></span><span class="shrink-0 rounded-full px-2 py-0.5 text-[11px] font-semibold" style="background:#7e887e20;color:#7e887e">签证递交</span></div>
+          <div class="mt-1 flex items-center justify-between gap-2"><span class="min-w-0 truncate text-[11.5px] text-faint">186（TRT）· 案件号 88800123</span><button class="shrink-0 text-[12px] font-semibold text-brand-700">去案件 →</button></div>
+        </li>
+        <li class="rounded-[12px] border border-line bg-white p-3">
+          <div class="flex items-center gap-2"><span class="dot" style="background:#357a52"></span><span class="min-w-0 flex-1 truncate text-[13.5px] font-semibold text-ink">李若萱 <span class="text-faint">· 下签</span></span><span class="shrink-0 rounded-full px-2 py-0.5 text-[11px] font-semibold" style="background:#357a5220;color:#357a52">下签</span></div>
+          <div class="mt-1 flex items-center justify-between gap-2"><span class="min-w-0 truncate text-[11.5px] text-faint">482 TSS · 案件号 92887777</span><button class="shrink-0 text-[12px] font-semibold text-brand-700">去案件 →</button></div>
+        </li>
+      </ul>
+    </aside>
+  </div>
+</section>
+</main>
+</body>
+</html>

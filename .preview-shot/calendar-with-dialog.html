@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="stylesheet" href="../dist/assets/index-BBPt-Jvx.css">
+<style>
+  .ev{display:flex;width:100%;align-items:center;gap:4px;border-radius:5px;padding:1px 4px;text-align:left;font-size:11px;line-height:1.2}
+  .dot{width:7px;height:7px;border-radius:9999px;flex-shrink:0;display:inline-block}
+  .cell{min-height:88px;border-right:1px solid var(--color-line);border-bottom:1px solid var(--color-line);padding:6px;position:relative}
+  .num{display:grid;width:22px;height:22px;place-items:center;border-radius:9999px;font-size:12px;font-weight:600}
+  .plus{display:grid;width:20px;height:20px;place-items:center;border-radius:9999px;color:var(--color-faint);opacity:.55}
+  .chead{display:flex;align-items:center;justify-content:space-between;margin-bottom:4px}
+</style>
+</head>
+<body class="text-body antialiased" style="background:#e8f0ea">
+<main class="px-8 pt-6 pb-10">
+<section class="mx-auto max-w-[1180px] space-y-4">
+  <div class="flex flex-wrap items-end justify-between gap-3">
+    <div><h1 class="font-serif text-[26px] font-bold tracking-[-0.01em] text-ink">案件日历</h1><p class="mt-0.5 text-sm font-medium text-muted">日期格右上角「+」→ 弹出可拖动的提醒浮窗</p></div>
+    <div class="flex items-center gap-[14px] rounded-[14px] border border-line bg-white px-4 py-[9px] [box-shadow:0_8px_22px_-16px_rgba(40,90,60,.30)]"><button class="grid size-[26px] place-items-center rounded-[8px] bg-emerald-50 text-[14px] font-bold text-emerald-700">‹</button><button class="flex items-center gap-[6px] px-2 py-[3px] text-[16px] font-semibold text-ink">2026年6月 <svg width="13" height="13" viewBox="0 0 20 20" fill="none" class="text-faint"><path d="m5 8 5 5 5-5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button><button class="grid size-[26px] place-items-center rounded-[8px] bg-emerald-50 text-[14px] font-bold text-emerald-700">›</button></div>
+  </div>
+  <div class="flex flex-wrap items-center gap-x-4 gap-y-1.5 text-[12px] text-muted">
+    <span class="inline-flex items-center gap-1.5"><span class="dot" style="background:#7e887e"></span>提名 / 签证递交</span>
+    <span class="inline-flex items-center gap-1.5"><span class="dot" style="background:#357a52"></span>下签 / 获批</span>
+    <span class="inline-flex items-center gap-1.5"><span class="dot" style="background:#c0392b"></span>拒签</span>
+    <span class="inline-flex items-center gap-1.5"><span class="dot" style="background:#c08a2e"></span>补件</span>
+    <span class="inline-flex items-center gap-1.5"><span class="dot" style="background:#7c6fd6"></span>提醒</span>
+  </div>
+  <div class="overflow-hidden rounded-card border border-line bg-white shadow-soft">
+    <div class="grid grid-cols-7 border-b border-line bg-surface-2 text-center text-[11.5px] font-bold text-muted"><div class="py-2">一</div><div class="py-2">二</div><div class="py-2">三</div><div class="py-2">四</div><div class="py-2">五</div><div class="py-2">六</div><div class="py-2">日</div></div>
+    <div class="grid grid-cols-7" id="W1"></div><div class="grid grid-cols-7" id="W2"></div><div class="grid grid-cols-7" id="W3"></div><div class="grid grid-cols-7" id="W4"></div><div class="grid grid-cols-7" id="W5"></div>
+  </div>
+</section>
+
+<!-- 可拖动浮窗（floating，不挡住底下日历） -->
+<div class="fixed z-50 w-[600px] overflow-hidden rounded-[18px] bg-white [box-shadow:0_30px_80px_-30px_rgba(0,0,0,.4)]" style="left:430px;top:150px">
+  <div class="flex cursor-move select-none items-center gap-2 border-b border-line px-5 py-3.5">
+    <span class="text-faint">⠿</span>
+    <h2 class="font-serif text-[18px] font-bold text-ink">新建提醒</h2>
+    <span class="rounded-full bg-surface-2 px-2 py-0.5 text-[11px] font-semibold text-muted">↔ 可拖动</span>
+    <button class="ml-auto grid size-7 place-items-center rounded-full text-muted hover:bg-surface-2">✕</button>
+  </div>
+  <div class="p-5">
+    <div class="mb-2 flex items-center gap-2 text-[15px] font-bold text-ink"><span class="grid size-6 place-items-center rounded-full bg-emerald-600 text-[12px] font-bold text-white">1</span>关联案件 <span class="text-[13px] font-semibold text-rose-500">*必选</span></div>
+    <div class="flex items-center gap-3 rounded-[14px] border border-emerald-200 bg-emerald-50/60 px-4 py-3"><span class="text-emerald-700">✓</span><span class="min-w-0 flex-1 truncate text-[15px] font-semibold text-ink">谢华 <span class="ml-1 text-[13px] font-normal text-faint tabular-nums">99710250</span></span><span class="shrink-0 rounded-full bg-white px-2.5 py-1 text-[12.5px] font-bold text-emerald-700">186 ENS（TRT）</span><button class="shrink-0 text-[13px] font-semibold text-brand-700">更换</button></div>
+    <div class="mb-2 mt-5 flex items-center gap-2 text-[15px] font-bold text-ink"><span class="grid size-6 place-items-center rounded-full bg-emerald-600 text-[12px] font-bold text-white">2</span>提醒规则（自定义）</div>
+    <div class="space-y-1.5"><label class="block text-[13.5px] font-semibold text-body">提醒内容</label><textarea rows="2" class="block w-full rounded-[14px] border border-line-2 bg-white px-3.5 py-2.5 text-[15px] text-ink" placeholder="提醒内容，自己写… 例：更新同居材料"></textarea></div>
+    <div class="mt-3 flex flex-wrap items-end gap-2">
+      <div class="w-[84px] space-y-1.5"><label class="block text-[13.5px] font-semibold text-body">数字</label><input class="block h-12 w-full rounded-[14px] border border-line-2 bg-white px-3.5 text-[15px] text-ink" value="2"></div>
+      <div class="w-[96px] space-y-1.5"><label class="block text-[13.5px] font-semibold text-body">单位</label><select class="block h-12 w-full appearance-none rounded-[14px] border border-line-2 bg-white px-3.5 pr-10 text-[15px] text-ink"><option>年</option></select></div>
+      <span class="pb-3 text-[12.5px] text-faint">（天 / 月 / 年，默认 0 = 就在 2026-06-16 那天）后提醒</span>
+    </div>
+    <div class="mt-3 w-[180px] space-y-1.5"><label class="block text-[13.5px] font-semibold text-body">重复</label><select class="block h-12 w-full appearance-none rounded-[14px] border border-line-2 bg-white px-3.5 pr-10 text-[15px] text-ink"><option>永不</option></select></div>
+    <div class="mt-5 flex justify-end gap-2 border-t border-line pt-4"><button class="inline-flex h-11 items-center rounded-[14px] px-4 text-[15px] font-semibold text-muted">取消</button><button class="inline-flex h-11 items-center rounded-[14px] bg-brand-700 px-5 text-[15px] font-semibold text-white">保存提醒</button></div>
+  </div>
+</div>
+
+<script>
+  const plus = '<button class="plus"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg></button>';
+  const ev=(c,n,t)=>`<div class="ev"><span class="dot" style="background:${c}"></span><span class="truncate">${n} <span class="text-faint">${t}</span></span></div>`;
+  const data={2:[ev('#7e887e','孙佳辰','提名递交')],9:[ev('#357a52','何翔龙','提名获批')],10:[ev('#7e887e','蒋青霞','签证递交')],16:[ev('#7c6fd6','谢华','TRT 提醒')],20:[ev('#357a52','李若萱','下签')],22:[ev('#c0392b','吕列隆','拒签')]};
+  function cell(day,inMonth,today){let n=today?'num" style="background:#16a34a;color:#fff':(inMonth?'num text-ink':'num text-faint/50');let b='';(data[day]||[]).forEach(x=>b+=x);return `<div class="cell"><div class="chead"><span class="${n}">${day}</span>${plus}</div><div class="space-y-0.5">${b}</div></div>`;}
+  const W=[[1,2,3,4,5,6,7],[8,9,10,11,12,13,14],[15,16,17,18,19,20,21],[22,23,24,25,26,27,28],[29,30,'1n','2n','3n','4n','5n']];
+  W.forEach((wk,i)=>{let h='';wk.forEach(v=>{if(typeof v==='number')h+=cell(v,true,v===16);else h+=cell(v.replace('n',''),false,false);});document.getElementById('W'+(i+1)).innerHTML=h;});
+</script>
+</body>
+</html>

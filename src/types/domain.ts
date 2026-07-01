@@ -29,7 +29,47 @@ export const CASE_STAGES = [
 ] as const
 /** 已废弃阶段：旧数据仍可能为此值，不在下拉显示，仅用于类型/标签兼容（被「要求补件」「补件完毕」替代）。 */
 export const LEGACY_CASE_STAGES = ['additional_docs'] as const
-export type CaseStage = (typeof CASE_STAGES)[number] | (typeof LEGACY_CASE_STAGES)[number]
+
+/**
+ * 职业评估（case_category='职业评估'）专属阶段集合（2026-06-30）。
+ * 与签证类阶段（CASE_STAGES）**互不混用**——只用于职业评估案件的「切换到」下拉。
+ * 存储键 snake_case（DB current_stage / case_stage_history 为 text + CHECK，见 migration 0043，additive）；
+ * **界面只显示英文 label**（见 CASE_STAGE_LABELS）；颜色映射在 lib/statusColor（单一来源）。顺序即列表序，推进不强制线性。
+ */
+export const OCCUPATIONAL_STAGES = [
+  'oa_chn_verification',
+  'oa_skill_submitted',
+  'oa_rfe',
+  'oa_responded',
+  'oa_approved',
+  'oa_positive',
+  'oa_negative',
+] as const
+export type OccupationalStage = (typeof OCCUPATIONAL_STAGES)[number]
+
+/**
+ * De Facto 关系认定（case_category='De Facto 关系认定'）专属阶段集合（2026-07-01，5 阶段终版）。
+ * 与签证类（CASE_STAGES）/ 职业评估（OCCUPATIONAL_STAGES）**互不混用**——只用于 De Facto 案件的「切换到」下拉。
+ * 存储键 snake_case（DB current_stage / case_stage_history 为 text + CHECK，见 migration 0043b，additive）；
+ * **界面按 CASE_STAGE_LABELS 原文显示（中英混排照抄 mockup）**；颜色映射在 lib/statusColor（单一来源，零新增色）。
+ * 新建 De Facto 案件默认落到第一阶段 df_prep（同居关系材料准备＝自然起始态，见 lib/caseStages.initialStageForCategory）。
+ * ★「28days Reminder!!!」**不是阶段**★——它是「Submitted 实际发生日 + 28 天」的提醒，作为**派生型自动提醒**
+ *   （与 TRT/同居 同类，lib/caseCalendar.selectAutoReminderEvents）实时落点为日历紫点，不进本集合 / 不进 CHECK。
+ */
+export const DE_FACTO_STAGES = [
+  'df_prep',
+  'df_submitted',
+  'df_rfe',
+  'df_responded',
+  'df_registered',
+] as const
+export type DeFactoStage = (typeof DE_FACTO_STAGES)[number]
+
+export type CaseStage =
+  | (typeof CASE_STAGES)[number]
+  | (typeof LEGACY_CASE_STAGES)[number]
+  | OccupationalStage
+  | DeFactoStage
 
 export const CASE_STAGE_LABELS: Record<CaseStage, string> = {
   todo: '待办',
@@ -45,6 +85,20 @@ export const CASE_STAGE_LABELS: Record<CaseStage, string> = {
   appeal: '上诉/复议',
   withdrawn: '主动撤签',
   additional_docs: '补件', // 旧数据兼容（已被要求补件/补件完毕替代）
+  // 职业评估专属阶段：界面只显示英文名（§4），不要中文
+  oa_chn_verification: 'CHN Qualifications Verification Submitted',
+  oa_skill_submitted: 'Skill Assessment Submitted',
+  oa_rfe: 'Request further evidence',
+  oa_responded: 'Responded',
+  oa_approved: 'Approved',
+  oa_positive: 'Positive Outcome',
+  oa_negative: 'Negative Outcome',
+  // De Facto 专属阶段（5 个）：界面按原文显示（中英混排，照抄 mockup §5）。28days Reminder 不是阶段，不在此。
+  df_prep: '同居关系材料准备',
+  df_submitted: 'Submitted',
+  df_rfe: 'Request Further evidence',
+  df_responded: 'Responded',
+  df_registered: 'Registered',
 }
 
 // 阶段配色：已收口到 lib/statusColor.ts（状态 → 6 类配色的单一来源），

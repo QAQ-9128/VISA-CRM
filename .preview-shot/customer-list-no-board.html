@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="stylesheet" href="../dist/assets/index-cumyB7jf.css">
+</head>
+<body class="text-body antialiased" style="background:#e8f0ea">
+<main class="px-8 pt-6 pb-10">
+<section class="mx-auto max-w-[1180px] space-y-5">
+  <div class="flex items-center justify-between gap-3">
+    <div>
+      <h1 class="text-2xl font-bold tracking-[-0.02em] text-ink">客户列表</h1>
+      <p class="mt-0.5 text-sm text-muted">追踪并管理客户关系 · 每位客户列出 TA 参与的案件</p>
+    </div>
+    <button class="inline-flex h-11 items-center gap-1.5 rounded-full bg-brand-700 px-4 text-[14px] font-semibold text-white">＋ 新建客户</button>
+  </div>
+
+  <!-- 工具条：无「列表/看板」段控，只有搜索 + 筛选 -->
+  <div class="flex flex-wrap items-center gap-3">
+    <div class="flex h-11 min-w-[220px] flex-1 items-center gap-2.5 rounded-full border border-line-2 bg-white px-4 text-faint shadow-xs">
+      <svg class="size-[18px] shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3-3"/></svg>
+      <span class="text-[15px] text-faint">搜索姓名 / 电话 / 邮箱 / 案件号</span>
+    </div>
+    <button class="inline-flex h-11 items-center gap-1.5 rounded-full border border-line-2 bg-white px-4 text-[13.5px] font-semibold text-body">筛选</button>
+  </div>
+
+  <div class="rounded-card bg-white px-[18px] shadow-soft">
+    <ul>
+      <li class="flex items-center gap-2 border-t border-line first:border-t-0">
+        <span class="grid size-11 place-items-center text-amber-400">★</span>
+        <div class="flex min-h-12 min-w-0 flex-1 items-center gap-3 py-3 pr-2">
+          <span class="grid size-10 place-items-center rounded-full bg-emerald-50 text-[15px] font-semibold text-emerald-700">陈</span>
+          <div class="min-w-0 flex-1">
+            <div class="flex items-center gap-2"><span class="truncate text-[15px] font-semibold text-ink">陈伟</span><span class="size-2.5 rounded-full bg-slate-900"></span></div>
+            <div class="mt-1 flex flex-wrap items-center gap-x-1.5 text-xs text-muted"><span class="font-medium text-body">482</span><span class="text-line-2">|</span><span>Cook 厨师</span><span class="text-line-2">|</span><span>Golden Wok Pty Ltd</span><span class="text-line-2">|</span><span class="inline-flex items-center rounded-full bg-[var(--color-mute-bg)] px-2 py-0.5 text-[11px] font-bold text-[var(--color-mute-tx)]">提名已递交</span></div>
+          </div>
+          <span class="text-line-2">›</span>
+        </div>
+      </li>
+      <li class="flex items-center gap-2 border-t border-line">
+        <span class="grid size-11 place-items-center text-slate-300">☆</span>
+        <div class="flex min-h-12 min-w-0 flex-1 items-center gap-3 py-3 pr-2">
+          <span class="grid size-10 place-items-center rounded-full bg-emerald-50 text-[15px] font-semibold text-emerald-700">王</span>
+          <div class="min-w-0 flex-1">
+            <div class="flex items-center gap-2"><span class="truncate text-[15px] font-semibold text-ink">王芳</span></div>
+            <div class="mt-1 flex flex-wrap items-center gap-x-1.5 text-xs text-muted"><span class="font-medium text-body">485</span><span class="text-line-2">|</span><span class="inline-flex items-center rounded-full bg-[#efecfb] px-2 py-0.5 text-[11px] font-bold text-[#7c6fd6]">待办</span></div>
+          </div>
+          <span class="text-line-2">›</span>
+        </div>
+      </li>
+    </ul>
+  </div>
+</section>
+</main>
+</body>
+</html>

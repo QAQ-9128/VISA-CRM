@@ -1,0 +1,149 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="stylesheet" href="../dist/assets/index-Dy0y7Hcj.css">
+<style>
+  .bar{display:block;width:100%;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;border-radius:4px;border-left-width:3px;border-left-style:solid;padding:3px 4px 3px 8px;text-align:left;font-size:11.5px;line-height:1.2}
+  .cell{min-height:112px;border-right:1px solid var(--color-line);border-bottom:1px solid var(--color-line);padding:6px;position:relative}
+  .num{display:grid;width:22px;height:22px;place-items:center;border-radius:9999px;font-size:12px;font-weight:600;font-variant-numeric:tabular-nums}
+  .plus{display:grid;width:20px;height:20px;place-items:center;border-radius:9999px;color:var(--color-faint)}
+  .chead{display:flex;align-items:center;justify-content:space-between;margin-bottom:4px}
+  .C_lodged{border-left-color:#7e887e;background:rgba(126,136,126,.10)}
+  .C_approved{border-left-color:#357a52;background:rgba(53,122,82,.10)}
+  .C_refused{border-left-color:#c0392b;background:rgba(192,57,43,.10)}
+  .C_docs{border-left-color:#c08a2e;background:rgba(192,138,46,.10)}
+  .C_rem{border-left-color:#7c6fd6;background:rgba(124,111,214,.10)}
+  .dot{width:7px;height:7px;border-radius:9999px;flex-shrink:0;display:inline-block}
+</style>
+</head>
+<body class="text-body antialiased" style="background:#e8f0ea">
+<main class="px-8 pt-6 pb-10">
+<section class="mx-auto max-w-[1180px] space-y-3">
+
+  <!-- 顶栏 -->
+  <div class="flex flex-wrap items-center gap-3">
+    <h1 class="font-serif text-[24px] font-bold tracking-[-0.01em] text-ink">案件日历</h1>
+    <button class="h-9 rounded-full border border-line-2 bg-white px-3.5 text-[13px] font-semibold text-body shadow-xs">今天</button>
+    <div class="flex items-center gap-1">
+      <button class="grid size-8 place-items-center rounded-full text-muted">‹</button>
+      <button class="grid size-8 place-items-center rounded-full text-muted">›</button>
+    </div>
+    <button class="inline-flex h-9 items-center gap-1.5 rounded-full border border-line-2 bg-white px-3.5 text-[14px] font-semibold text-ink shadow-xs">2026年6月 <span class="rounded-full bg-emerald-50 px-1.5 py-0.5 text-[11px] font-bold text-emerald-700">本月</span> <span class="text-faint">▾</span></button>
+    <div class="ml-auto flex items-center gap-3">
+      <div class="flex h-9 w-[220px] items-center gap-2 rounded-full border border-line-2 bg-white px-3.5 text-faint shadow-xs">
+        <svg class="size-[16px] shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+        <span class="text-[14px] text-faint">搜客户 / 案件号 / 类型…</span>
+      </div>
+      <div class="inline-flex gap-1 rounded-full bg-surface-2 p-1">
+        <button class="h-7 rounded-full bg-white px-3 text-[13px] font-semibold text-brand shadow-xs">月</button>
+        <button class="h-7 rounded-full px-3 text-[13px] font-semibold text-muted">周</button>
+        <button class="h-7 rounded-full px-3 text-[13px] font-semibold text-muted">日</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 图例 -->
+  <div class="flex flex-wrap items-center gap-x-4 gap-y-1.5 text-[12px] text-muted">
+    <span class="inline-flex items-center gap-1.5"><span class="dot" style="background:#7e887e"></span>提名 / 签证递交</span>
+    <span class="inline-flex items-center gap-1.5"><span class="dot" style="background:#357a52"></span>下签 / 获批</span>
+    <span class="inline-flex items-center gap-1.5"><span class="dot" style="background:#c0392b"></span>拒签</span>
+    <span class="inline-flex items-center gap-1.5"><span class="dot" style="background:#c08a2e"></span>补件 / 要求补件</span>
+    <span class="inline-flex items-center gap-1.5"><span class="dot" style="background:#7c6fd6"></span>提醒（自定义 / TRT / 补材料）</span>
+  </div>
+
+  <!-- 月网格 -->
+  <div class="overflow-hidden rounded-card border border-line bg-white shadow-soft" style="position:relative">
+    <div class="grid grid-cols-7 border-b border-line text-center text-[11.5px] font-bold text-muted" style="background:#f6faf7">
+      <div class="py-2.5">周一</div><div class="py-2.5">周二</div><div class="py-2.5">周三</div><div class="py-2.5">周四</div><div class="py-2.5">周五</div><div class="py-2.5">周六</div><div class="py-2.5">周日</div>
+    </div>
+
+    <!-- 第一周 6/1–6/7 -->
+    <div class="grid grid-cols-7">
+      <div class="cell"><div class="chead"><span class="num text-ink">1</span></div></div>
+      <div class="cell"><div class="chead"><span class="num text-ink">2</span></div></div>
+      <div class="cell"><div class="chead"><span class="num text-ink">3</span></div>
+        <div class="space-y-[3px]"><span class="bar C_lodged"><span class="text-ink">孙佳琪</span> <span class="text-faint">提名递交</span></span></div></div>
+      <div class="cell"><div class="chead"><span class="num text-ink">4</span></div>
+        <div class="space-y-[3px]"><span class="bar C_rem"><span class="text-ink">谢华</span> <span class="text-faint">提醒</span></span></div></div>
+      <div class="cell"><div class="chead"><span class="num text-ink">5</span></div>
+        <div class="space-y-[3px]">
+          <span class="bar C_lodged"><span class="text-ink">孙佳琪</span> <span class="text-faint">签证递交</span></span>
+          <span class="bar C_docs"><span class="text-ink">王芳</span> <span class="text-faint">补件</span></span></div></div>
+      <div class="cell"><div class="chead"><span class="num text-ink">6</span></div></div>
+      <div class="cell"><div class="chead"><span class="num text-faint/45">7</span></div></div>
+    </div>
+
+    <!-- 第二周 6/8–6/14 -->
+    <div class="grid grid-cols-7">
+      <div class="cell"><div class="chead"><span class="num text-ink">8</span></div>
+        <div class="space-y-[3px]"><span class="bar C_lodged"><span class="text-ink">何翔龙</span> <span class="text-faint">提名递交</span></span></div></div>
+      <div class="cell"><div class="chead"><span class="num text-ink">9</span></div>
+        <div class="space-y-[3px]">
+          <span class="bar C_approved"><span class="text-ink">何翔龙</span> <span class="text-faint">提名获批</span></span>
+          <span class="bar C_lodged"><span class="text-ink">何翔龙</span> <span class="text-faint">签证递交</span></span>
+          <button class="block w-full rounded-[4px] px-2 py-[2px] text-left text-[11px] font-semibold text-brand-700">+1 个更多</button></div></div>
+      <div class="cell"><div class="chead"><span class="num text-ink">10</span></div>
+        <div class="space-y-[3px]"><span class="bar C_docs"><span class="text-ink">谢华</span> <span class="text-faint">补件</span></span></div></div>
+      <div class="cell"><div class="chead"><span class="num text-ink">11</span></div></div>
+      <div class="cell"><div class="chead"><span class="num text-ink">12</span></div>
+        <div class="space-y-[3px]"><span class="bar C_refused"><span class="text-ink">李娜</span> <span class="text-faint">拒签</span></span></div></div>
+      <div class="cell"><div class="chead"><span class="num text-faint/45">13</span></div></div>
+      <div class="cell"><div class="chead"><span class="num text-faint/45">14</span></div></div>
+    </div>
+
+    <!-- 第三周 6/15–6/21（今天=16） -->
+    <div class="grid grid-cols-7">
+      <div class="cell"><div class="chead"><span class="num text-ink">15</span></div></div>
+      <div class="cell" style="position:relative"><div class="chead"><span class="num text-white" style="background:#059669">16</span><span class="plus" style="opacity:.6">+</span></div>
+        <div class="space-y-[3px]">
+          <span class="bar C_rem"><span class="text-ink">谢华</span> <span class="text-faint">TRT 提醒</span></span>
+          <span class="bar C_docs"><span class="text-ink">钱超萍</span> <span class="text-faint">补件</span></span></div></div>
+      <div class="cell"><div class="chead"><span class="num text-ink">17</span></div></div>
+      <div class="cell"><div class="chead"><span class="num text-ink">18</span></div></div>
+      <div class="cell"><div class="chead"><span class="num text-ink">19</span></div></div>
+      <div class="cell" style="position:relative"><div class="chead"><span class="num text-ink">20</span></div>
+        <div class="space-y-[3px]"><span class="bar C_approved"><span class="text-ink">谢华</span> <span class="text-faint">下签</span></span></div>
+        <!-- 事件详情 popover -->
+        <div class="absolute left-1/2 z-30 mt-2 -translate-x-1/2 rounded-[16px] border border-line bg-white p-3" style="top:54px;width:252px;[box-shadow:0_20px_46px_-20px_rgba(40,90,60,.34)];box-shadow:0 20px 46px -20px rgba(40,90,60,.34)">
+          <div class="w-[232px] space-y-2 text-left">
+            <div class="flex items-center gap-2"><span class="dot" style="background:#357a52"></span>
+              <span class="min-w-0 flex-1 truncate text-[14px] font-semibold text-ink">谢华</span>
+              <span class="shrink-0 rounded-full px-2 py-0.5 text-[11px] font-semibold" style="background:#357a5222;color:#357a52">下签</span></div>
+            <p class="text-[11.5px] text-faint">482/Core Skills · 案件号 99710250</p>
+            <button class="text-[12.5px] font-semibold text-brand-700">去案件 →</button>
+          </div>
+        </div>
+      </div>
+      <div class="cell"><div class="chead"><span class="num text-faint/45">21</span></div></div>
+    </div>
+
+    <!-- 第四周 6/22–6/28 -->
+    <div class="grid grid-cols-7">
+      <div class="cell"><div class="chead"><span class="num text-ink">22</span></div>
+        <div class="space-y-[3px]"><span class="bar C_rem"><span class="text-ink">赵敏</span> <span class="text-faint">补材料提醒</span></span></div></div>
+      <div class="cell"><div class="chead"><span class="num text-ink">23</span></div></div>
+      <div class="cell"><div class="chead"><span class="num text-ink">24</span></div></div>
+      <div class="cell"><div class="chead"><span class="num text-ink">25</span></div>
+        <div class="space-y-[3px]"><span class="bar C_lodged"><span class="text-ink">周杰</span> <span class="text-faint">提名递交</span></span></div></div>
+      <div class="cell"><div class="chead"><span class="num text-ink">26</span></div></div>
+      <div class="cell"><div class="chead"><span class="num text-faint/45">27</span></div></div>
+      <div class="cell"><div class="chead"><span class="num text-faint/45">28</span></div></div>
+    </div>
+
+    <!-- 第五周 6/29–7/5 -->
+    <div class="grid grid-cols-7">
+      <div class="cell"><div class="chead"><span class="num text-ink">29</span></div></div>
+      <div class="cell"><div class="chead"><span class="num text-ink">30</span></div></div>
+      <div class="cell" style="background:rgba(243,247,244,.3)"><div class="chead"><span class="num text-faint/45">1</span></div></div>
+      <div class="cell" style="background:rgba(243,247,244,.3)"><div class="chead"><span class="num text-faint/45">2</span></div></div>
+      <div class="cell" style="background:rgba(243,247,244,.3)"><div class="chead"><span class="num text-faint/45">3</span></div></div>
+      <div class="cell" style="background:rgba(243,247,244,.3)"><div class="chead"><span class="num text-faint/45">4</span></div></div>
+      <div class="cell" style="background:rgba(243,247,244,.3)"><div class="chead"><span class="num text-faint/45">5</span></div></div>
+    </div>
+  </div>
+</section>
+</main>
+</body>
+</html>

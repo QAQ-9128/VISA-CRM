@@ -62,7 +62,7 @@ function renderPage() {
   )
 }
 
-const tableShown = () => screen.queryByText('提名递交时间') !== null // 表头唯进度表有
+const tableShown = () => screen.queryByText('提名 · Nomination') !== null // 两层表头分组标签唯进度表有
 const boardShown = () => screen.queryAllByText('本案参与人').length > 0 // 卡片唯看板有
 
 describe('CasesPage — 进度表 / 看板 段控', () => {

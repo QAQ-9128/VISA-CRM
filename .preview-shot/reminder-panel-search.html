@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="stylesheet" href="../dist/assets/index-BBPt-Jvx.css">
+</head>
+<body class="text-body antialiased" style="background:#e8f0ea">
+<main class="grid min-h-screen place-items-center p-6">
+  <form class="w-full max-w-[620px] rounded-[22px] bg-white p-6 [box-shadow:0_30px_80px_-30px_rgba(0,0,0,.4)]">
+    <div class="flex items-start justify-between">
+      <div>
+        <h2 class="font-serif text-[22px] font-bold text-ink">新建提醒</h2>
+        <p class="mt-1 text-[13px] text-faint">提醒必须挂在一个已有案件上 · 不在这里新建案件</p>
+      </div>
+      <button type="button" class="grid size-8 place-items-center rounded-full text-muted hover:bg-surface-2">✕</button>
+    </div>
+
+    <div class="mt-5">
+      <div class="mb-2 flex items-center gap-2 text-[15px] font-bold text-ink">
+        <span class="grid size-6 place-items-center rounded-full bg-emerald-600 text-[12px] font-bold text-white">1</span>
+        关联案件 <span class="text-[13px] font-semibold text-rose-500">*必选</span>
+      </div>
+      <div class="rounded-[14px] border border-line-2 bg-white">
+        <div class="flex h-11 items-center gap-2.5 border-b border-line px-3.5 text-faint">
+          <svg class="size-[18px] shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3-3"/></svg>
+          <span class="text-[15px] text-ink">谢</span>
+        </div>
+        <ul class="p-1.5">
+          <li><button type="button" class="flex w-full items-center gap-2 rounded-[10px] bg-surface-2 px-2.5 py-2 text-left"><span class="min-w-0 flex-1 truncate text-[14px] font-semibold text-ink">谢华 <span class="text-[12px] font-normal text-faint tabular-nums">99710250</span></span><span class="shrink-0 rounded-full bg-emerald-50 px-2 py-0.5 text-[11.5px] font-semibold text-emerald-700">186 ENS</span></button></li>
+          <li><button type="button" class="flex w-full items-center gap-2 rounded-[10px] px-2.5 py-2 text-left"><span class="min-w-0 flex-1 truncate text-[14px] font-semibold text-ink">谢明轩 <span class="text-[12px] font-normal text-faint tabular-nums">77120388</span></span><span class="shrink-0 rounded-full bg-emerald-50 px-2 py-0.5 text-[11.5px] font-semibold text-emerald-700">482 TSS</span></button></li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="mt-5 opacity-50">
+      <div class="mb-2 flex items-center gap-2 text-[15px] font-bold text-ink">
+        <span class="grid size-6 place-items-center rounded-full bg-emerald-600 text-[12px] font-bold text-white">2</span>
+        提醒规则（自定义）
+      </div>
+      <div class="space-y-1.5">
+        <label class="block text-[13.5px] font-semibold text-body">提醒内容</label>
+        <textarea rows="3" class="block w-full rounded-[14px] border border-line-2 bg-white px-3.5 py-2.5 text-[15px] text-ink" placeholder="提醒内容，自己写… 例：更新同居材料 / 2 年后办 186 TRT"></textarea>
+      </div>
+    </div>
+
+    <div class="mt-5 flex justify-end gap-2 border-t border-line pt-4">
+      <button type="button" class="inline-flex h-11 items-center justify-center rounded-[14px] px-4 text-[15px] font-semibold text-muted">取消</button>
+      <button type="submit" disabled class="inline-flex h-11 items-center justify-center rounded-[14px] bg-brand-700 px-5 text-[15px] font-semibold text-white opacity-50">保存提醒</button>
+    </div>
+  </form>
+</main>
+</body>
+</html>

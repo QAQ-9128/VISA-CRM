@@ -3,6 +3,7 @@ import { localYmd } from './dateRules'
 import { formatVisaType } from './visa'
 import { getLodgementLodgedDate } from './lodgementStatus'
 import { isCohabEligible } from './cohab'
+import { isDeFactoCategory } from './caseStages'
 import { addMonths, firstDueDate, occurrencesInMonth, type OffsetUnit, type RepeatRule } from './reminders'
 import type { Case, CaseReminder, CaseStageHistory, Customer, RecordRow } from '../types/models'
 import type { CaseStage } from '../types/domain'
@@ -152,16 +153,18 @@ export function selectReminderEvents(
   return out
 }
 
-/** 该案最近一次「下签」的本地日期；无 → null。 */
-function latestGrantDay(history: CaseStageHistory[]): string | null {
+/** 该案最近一次推进到某阶段的本地日期；无 → null。 */
+function latestToStageDay(history: CaseStageHistory[], stage: CaseStage): string | null {
   let best: string | null = null
   for (const h of history) {
-    if (h.to_stage !== 'granted') continue
+    if (h.to_stage !== stage) continue
     const d = localDayOf(h.effective_at ?? h.changed_at)
     if (!best || d > best) best = d
   }
   return best
 }
+/** 该案最近一次「下签」的本地日期；无 → null。 */
+const latestGrantDay = (history: CaseStageHistory[]): string | null => latestToStageDay(history, 'granted')
 const isTrt186 = (c: Pick<Case, 'visa_subclass' | 'visa_stream'>) =>
   c.visa_subclass.includes('186') && /temporary residence transition|trt/i.test(c.visa_stream ?? '')
 
@@ -225,6 +228,17 @@ export function selectAutoReminderEvents(
       const anchor = c.cohab_reminder_last ?? lodged ?? localDayOf(c.created_at)
       for (const date of occurrencesInMonth(addMonths(anchor, 3), 'every3months', monthYm)) {
         push(c, date, '补材料提醒', '更新同居材料')
+      }
+    }
+    // De Facto「Submitted + 28 天」提醒（派生型，与 TRT/同居 同类；§6 预留数据 = 无表落点，恒一致）：
+    // 仅当 DF 案当前停在 df_submitted 时落点 = 最近一次 df_submitted 实际发生日(本地) + 28 天，单点(never)。
+    // 离开 Submitted → current_stage≠df_submitted 即不再派生；改实际日期/撤回 → 随 latestToStageDay 自动重算。
+    if (isDeFactoCategory(c.case_category) && c.current_stage === 'df_submitted') {
+      const submitted = latestToStageDay(hist, 'df_submitted')
+      if (submitted) {
+        for (const date of occurrencesInMonth(firstDueDate(submitted, 28, 'day'), 'never', monthYm)) {
+          push(c, date, 'De Facto 提醒', 'Submitted 满 28 天')
+        }
       }
     }
   }

@@ -15,8 +15,8 @@ vi.mock('../../hooks/useAuth', () => ({ useAuth: () => ({ isAdmin: state.isAdmin
 
 import { ReferrerListPage } from './ReferrerListPage'
 
-const ref = (id: string, name: string, kind: string) => ({
-  id, name, kind, contact_phone: null, contact_email: null, notes: null,
+const ref = (id: string, name: string, kind: string, notes: string | null = null) => ({
+  id, name, kind, contact_phone: null, contact_email: null, notes,
   is_archived: false, created_by: null, created_at: '', updated_at: '',
 })
 
@@ -61,5 +61,18 @@ describe('ReferrerListPage · 介绍人/归属人开关（一表两用）', () =
     renderPage()
     fireEvent.click(screen.getByRole('button', { name: '归属人' }))
     expect(screen.getByText(/还没有归属人/)).toBeInTheDocument()
+  })
+
+  it('有备注的介绍人 → 列表展示备注内容', () => {
+    state.referrers = [ref('r1', 'CICI', 'referrer', '123124124')]
+    renderPage()
+    expect(screen.getByTestId('referrer-notes')).toHaveTextContent('123124124')
+  })
+
+  it('空备注 → 不渲染备注行，不报错', () => {
+    state.referrers = [ref('r1', 'CICI', 'referrer', null)]
+    expect(() => renderPage()).not.toThrow()
+    // 备注为空时不应出现备注位（用占位 em dash 之外的内容判定）
+    expect(screen.queryByTestId('referrer-notes')).toBeNull()
   })
 })

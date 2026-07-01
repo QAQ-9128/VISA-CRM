@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest'
 import { render, screen } from '@testing-library/react'
-import { MilestoneCard } from './MilestoneCard'
+import { MilestoneCard, OccupationalDurationCard } from './MilestoneCard'
 import type { FlowProcessing } from '../../../lib/casesTable'
+import { CASE_STAGE_LABELS } from '../../../types/domain'
 
 const processing = (over: Partial<FlowProcessing> = {}): FlowProcessing => ({
   lodged: '2026-01-01',
@@ -79,5 +80,41 @@ describe('MilestoneCard（提名/签证递交里程碑卡 · 审理时长+状态
     expect(screen.getByText('—')).toBeInTheDocument()
     expect(screen.queryByText('审理中')).toBeNull()
     expect(screen.queryByText(/审理时长/)).toBeNull()
+  })
+})
+
+describe('OccupationalDurationCard（职业评估审理时长两段卡 · §5）', () => {
+  it('仍在该阶段(ongoing)：英文标题 + 大数(N 天) + 「自 起 · 处理中」', () => {
+    render(
+      <OccupationalDurationCard
+        title={CASE_STAGE_LABELS.oa_skill_submitted}
+        stage="oa_skill_submitted"
+        duration={{ start: '2026-06-10', days: 20, ongoing: true }}
+      />,
+    )
+    expect(screen.getByText('Skill Assessment Submitted')).toBeInTheDocument()
+    expect(screen.getByText('20 天')).toBeInTheDocument()
+    expect(screen.getByText(/自 2026-06-10 起 · 处理中/)).toBeInTheDocument()
+  })
+
+  it('已冻结(已用时)：副说明显示「已用时」而非「处理中」', () => {
+    render(
+      <OccupationalDurationCard
+        title={CASE_STAGE_LABELS.oa_chn_verification}
+        stage="oa_chn_verification"
+        duration={{ start: '2026-05-12', days: 29, ongoing: false }}
+      />,
+    )
+    expect(screen.getByText('29 天')).toBeInTheDocument()
+    expect(screen.getByText(/已用时/)).toBeInTheDocument()
+    expect(screen.queryByText(/处理中/)).toBeNull()
+  })
+
+  it('未发生(null)：大数「—」+ 副「未发生」', () => {
+    render(
+      <OccupationalDurationCard title={CASE_STAGE_LABELS.oa_chn_verification} stage="oa_chn_verification" duration={null} />,
+    )
+    expect(screen.getByText('—')).toBeInTheDocument()
+    expect(screen.getByText('未发生')).toBeInTheDocument()
   })
 })

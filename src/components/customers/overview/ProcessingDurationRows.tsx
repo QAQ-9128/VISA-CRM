@@ -1,5 +1,7 @@
 import type { ProcessingRow } from '../../../lib/processingTime'
-import { flowStatusBadgeClass } from '../../../lib/statusColor'
+import { flowStatusBadgeClass, stageSolidColor } from '../../../lib/statusColor'
+import { CASE_STAGE_LABELS } from '../../../types/domain'
+import type { OccupationalDurations } from '../../../lib/occupationalDuration'
 
 /**
  * 概要带「审理时长」格的行内容（提名/签证已递交各占一行）。
@@ -35,6 +37,44 @@ export function ProcessingDurationRows({ rows }: { rows: ProcessingRow[] }) {
           </span>
         </span>
       ))}
+    </span>
+  )
+}
+
+/** 概要带「审理时长」格的职业评估两段紧凑版（§5）：CHN / 技评 各一行，本地派生、随选中案件联动。
+ *  口径 = selectOccupationalDurations（发生日→下一记录日冻结 / 仍在则累加到今天 / 未发生 —）；
+ *  两段都未发生 → 整格「—」。短标签 CHN/Skill（hover 见完整英文阶段名），与签证版同一不破版排布。 */
+const OA_SEGMENTS = [
+  { key: 'chn', stage: 'oa_chn_verification', tag: 'CHN' },
+  { key: 'skill', stage: 'oa_skill_submitted', tag: 'Skill' },
+] as const
+
+export function OccupationalDurationRows({ durations }: { durations: OccupationalDurations }) {
+  if (!durations.chn && !durations.skill) return <span className="text-faint">—</span>
+  return (
+    <span className="flex flex-col items-start gap-1">
+      {OA_SEGMENTS.map(({ key, stage, tag }) => {
+        const d = durations[key]
+        return (
+          <span
+            key={key}
+            data-testid={`oa-dur-${key}`}
+            className="flex flex-nowrap items-baseline gap-1.5 whitespace-nowrap"
+            title={CASE_STAGE_LABELS[stage]}
+          >
+            <span className="size-2 shrink-0 self-center rounded-full" style={{ background: stageSolidColor(stage) }} />
+            <span className="shrink-0 text-[13px] font-semibold text-muted">{tag}</span>
+            {d ? (
+              <>
+                <span className="shrink-0 text-[20px] font-extrabold leading-tight tabular-nums text-emerald-700">{d.days}</span>
+                <span className="shrink-0 text-[12px] font-semibold text-muted">天</span>
+              </>
+            ) : (
+              <span className="shrink-0 text-[14px] font-semibold text-faint">—</span>
+            )}
+          </span>
+        )
+      })}
     </span>
   )
 }

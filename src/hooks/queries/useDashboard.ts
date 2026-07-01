@@ -13,6 +13,7 @@ import {
   caseCategoryDistribution,
   computeDebtTotals,
   countActiveCases,
+  selectActionCases,
   selectCustomerDebts,
   selectExpiringDocs,
   selectOverdueInstallments,
@@ -108,6 +109,11 @@ export function useDashboard() {
     () => selectTodoCases(visibleCases, customerById, caseApplicants.data ?? []),
     [visibleCases, customerById, caseApplicants.data],
   )
+  // 需要行动案件：current_stage 类别为 action（补件/上诉等），概览主角区左栏顶部
+  const actionCases = useMemo(
+    () => selectActionCases(visibleCases, customerById, caseApplicants.data ?? []),
+    [visibleCases, customerById, caseApplicants.data],
+  )
   // 转 186 TRT 提醒：只看可见案件
   const trtReminders = useMemo(
     () => selectTrtReminders(visibleCases, stageHistory.data ?? [], customerById),
@@ -146,6 +152,7 @@ export function useDashboard() {
     debtTotals,
     customerDebts,
     todoCases,
+    actionCases,
     trtReminders,
     cohabReminders,
     // 统计卡 / 阶段分布（全真实数据派生）

@@ -152,37 +152,65 @@ export interface TodoCaseItem {
   stageLabel: string
 }
 
-export function selectTodoCases(
-  cases: Case[],
-  customerById: CustomerMap,
-  applicants: Pick<CaseApplicant, 'case_id' | 'customer_id'>[] = [],
-): TodoCaseItem[] {
+/** 案件 id → 在册副申请 customer_id 列表（参与人映射），TodoCaseItem 组装共用。 */
+function buildSubsByCase(applicants: Pick<CaseApplicant, 'case_id' | 'customer_id'>[]): Map<string, string[]> {
   const subsByCase = new Map<string, string[]>()
   for (const a of applicants) {
     const list = subsByCase.get(a.case_id) ?? []
     list.push(a.customer_id)
     subsByCase.set(a.case_id, list)
   }
+  return subsByCase
+}
+
+/** 单个案件 → 行项（在册参与人 + 签证标签 + 阶段标签）。供「待办/已草拟」与「需要行动」两队列共用。 */
+function toCaseItem(c: Case, customerById: CustomerMap, subsByCase: Map<string, string[]>): TodoCaseItem {
+  const ids = [...new Set([c.customer_id, ...(subsByCase.get(c.id) ?? [])])]
+  // 在册参与人（customerById 来自未归档客户列表 → 归档/被删的人自然滤掉）
+  const participants = ids
+    .filter((id) => customerById[id])
+    .map((id) => ({ id, name: customerDisplayName(customerById[id]) }))
+  const first = participants[0]
+  return {
+    caseId: c.id,
+    customerId: first?.id ?? c.customer_id,
+    customerName: first?.name ?? '',
+    participants,
+    visaLabel: formatVisaType(c.visa_subclass, c.visa_stream),
+    stage: c.current_stage,
+    stageLabel: CASE_STAGE_LABELS[c.current_stage],
+  }
+}
+
+const byCreatedDesc = (a: Case, b: Case) => b.created_at.localeCompare(a.created_at) || a.id.localeCompare(b.id)
+
+export function selectTodoCases(
+  cases: Case[],
+  customerById: CustomerMap,
+  applicants: Pick<CaseApplicant, 'case_id' | 'customer_id'>[] = [],
+): TodoCaseItem[] {
+  const subsByCase = buildSubsByCase(applicants)
   return cases
     .filter((c) => TODO_STAGES.has(c.current_stage) && !c.is_archived)
-    .sort((a, b) => b.created_at.localeCompare(a.created_at) || a.id.localeCompare(b.id))
-    .map((c) => {
-      const ids = [...new Set([c.customer_id, ...(subsByCase.get(c.id) ?? [])])]
-      // 在册参与人（customerById 来自未归档客户列表 → 归档/被删的人自然滤掉）
-      const participants = ids
-        .filter((id) => customerById[id])
-        .map((id) => ({ id, name: customerDisplayName(customerById[id]) }))
-      const first = participants[0]
-      return {
-        caseId: c.id,
-        customerId: first?.id ?? c.customer_id,
-        customerName: first?.name ?? '',
-        participants,
-        visaLabel: formatVisaType(c.visa_subclass, c.visa_stream),
-        stage: c.current_stage,
-        stageLabel: CASE_STAGE_LABELS[c.current_stage],
-      }
-    })
+    .sort(byCreatedDesc)
+    .map((c) => toCaseItem(c, customerById, subsByCase))
+}
+
+/**
+ * 「需要行动」案件队列（概览主角区左栏顶部）：未归档且当前阶段类别为 action
+ * （单一来源 statusColor.stageCategory：docs_requested 补件 / appeal 上诉 / additional_docs）。
+ * 与 selectTodoCases 同结构（参与人/签证/阶段标签），按 created_at 倒序。
+ */
+export function selectActionCases(
+  cases: Case[],
+  customerById: CustomerMap,
+  applicants: Pick<CaseApplicant, 'case_id' | 'customer_id'>[] = [],
+): TodoCaseItem[] {
+  const subsByCase = buildSubsByCase(applicants)
+  return cases
+    .filter((c) => !c.is_archived && stageCategory(c.current_stage) === 'action')
+    .sort(byCreatedDesc)
+    .map((c) => toCaseItem(c, customerById, subsByCase))
 }
 
 // ── 逾期未付款：未付且 due_date < 今天 ───────────────────────

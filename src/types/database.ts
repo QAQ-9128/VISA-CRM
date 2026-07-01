@@ -411,6 +411,10 @@ export interface Database {
           note: string | null
           /** 款项方向：null/'receivable'=应收（默认），'payable'=应付（付主代理/付介绍人）。 */
           kind: string | null
+          /** 仅「预支出」(kind='payable')用：付款对象 to_company/to_referrer；应收行恒为 null（0042）。 */
+          expense_direction: string | null
+          /** 共享·全案款项（0044）：true=属于整个案件、不归任何 applicant（费用卡「共享·全案」组）；默认 false。 */
+          is_shared: boolean
           created_at: Timestamp
           updated_at: Timestamp
         }
@@ -422,6 +426,8 @@ export interface Database {
           periods?: number
           note?: string | null
           kind?: string | null
+          expense_direction?: string | null
+          is_shared?: boolean
           created_at?: Timestamp
           updated_at?: Timestamp
         }
@@ -471,6 +477,8 @@ export interface Database {
           fee_category: string | null
           invoice_path: string | null
           invoice_name: string | null
+          /** 共享·全案收款（0044）：true=不归任何 applicant、属于整个案件；默认 false。仅收款(from_client)用。 */
+          is_shared: boolean
           recorded_by: string | null
           created_at: Timestamp
         }
@@ -488,6 +496,7 @@ export interface Database {
           paid_at?: DateStr | null
           note?: string | null
           fee_category?: string | null
+          is_shared?: boolean
           invoice_path?: string | null
           invoice_name?: string | null
           recorded_by?: string | null
@@ -598,6 +607,26 @@ export interface Database {
           updated_at?: Timestamp
         }
         Update: Partial<Database['public']['Tables']['family_member_links']['Insert']>
+        Relationships: []
+      }
+      customer_family_members: {
+        Row: {
+          id: string
+          customer_id: string
+          name: string
+          relation: string | null
+          linked_customer_id: string | null
+          created_at: Timestamp
+        }
+        Insert: {
+          id?: string
+          customer_id: string
+          name: string
+          relation?: string | null
+          linked_customer_id?: string | null
+          created_at?: Timestamp
+        }
+        Update: Partial<Database['public']['Tables']['customer_family_members']['Insert']>
         Relationships: []
       }
       tasks: {
